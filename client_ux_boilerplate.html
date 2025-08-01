@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KI-gestützte Wissens-Entdeckungswelt – Prototype</title>
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --panel:#121922;
+      --panel-2:#0f1620;
+      --ink:#d8e7ff;
+      --ink-dim:#a9bfdc;
+      --accent:#6ee7ff;
+      --accent-2:#8bffb0;
+      --warn:#ffd36e;
+      --muted:#2a3a4d;
+    }
+    html,body{
+      height:100%;
+      margin:0;
+      background:radial-gradient(1200px 800px at 70% -10%, #0f2035, var(--bg));
+      color:var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      overflow:hidden;
+    }
+    header{
+      position:fixed; inset:0 0 auto 0; height:64px; display:flex; align-items:center; gap:14px;
+      padding:10px 16px; background:linear-gradient(180deg, rgba(8,14,22,.9), rgba(8,14,22,.6) 60%, transparent);
+      backdrop-filter: blur(6px);
+      z-index:10;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px;
+    }
+    .brand .logo{
+      width:28px; height:28px; border-radius:7px;
+      background: conic-gradient(from 220deg, var(--accent), #9aa7ff, #8bffb0, var(--accent));
+      box-shadow: 0 0 16px rgba(110,231,255,.35);
+    }
+    .pill{
+      padding:6px 10px; border-radius:999px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08);
+      color:var(--ink-dim); font-size:12px;
+    }
+    .toolbar{ margin-left:auto; display:flex; align-items:center; gap:8px; }
+    .toolbar button, .toolbar select{
+      background:var(--panel); color:var(--ink); border:1px solid rgba(255,255,255,.08);
+      padding:8px 10px; border-radius:8px; font-size:12px; cursor:pointer;
+    }
+    .toolbar button:hover{ border-color: rgba(110,231,255,.6); box-shadow: 0 0 0 3px rgba(110,231,255,.12) inset; }
+    main{
+      position:fixed; inset:64px 340px 160px 0; display:grid; grid-template-columns:1fr;
+      grid-template-rows: 1fr;
+    }
+    #viewport{
+      position:relative; width:100%; height:100%; background: radial-gradient(600px 400px at 50% 60%, rgba(36,64,96,.25), transparent);
+      border-top-right-radius: 12px; border-bottom-right-radius: 12px; overflow:hidden;
+      border-right:1px solid rgba(255,255,255,.06);
+    }
+    #hud{
+      position:absolute; inset:auto 14px 14px auto; display:flex; gap:8px;
+    }
+    .hud-pill{ background:rgba(0,0,0,.35); padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.12); font-size:12px; color:var(--ink-dim); }
+    aside{
+      position:fixed; inset:64px 0 160px auto; width:340px; display:flex; flex-direction:column; gap:10px; padding:10px;
+      background:linear-gradient(180deg, rgba(12,18,26,.8), rgba(12,18,26,.6));
+      border-left:1px solid rgba(255,255,255,.06);
+      backdrop-filter: blur(6px);
+    }
+    .panel{
+      background: var(--panel-2);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;
+      padding:10px;
+    }
+    .panel h3{ margin:0 0 8px 0; font-size:13px; color:var(--ink); letter-spacing:.3px; }
+    #zones, #personas{ display:flex; flex-wrap:wrap; gap:8px; }
+    .chip{
+      background: rgba(255,255,255,.06);
+      padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.08);
+      font-size:12px; cursor:pointer; color:var(--ink);
+    }
+    .chip:hover{ border-color: rgba(139,255,176,.7); box-shadow: 0 0 0 3px rgba(139,255,176,.12) inset; }
+    #log{
+      height:160px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:12px; line-height:1.45; color:var(--ink-dim);
+      background: #0b1220; border-radius:10px; border:1px solid rgba(255,255,255,.08);
+      padding:8px;
+    }
+    footer{
+      position:fixed; inset:auto 0 0 0; height:160px; display:grid; grid-template-columns: 1fr 360px;
+      gap:10px; padding:10px; background:linear-gradient(180deg, rgba(8,14,22,.0), rgba(8,14,22,.85) 30%, rgba(8,14,22,.95));
+      border-top:1px solid rgba(255,255,255,.06);
+      backdrop-filter: blur(6px);
+    }
+    .dialog{
+      background: var(--panel-2); border:1px solid rgba(255,255,255,.08); border-radius:12px; display:flex; flex-direction:column; overflow:hidden;
+    }
+    .dialog-header{
+      display:flex; align-items:center; gap:10px; padding:8px 10px; background: rgba(255,255,255,.04); border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:13px;
+    }
+    .dialog-body{ flex:1; overflow:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+    .bubble{ max-width:80%; padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.08); }
+    .bubble.user{ align-self:flex-end; background:rgba(110,231,255,.08); border-color: rgba(110,231,255,.3); }
+    .bubble.npc{ align-self:flex-start; background:rgba(255,255,255,.04); }
+    .dialog-input{ display:flex; gap:8px; padding:8px; border-top:1px solid rgba(255,255,255,.06); }
+    .dialog-input input{
+      flex:1; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:#0b1220; color:var(--ink);
+    }
+    .dialog-input button{
+      padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:var(--panel); color:var(--ink); cursor:pointer;
+    }
+    .refs{
+      background: var(--panel-2); border:1px solid rgba(255,255,255,.08); border-radius:12px; overflow:auto; padding:10px;
+      font-size:12px; color:var(--ink-dim);
+    }
+    .refs a{ color: var(--accent); text-decoration: none; }
+    .refs a:hover{ text-decoration: underline; }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:11px; background:#0b1220; border:1px solid rgba(255,255,255,.12); border-bottom-width:2px; border-radius:6px; padding:1px 6px;
+      color:var(--ink);
+    }
+    /* Minimal loading overlay */
+    #loading{
+      position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+      background: radial-gradient(800px 600px at 50% 50%, rgba(20,30,45,.55), rgba(12,18,26,.85));
+      z-index:5;
+    }
+    .spin{
+      width:24px; height:24px; border-radius:50%;
+      border:3px solid rgba(255,255,255,.15); border-top-color: var(--accent);
+      animation: rot 1s linear infinite;
+    }
+    @keyframes rot{ to { transform: rotate(360deg); } }
+    /* Scrollbars */
+    *{ scrollbar-width: thin; scrollbar-color: #3a4a60 transparent; }
+    *::-webkit-scrollbar{ height:10px; width:10px; }
+    *::-webkit-scrollbar-thumb{ background:#3a4a60; border-radius:10px; }
+    *::-webkit-scrollbar-track{ background: transparent; }
+  </style>
+  <meta name="description" content="Prototyp einer KI-gestützten Wissens-Entdeckungswelt: dynamisch generierte 3D-Zonen, Personas, Portale, Chat und persistente Spuren." />
+  <importmap>
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </importmap>
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="logo"></div><div>Wissens-Entdeckungswelt</div></div>
+    <span class="pill">Prototype • Local-only assets</span>
+    <div class="toolbar">
+      <select id="personaSelect" title="Persona wählen">
+        <option value="Forscher">Persona: Forscher</option>
+        <option value="Lehrer">Persona: Lehrer</option>
+        <option value="Magier">Persona: Magier</option>
+        <option value="Schüler">Persona: Schüler</option>
+      </select>
+      <button id="newZoneBtn">Neue Zone entdecken</button>
+      <button id="portalBtn">Portal öffnen</button>
+      <button id="resetBtn" title="Lokal gespeicherte Spuren löschen">Persistenz zurücksetzen</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="viewport">
+      <canvas id="three"></canvas>
+      <div id="loading"><div class="spin"></div></div>
+      <div id="hud">
+        <div class="hud-pill" id="zoneName">Zone: —</div>
+        <div class="hud-pill" id="personaHUD">Persona: Forscher</div>
+        <div class="hud-pill"><span class="kbd">WASD</span> bewegen • <span class="kbd">E</span> interagieren</div>
+      </div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="panel">
+      <h3>Entdeckungszonen</h3>
+      <div id="zones"></div>
+    </div>
+    <div class="panel">
+      <h3>Personas im Raum</h3>
+      <div id="personas"></div>
+    </div>
+    <div class="panel">
+      <h3>Weltprotokoll (Persistenz)</h3>
+      <div id="log"></div>
+    </div>
+  </aside>
+
+  <footer>
+    <div class="dialog">
+      <div class="dialog-header">Dialog • <span id="activeNPC" style="color:var(--accent); margin-left:6px;">Niemand</span></div>
+      <div class="dialog-body" id="dialogBody"></div>
+      <div class="dialog-input">
+        <input id="userInput" placeholder="Nachricht eingeben oder Optionen wählen …" />
+        <button id="sendBtn">Senden</button>
+      </div>
+    </div>
+    <div class="refs">
+      <div style="margin-bottom:6px; color:var(--ink); font-weight:600;">Konzept-Notizen & Referenzen</div>
+      <ul style="margin:0 0 6px 16px; padding:0;">
+        <li>Dezentrale Multi-User-Architektur mit Nostr-Events für Inhalte, Markdown-first, optionale eigene Event-Kinds und Snips. Siehe Clients-Übersicht für Ökosystem-Kontext: <a href="https://nostr.com/clients" target="_blank" rel="noopener">nostr.com</a>. Einführung in Client-Typen und Nutzungsszenarien: <a href="https://nostr.how/en/clients" target="_blank" rel="noopener">nostr.how</a>. Design-Guidelines und Produktüberlegungen: <a href="https://nostrdesign.org/" target="_blank" rel="noopener">nostrdesign.org</a>.</li>
+        <li>Als Inspiration für Client-Umsetzungen/Engines: Beispiel eines Unity-Clients (nicht verwendet, nur Referenz): <a href="https://github.com/NostrTraining/Nostr-Unity3D-Client" target="_blank" rel="noopener">github.com</a>.</li>
+        <li>Leaderboards/Anzeigetafeln als Spielmechanik-Idee: Funktions-/KV-Store-Ansatz erklärt von PubNub (Konzeptreferenz): <a href="https://dev.to/pubnub-de/so-fugen-sie-eine-anzeigetafel-und-ein-leaderboard-zu-ihrem-unity-spiel-hinzu-1j85" target="_blank" rel="noopener">dev.to</a>.</li>
+      </ul>
+      <div style="font-size:11px; color:var(--ink-dim);">
+        Hinweis: Dieser Prototyp erzeugt alle Assets prozedural im Browser. Keine externen Medien. Nostr ist hier nur modelliert (lokaler Event-Log), nicht live verbunden.
+      </div>
+    </div>
+  </footer>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ------------------------------
+    // Utility: seeded random for deterministic zone generation (based on zone id)
+    // ------------------------------
+    function xmur3(str){
+      let h=1779033703^str.length;
+      for(let i=0;i<str.length;i++){ h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h<<13)|(h>>>19); }
+      return function(){
+        h = Math.imul(h ^ (h>>>16), 2246822507);
+        h = Math.imul(h ^ (h>>>13), 3266489909);
+        return (h ^= h>>>16) >>> 0;
+      };
+    }
+    function mulberry32(a){
+      return function(){
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ (t>>>15), t | 1);
+        t ^= t + Math.imul(t ^ (t>>>7), t | 61);
+        return ((t ^ (t>>>14)) >>> 0) / 4294967296;
+      };
+    }
+    function seededRng(seedStr){
+      return mulberry32(xmur3(seedStr)());
+    }
+    function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+
+    // ------------------------------
+    // Simple "Nostr-like" local event store (persisted to localStorage)
+    // ------------------------------
+    const STORE_KEY = 'wisdom_world_events_v1';
+    const worldStore = {
+      events: [],
+      load(){
+        try{ this.events = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+        catch(e){ this.events = []; }
+      },
+      save(){ localStorage.setItem(STORE_KEY, JSON.stringify(this.events)); },
+      add(evt){
+        this.events.push(evt);
+        this.save();
+        appendLog(`[${evt.kind}] ${evt.content?.title||evt.content?.text||'Event'} (${evt.id.slice(0,8)})`);
+        refreshZonesUI();
+      },
+      byKind(kind){ return this.events.filter(e=>e.kind===kind); },
+      latestByTag(kind, tag, value){
+        const list = this.events.filter(e=>e.kind===kind && e.tags?.some(t=>t[0]===tag && t[1]===value));
+        return list.length? list[list.length-1] : null;
+      }
+    };
+    worldStore.load();
+
+    // Event creation helper mimicking Nostr structure
+    function createEvent(kind, content, tags=[]){
+      const id = crypto.randomUUID();
+      const created_at = Math.floor(Date.now()/1000);
+      return { id, kind, created_at, content, tags };
+    }
+
+    // ------------------------------
+    // Procedural asset generators
+    // ------------------------------
+    // 1) Skybox: create 6 canvases with gradient + noise
+    function makeSkyboxTextures(rng){
+      const faces = ['px','nx','py','ny','pz','nz'];
+      const canvases = {};
+      for(const f of faces){
+        const c = document.createElement('canvas');
+        c.width = 512; c.height = 512;
+        const ctx = c.getContext('2d');
+        const hue = Math.floor(rng()*360);
+        const grad = ctx.createLinearGradient(0,0,512,512);
+        grad.addColorStop(0, `hsl(${(hue+10)%360} 70% 12%)`);
+        grad.addColorStop(1, `hsl(${(hue+200)%360} 70% 6%)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0,0,512,512);
+        // stars/noise
+        const stars = 500;
+        for(let i=0;i<stars;i++){
+          const x = rng()*512, y = rng()*512;
+          const s = rng()*1.5;
+          const a = 0.3 + rng()*0.7;
+          ctx.fillStyle = `hsla(${(hue+Math.floor(rng()*60))%360} 90% 80% / ${a})`;
+          ctx.beginPath(); ctx.arc(x,y,s,0,Math.PI*2); ctx.fill();
+        }
+        canvases[f] = new THREE.CanvasTexture(c);
+      }
+      return canvases;
+    }
+
+    // 2) Ground texture checker/gradient
+    function makeGroundTexture(rng){
+      const c = document.createElement('canvas');
+      c.width = 1024; c.height = 1024;
+      const ctx = c.getContext('2d');
+      const hue = Math.floor(rng()*360);
+      for(let y=0;y<16;y++){
+        for(let x=0;x<16;x++){
+          const l = 10 + Math.floor(rng()*10);
+          ctx.fillStyle = `hsl(${hue} 30% ${l}%)`;
+          ctx.fillRect(x*64,y*64,64,64);
+        }
+      }
+      // subtle vignette
+      const grd = ctx.createRadialGradient(512,512,100,512,512,600);
+      grd.addColorStop(0,'rgba(0,0,0,0)');
+      grd.addColorStop(1,'rgba(0,0,0,0.25)');
+      ctx.fillStyle = grd; ctx.fillRect(0,0,1024,1024);
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(6,6);
+      return tex;
+    }
+
+    // 3) Persona billboard texture
+    function makePersonaTexture(name, role, rng){
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d');
+      const hue = Math.floor(rng()*360);
+      const grad = ctx.createLinearGradient(0,0,256,256);
+      grad.addColorStop(0, `hsl(${hue} 60% 18%)`);
+      grad.addColorStop(1, `hsl(${(hue+60)%360} 60% 10%)`);
+      ctx.fillStyle = grad; ctx.fillRect(0,0,256,256);
+
+      // simple avatar circle
+      ctx.beginPath(); ctx.arc(128,100,60,0,Math.PI*2);
+      ctx.fillStyle = `hsl(${(hue+180)%360} 70% 60%)`; ctx.fill();
+
+      // eyes
+      ctx.fillStyle = '#0b0f14';
+      ctx.beginPath(); ctx.arc(108,90,8,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(148,90,8,0,Math.PI*2); ctx.fill();
+
+      // name
+      ctx.fillStyle = '#d8e7ff';
+      ctx.font = '700 20px system-ui, sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText(name, 128, 190);
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.fillStyle = '#a9bfdc';
+      ctx.fillText(role, 128, 210);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.anisotropy = 4;
+      return tex;
+    }
+
+    // 4) Portal material (animated shader-ish via onBeforeCompile)
+    function makePortalMaterial(){
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x66ffee),
+        roughness: 0.2,
+        metalness: 0.6,
+        emissive: new THREE.Color(0x116677),
+        emissiveIntensity: 1.2,
+      });
+      mat.onBeforeCompile = (shader)=>{
+        shader.uniforms.uTime = { value: 0 };
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <dithering_fragment>',
+          `
+          float glow = 0.5 + 0.5*sin(uTime*2.0 + vUv.y*10.0);
+          vec3 glowCol = mix(vec3(0.2,0.8,1.0), vec3(0.5,1.0,0.7), vUv.y) * glow;
+          gl_FragColor.rgb += glowCol*0.35;
+          #include <dithering_fragment>
+          `
+        );
+        mat.userData.shader = shader;
+      };
+      return mat;
+    }
+
+    // ------------------------------
+    // Three.js scene setup
+    // ------------------------------
+    const canvas = document.getElementById('three');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+    function resize(){
+      const rect = document.getElementById('viewport').getBoundingClientRect();
+      renderer.setSize(rect.width, rect.height, false);
+      camera.aspect = rect.width/rect.height;
+      camera.updateProjectionMatrix();
+    }
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
+    camera.position.set(0, 6, 14);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0,2,0);
+
+    const hemi = new THREE.HemisphereLight(0xaaccff, 0x223344, 0.5);
+    scene.add(hemi);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.position.set(5,10,3);
+    scene.add(dir);
+
+    // dynamic containers
+    const worldRoot = new THREE.Group();
+    scene.add(worldRoot);
+
+    // player controls (simple WASD on plane)
+    const keys = new Set();
+    window.addEventListener('keydown', (e)=>{
+      keys.add(e.key.toLowerCase());
+      if(e.key.toLowerCase()==='e'){ interact(); }
+    });
+    window.addEventListener('keyup', (e)=>keys.delete(e.key.toLowerCase()));
+
+    let player = { pos: new THREE.Vector3(0,0,0), speed: 6 };
+    const playerMarker = new THREE.Mesh(
+      new THREE.ConeGeometry(0.25, 0.8, 12),
+      new THREE.MeshStandardMaterial({ color: 0x6ee7ff, emissive: 0x073a55, emissiveIntensity: 0.5 })
+    );
+    playerMarker.position.set(0,0.4,0);
+    playerMarker.rotation.x = Math.PI;
+    scene.add(playerMarker);
+
+    // clock
+    const clock = new THREE.Clock();
+
+    // ------------------------------
+    // Zone generation and management
+    // ------------------------------
+    const ZONE_KIND = 30001;     // custom kind for zones
+    const PERSONA_KIND = 30002;  // personas placed in zones
+    const DIALOG_KIND = 30003;   // dialog transcripts
+    const PORTAL_KIND = 30004;   // links between zones
+    const TRACE_KIND = 30005;    // user footprints
+
+    let currentZoneId = null;
+    const zoneMeshes = {}; // zoneId -> { group, personas[], portals[] }
+
+    function generateZone(zoneId, personaHint){
+      const rng = seededRng(zoneId);
+      const group = new THREE.Group();
+      group.userData.zoneId = zoneId;
+
+      // skybox
+      const sky = makeSkyboxTextures(rng);
+      const skyScene = new THREE.Scene();
+      const skyGeo = new THREE.BoxGeometry(1000,1000,1000);
+      const materials = [
+        new THREE.MeshBasicMaterial({ map: sky.px, side: THREE.BackSide }),
+        new THREE.MeshBasicMaterial({ map: sky.nx, side: THREE.BackSide }),
+        new THREE.MeshBasicMaterial({ map: sky.py, side: THREE.BackSide }),
+        new THREE.MeshBasicMaterial({ map: sky.ny, side: THREE.BackSide }),
+        new THREE.MeshBasicMaterial({ map: sky.pz, side: THREE.BackSide }),
+        new THREE.MeshBasicMaterial({ map: sky.nz, side: THREE.BackSide }),
+      ];
+      const skybox = new THREE.Mesh(skyGeo, materials);
+      group.add(skybox);
+
+      // ground
+      const ground = new THREE.Mesh(
+        new THREE.CircleGeometry(18, 64),
+        new THREE.MeshStandardMaterial({ map: makeGroundTexture(rng) })
+      );
+      ground.rotation.x = -Math.PI/2;
+      ground.receiveShadow = true;
+      group.add(ground);
+
+      // stones/props
+      const propCount = 20 + Math.floor(rng()*20);
+      const propMat = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(rng(), 0.2, 0.5) });
+      for(let i=0;i<propCount;i++){
+        const r = 2 + rng()*15;
+        const a = rng()*Math.PI*2;
+        const x = Math.cos(a)*r;
+        const z = Math.sin(a)*r;
+        const h = 0.4 + rng()*2.0;
+        const rock = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(0.2 + rng()*0.6),
+          propMat.clone()
+        );
+        rock.position.set(x, 0.2, z);
+        rock.scale.y = h;
+        rock.rotation.y = rng()*Math.PI*2;
+        group.add(rock);
+      }
+
+      // personas
+      const personaRoles = ['Forscher', 'Lehrer', 'Magier', 'Schüler'];
+      const personas = [];
+      const personaCount = 2 + Math.floor(rng()*2);
+      for(let i=0;i<personaCount;i++){
+        const role = personaHint || pick(rng, personaRoles);
+        const name = role + ' ' + (['Ava','Noah','Mira','Liam','Yara','Odin','Sofi','Juno'][Math.floor(rng()*8)]);
+        const tex = makePersonaTexture(name, role, rng);
+        const plane = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.6, 1.6),
+          new THREE.MeshStandardMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, metalness:0.1, roughness:0.9 })
+        );
+        const r = 3 + rng()*10; const a = rng()*Math.PI*2;
+        plane.position.set(Math.cos(a)*r, 1.0, Math.sin(a)*r);
+        plane.userData = { type:'persona', name, role, zoneId, id: crypto.randomUUID() };
+        group.add(plane);
+        personas.push(plane);
+
+        // floating ring
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(0.9, 0.02, 8, 64),
+          new THREE.MeshStandardMaterial({ color: 0x8bffb0, emissive: 0x1a6032, emissiveIntensity:0.6 })
+        );
+        ring.position.copy(plane.position).add(new THREE.Vector3(0,0.05,0));
+        ring.rotation.x = Math.PI/2;
+        ring.userData = { type:'personaAura', target: plane };
+        group.add(ring);
+      }
+
+      // central portal placeholder
+      const portalGeom = new THREE.CylinderGeometry(0.9, 0.9, 3.2, 48, 1, true);
+      const portal = new THREE.Mesh(portalGeom, makePortalMaterial());
+      portal.position.set(0, 1.6, -6);
+      portal.rotation.y = Math.PI/8;
+      portal.userData = { type:'portal', zoneId, target:null }; // target set on link
+      group.add(portal);
+
+      worldRoot.add(group);
+      zoneMeshes[zoneId] = { group, personas, portals:[portal] };
+
+      // Store zone event if not already present
+      if(!worldStore.latestByTag(ZONE_KIND, 'zone', zoneId)){
+        const evt = createEvent(ZONE_KIND, {
+          title: synthZoneTitle(zoneId),
+          description: synthZoneMarkdown(zoneId),
+        }, [['zone', zoneId]]);
+        worldStore.add(evt);
+      }
+
+      return group;
+    }
+
+    function synthZoneTitle(zoneId){
+      const rng = seededRng(zoneId);
+      const themes = ['Astronomie','Biologie','Geschichte','Philosophie','Mathematik','Kunst','Musik','Theologie','Informatik','Sprachwissenschaft'];
+      const forms = ['Garten','Sphäre','Archiv','Observatorium','Werkstatt','Labyrinth','Hain','Agora','Korridor','Nexus'];
+      return pick(rng, forms)+' der '+pick(rng, themes);
+    }
+
+    function synthZoneMarkdown(zoneId){
+      const rng = seededRng(zoneId);
+      const hints = [
+        'Portale verbinden Perspektiven. Drücke E in der Nähe eines Portals.',
+        'Sprich mit Personas für neue Zugänge.',
+        'Jede Zone besitzt eigene Logik und lokale Ziele.',
+        'Spuren bleiben bestehen: deine Entdeckungen werden vermerkt.',
+      ];
+      return [
+        `# ${synthZoneTitle(zoneId)}`,
+        '',
+        `Diese Zone wird dynamisch beim Betreten erzeugt.`,
+        '',
+        `Hinweis: ${pick(rng, hints)}`,
+        '',
+        `- Altersfreigabe: ${Math.random() < 0.2 ? '12+' : 'Freigegeben'}`,
+        `- Zugangsbedingung: ${Math.random() < 0.3 ? 'Finde einen Hinweis bei einer Persona' : 'Keine'}`,
+      ].join('\n');
+    }
+
+    function setCurrentZone(zoneId, personaHint){
+      // hide all
+      Object.values(zoneMeshes).forEach(z=>z.group.visible=false);
+      if(!zoneMeshes[zoneId]) generateZone(zoneId, personaHint);
+      zoneMeshes[zoneId].group.visible = true;
+      currentZoneId = zoneId;
+      document.getElementById('zoneName').textContent = 'Zone: ' + synthZoneTitle(zoneId);
+      controls.target.set(0,1.6,0);
+      player.pos.set(0,0,0);
+      playerMarker.position.copy(player.pos).add(new THREE.Vector3(0,0.4,0));
+      refreshPersonasUI();
+      traceVisit(zoneId);
+    }
+
+    // ------------------------------
+    // Portals
+    // ------------------------------
+    function linkPortal(fromZone, toZone){
+      const z = zoneMeshes[fromZone];
+      if(!z) return;
+      const p = z.portals[0];
+      p.userData.target = toZone;
+
+      // record link event
+      worldStore.add(createEvent(PORTAL_KIND, { from: fromZone, to: toZone }, [['from', fromZone], ['to', toZone]]));
+    }
+
+    // ------------------------------
+    // Personas and dialog
+    // ------------------------------
+    const dialogBody = document.getElementById('dialogBody');
+    const activeNPC = document.getElementById('activeNPC');
+    let currentNPC = null;
+
+    function npcOpenDialog(npc){
+      currentNPC = npc;
+      activeNPC.textContent = npc.userData.name + ' ('+npc.userData.role+')';
+      addBubble('npc', synthGreeting(npc));
+      suggestOptions(npc);
+      // persist persona presence if not logged
+      worldStore.add(createEvent(PERSONA_KIND, { name: npc.userData.name, role: npc.userData.role, zone: npc.userData.zoneId }, [['zone', npc.userData.zoneId], ['persona', npc.userData.id]]));
+    }
+
+    function synthGreeting(npc){
+      const lines = {
+        Forscher: [
+          'Willkommen, Entdecker. Möchtest du eine Hypothese prüfen oder ein neues Portal kartieren?',
+          'Ich habe hier Datenpunkte gesammelt. Interessiert an einer kleinen Expedition?'
+        ],
+        Lehrer: [
+          'Schön, dass du da bist. Soll ich dir die Grundlagen dieser Zone strukturieren?',
+          'Lernen wir gemeinsam: Möchtest du ein Beispiel, eine Aufgabe oder direkt ein Portal?'
+        ],
+        Magier: [
+          'Die Schleier sind dünn heute. Ein Portal könnte sich öffnen, wenn du fragst.',
+          'Wissen ist ein Ritual. Welche Perspektive beschwörst du?'
+        ],
+        Schüler: [
+          'Ich habe etwas entdeckt, kann es aber nicht einordnen. Hilfst du mir?',
+          'Sollen wir gemeinsam Notizen vergleichen und Spuren legen?'
+        ]
+      };
+      const arr = lines[npc.userData.role] || ['Hallo!'];
+      return arr[Math.floor(Math.random()*arr.length)];
+    }
+
+    function suggestOptions(npc){
+      const opts = [
+        { key:'A', text:'Neues Portal zu verwandter Zone' },
+        { key:'B', text:'Kurzüberblick (Markdown) der Zone' },
+        { key:'C', text:'Lokale Mini-Quest erzeugen' }
+      ];
+      const wrap = document.createElement('div');
+      wrap.className='bubble npc';
+      wrap.innerHTML = 'Optionen: ' + opts.map(o=>`<span class="kbd">${o.key}</span> ${o.text}`).join(' • ');
+      dialogBody.appendChild(wrap);
+      dialogBody.scrollTop = dialogBody.scrollHeight;
+      // hint UI keys
+      const input = document.getElementById('userInput');
+      input.placeholder = 'Tippe A, B oder C …';
+    }
+
+    function addBubble(who, text){
+      const div = document.createElement('div');
+      div.className = 'bubble ' + (who==='user'?'user':'npc');
+      div.textContent = text;
+      dialogBody.appendChild(div);
+      dialogBody.scrollTop = dialogBody.scrollHeight;
+    }
+
+    function handleUserMessage(text){
+      if(!text.trim()) return;
+      addBubble('user', text);
+      const upper = text.trim().toUpperCase();
+      // simple command options
+      if(currentNPC){
+        if(upper==='A'){
+          const newId = crypto.randomUUID().split('-')[0];
+          linkPortal(currentZoneId, newId);
+          addBubble('npc', 'Ich habe ein Portal markiert. Gehe darauf zu und drücke E, um zu wechseln.');
+          // trace
+          worldStore.add(createEvent(DIALOG_KIND, { npc: currentNPC.userData.name, text: 'Portalvorschlag: '+newId }, [['zone', currentZoneId]]));
+          refreshZonesUI();
+          return;
+        } else if(upper==='B'){
+          const zoneEvt = worldStore.latestByTag(ZONE_KIND, 'zone', currentZoneId);
+          addBubble('npc', (zoneEvt?.content?.description)||'Keine Beschreibung gefunden.');
+          worldStore.add(createEvent(DIALOG_KIND, { npc: currentNPC.userData.name, text: 'Kurzüberblick geteilt' }, [['zone', currentZoneId]]));
+          return;
+        } else if(upper==='C'){
+          const quest = synthQuest(currentZoneId);
+          addBubble('npc', 'Mini-Quest: '+quest.title+' – '+quest.hint);
+          worldStore.add(createEvent(DIALOG_KIND, { npc: currentNPC.userData.name, text: 'Quest erzeugt: '+quest.title }, [['zone', currentZoneId]]));
+          return;
+        }
+      }
+      // generic echo with persona style
+      addBubble('npc', 'Interessant. Möchtest du A, B oder C wählen?');
+      worldStore.add(createEvent(DIALOG_KIND, { text: 'User: '+text }, [['zone', currentZoneId]]));
+    }
+
+    function synthQuest(zoneId){
+      const rng = seededRng(zoneId+'quest'+Math.floor(Math.random()*999));
+      const actions = ['Vergleiche','Finde','Ordne','Skizziere','Erkläre'];
+      const targets = ['zwei Begriffe','ein Artefakt','ein Zitat','ein Muster','eine Regel'];
+      return {
+        title: pick(rng, actions)+' '+pick(rng, targets),
+        hint: 'Interagiere mit einer Persona und notiere eine Spur.'
+      };
+    }
+
+    // ------------------------------
+    // Movement, interaction
+    // ------------------------------
+    function move(dt){
+      // WASD relative to camera yaw (XZ plane)
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      forward.y = 0; forward.normalize();
+      const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).multiplyScalar(-1);
+      let dir = new THREE.Vector3();
+      if(keys.has('w')) dir.add(forward);
+      if(keys.has('s')) dir.sub(forward);
+      if(keys.has('a')) dir.sub(right);
+      if(keys.has('d')) dir.add(right);
+      if(dir.lengthSq()>0){ dir.normalize().multiplyScalar(player.speed*dt); player.pos.add(dir); }
+      // clamp to ground radius
+      const r = Math.min(17.5, player.pos.length());
+      if(player.pos.length()>17.5){ player.pos.setLength(17.5); }
+      playerMarker.position.copy(player.pos).add(new THREE.Vector3(0,0.4,0));
+    }
+
+    function interact(){
+      if(!currentZoneId) return;
+      // raycast towards where the camera looks from player position
+      const rayOrig = playerMarker.position.clone().add(new THREE.Vector3(0,0.3,0));
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const ray = new THREE.Raycaster(rayOrig, dir, 0, 4);
+      const objs = zoneMeshes[currentZoneId].group.children;
+      const hits = ray.intersectObjects(objs, true);
+      if(hits.length){
+        const obj = hits[0].object;
+        // persona
+        if(obj.userData?.type==='persona'){
+          npcOpenDialog(obj);
+          return;
+        }
+        // portal
+        let p = obj;
+        while(p && p.userData?.type!=='portal') p = p.parent;
+        if(p && p.userData?.type==='portal'){
+          if(p.userData.target){
+            setCurrentZone(p.userData.target);
+            return;
+          } else {
+            addBubble('npc', 'Dieses Portal hat noch kein Ziel. Bitte eine Persona um Hilfe (Option A).');
+          }
+        }
+      }
+    }
+
+    // ------------------------------
+    // UI wiring and persistence log
+    // ------------------------------
+    const logEl = document.getElementById('log');
+    function appendLog(line){
+      const time = new Date().toLocaleTimeString();
+      const d = document.createElement('div');
+      d.textContent = `[${time}] ${line}`;
+      logEl.appendChild(d);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function refreshZonesUI(){
+      const zonesEl = document.getElementById('zones');
+      zonesEl.innerHTML = '';
+      const zoneEvents = worldStore.byKind(ZONE_KIND);
+      const knownIds = new Set(zoneEvents.flatMap(e=> e.tags?.filter(t=>t[0]==='zone').map(t=>t[1])||[]));
+      knownIds.forEach(id=>{
+        const btn = document.createElement('button');
+        btn.className='chip';
+        btn.textContent = synthZoneTitle(id);
+        btn.onclick = ()=> setCurrentZone(id);
+        zonesEl.appendChild(btn);
+      });
+    }
+
+    function refreshPersonasUI(){
+      const box = document.getElementById('personas');
+      box.innerHTML = '';
+      const z = zoneMeshes[currentZoneId];
+      if(!z) return;
+      z.personas.forEach(n=>{
+        const b = document.createElement('button');
+        b.className='chip';
+        b.textContent = n.userData.name + ' • ' + n.userData.role;
+        b.onclick = ()=> npcOpenDialog(n);
+        box.appendChild(b);
+      });
+    }
+
+    // Controls
+    document.getElementById('newZoneBtn').onclick = ()=>{
+      const persona = document.getElementById('personaSelect').value;
+      const id = crypto.randomUUID().split('-')[0];
+      setCurrentZone(id, persona);
+      appendLog('Zone erzeugt: '+synthZoneTitle(id));
+    };
+    document.getElementById('portalBtn').onclick = ()=>{
+      if(!currentZoneId){ appendLog('Keine aktive Zone.'); return; }
+      const target = crypto.randomUUID().split('-')[0];
+      linkPortal(currentZoneId, target);
+      appendLog('Portal markiert zu: '+synthZoneTitle(target));
+    };
+    document.getElementById('personaSelect').onchange = (e)=>{
+      document.getElementById('personaHUD').textContent = 'Persona: '+e.target.value;
+      // Not strictly changing NPCs; acts as hint for next zone generation.
+    };
+    document.getElementById('resetBtn').onclick = ()=>{
+      localStorage.removeItem(STORE_KEY);
+      worldStore.load();
+      appendLog('Persistenz gelöscht.');
+      // clear meshes
+      Object.values(zoneMeshes).forEach(z=>worldRoot.remove(z.group));
+      for(const k of Object.keys(zoneMeshes)) delete zoneMeshes[k];
+      refreshZonesUI();
+      document.getElementById('zones').innerHTML = '';
+      document.getElementById('personas').innerHTML = '';
+      dialogBody.innerHTML = '';
+      activeNPC.textContent = 'Niemand';
+      document.getElementById('zoneName').textContent = 'Zone: —';
+      currentZoneId = null;
+    };
+
+    // Dialog input
+    document.getElementById('sendBtn').onclick = ()=>{
+      const inp = document.getElementById('userInput');
+      handleUserMessage(inp.value);
+      inp.value='';
+    };
+    document.getElementById('userInput').addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ e.preventDefault(); document.getElementById('sendBtn').click(); }
+      if(['a','b','c'].includes(e.key.toLowerCase())){
+        // quick fill
+        e.preventDefault();
+        handleUserMessage(e.key.toUpperCase());
+      }
+    });
+
+    // Trace visits
+    function traceVisit(zoneId){
+      worldStore.add(createEvent(TRACE_KIND, { zone: zoneId, action: 'visit' }, [['zone', zoneId]]));
+    }
+
+    // ------------------------------
+    // Initial boot
+    // ------------------------------
+    refreshZonesUI();
+    const initial = worldStore.byKind(ZONE_KIND)[0];
+    if(initial){
+      const id = initial.tags.find(t=>t[0]==='zone')[1];
+      setCurrentZone(id);
+    } else {
+      setCurrentZone('start-'+crypto.randomUUID().split('-')[0], 'Forscher');
+    }
+
+    // ------------------------------
+    // Render loop
+    // ------------------------------
+    window.addEventListener('resize', resize);
+    resize();
+
+    function animate(){
+      const dt = clock.getDelta();
+      move(dt);
+      controls.update();
+
+      // update portal shader time and aura rings
+      const z = currentZoneId && zoneMeshes[currentZoneId];
+      if(z){
+        z.portals.forEach(p=>{
+          const sh = p.material.userData.shader;
+          if(sh){ sh.uniforms.uTime.value += dt; }
+        });
+        z.group.children.forEach(o=>{
+          if(o.userData?.type==='personaAura'){
+            o.rotation.z += dt*0.8;
+          }
+          if(o.userData?.type==='persona'){
+            // billboard to camera
+            o.lookAt(camera.position.x, o.position.y, camera.position.z);
+          }
+        });
+      }
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    // ------------------------------
+    // Loading overlay hooks (simulate async gen)
+    // ------------------------------
+    const loadingEl = document.getElementById('loading');
+    function withLoading(fn){
+      loadingEl.style.display = 'flex';
+      setTimeout(()=>{
+        try{ fn(); } finally { loadingEl.style.display = 'none'; }
+      }, 250);
+    }
+
+    // Replace generation buttons to show loading
+    const newZoneBtn = document.getElementById('newZoneBtn');
+    const portalBtn = document.getElementById('portalBtn');
+    newZoneBtn.onclick = ()=> withLoading(()=>{
+      const persona = document.getElementById('personaSelect').value;
+      const id = crypto.randomUUID().split('-')[0];
+      setCurrentZone(id, persona);
+      appendLog('Zone erzeugt: '+synthZoneTitle(id));
+    });
+    portalBtn.onclick = ()=> withLoading(()=>{
+      if(!currentZoneId){ appendLog('Keine aktive Zone.'); return; }
+      const target = crypto.randomUUID().split('-')[0];
+      linkPortal(currentZoneId, target);
+      appendLog('Portal markiert zu: '+synthZoneTitle(target));
+    });
+
+    // ------------------------------
+    // Notes:
+    // - This prototype models "RAG-like" behavior by deterministic synthesis from IDs.
+    // - Markdown is synthesized and can be rendered later; currently shown in dialog.
+    // - Local event log mimics Nostr events; references to ecosystem: nostr.com/clients, nostr.how, nostrdesign.org, github.com (Unity client), dev.to (leaderboard concept).
+    // ------------------------------
+  </script>
+</body>
+</html>
