@@ -1,5 +1,7 @@
 # Unendliche Abenteuer in der Welt des Wissens
 
-<img width="1265" height="890" alt="grafik" src="https://github.com/user-attachments/assets/219844c5-e130-46ff-b187-60e9bc7b1c6a" />
+[<img width="1265" height="890" alt="grafik" src="https://github.com/user-attachments/assets/219844c5-e130-46ff-b187-60e9bc7b1c6a" />](https://johappel.github.io/infinite-adventure-world-of-knowledge/client_ux_boilerplate.html)
 
 [Die Idee](https://github.com/johappel/infinite-adventure-world-of-knowledge/blob/main/THE_IDEA.md)
+
+[Docs](https://github.com/johappel/infinite-adventure-world-of-knowledge/docs/README.md)
