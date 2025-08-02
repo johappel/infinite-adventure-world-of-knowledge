@@ -85,6 +85,9 @@ export class WisdomWorld {
     // Input callbacks
     this.inputManager.setInteractCallback(() => this.interactionSystem.interact());
     this.inputManager.setMouseInteractCallback((e) => this.interactionSystem.interactWithMouse(e));
+    this.inputManager.setMouseMoveCallback((deltaX, deltaY) => {
+      this.camera.addMouseRotation(deltaX, deltaY);
+    });
 
     // Interaction callbacks
     this.interactionSystem.setPersonaInteractCallback((npc) => this.dialogSystem.openDialog(npc));
@@ -151,16 +154,14 @@ export class WisdomWorld {
     const animate = () => {
       const dt = this.clock.getDelta();
       
-      // Update player movement
-      this.player.move(dt, this.inputManager.keys, this.inputManager.isRightMouseDown);
-      
-      // Update camera rotation from mouse input
-      if (this.inputManager.isRightMouseDown && document.pointerLockElement === this.canvas) {
-        this.camera.setYaw(this.inputManager.mouseX);
-        this.camera.setMouseRotation(this.inputManager.mouseX, this.inputManager.mouseY);
-      } else {
-        this.camera.setYaw(this.player.yaw);
-      }
+      // Update player movement and rotation
+      this.player.move(
+        dt, 
+        this.inputManager.keys, 
+        this.inputManager.isRightMouseDown, 
+        this.camera.getYaw(),
+        (rotationChange) => this.camera.addKeyboardRotation(rotationChange)
+      );
       
       // Update camera position
       this.camera.update();

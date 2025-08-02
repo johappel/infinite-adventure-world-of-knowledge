@@ -4,7 +4,6 @@ export class Player {
   constructor(worldRoot) {
     this.pos = new THREE.Vector3(0,0,0);
     this.speed = 6;
-    this.yaw = 0;
     this.worldRoot = worldRoot;
   }
 
@@ -14,15 +13,20 @@ export class Player {
     return activeElement && (activeElement.id === 'userInput' || activeElement.tagName === 'INPUT');
   }
 
-  move(dt, keys, isRightMouseDown) {
+  move(dt, keys, isRightMouseDown, yaw, onRotationChange) {
     const rotSpeed = 2.0; // Rotationsgeschwindigkeit
     
     // Navigation nur wenn nicht im Chat getippt wird
     if (!this.isTypingInChat()) {
       // A/D: Kamera um Spieler drehen (Yaw) - nur wenn Maus nicht gedrückt
       if (!isRightMouseDown) {
-        if(keys.has('a')) this.yaw += rotSpeed * dt;
-        if(keys.has('d')) this.yaw -= rotSpeed * dt;
+        let rotationChange = 0;
+        if(keys.has('a')) rotationChange += rotSpeed * dt;
+        if(keys.has('d')) rotationChange -= rotSpeed * dt;
+        
+        if(rotationChange !== 0 && onRotationChange) {
+          onRotationChange(rotationChange);
+        }
       }
       
       // W/S: Vor/Zurück relativ zur aktuellen Blickrichtung
@@ -31,11 +35,11 @@ export class Player {
       if(keys.has('s')) moveDir = -1;
       
       if(moveDir !== 0) {
-        // Bewegungsrichtung basierend auf Yaw berechnen
+        // Bewegungsrichtung basierend auf aktuellen Yaw berechnen
         const forward = new THREE.Vector3(
-          Math.sin(this.yaw),
+          Math.sin(yaw),
           0,
-          Math.cos(this.yaw)
+          Math.cos(yaw)
         );
         
         const movement = forward.multiplyScalar(moveDir * this.speed * dt);
@@ -59,7 +63,6 @@ export class Player {
 
   reset() {
     this.pos.set(0,0,0);
-    this.yaw = 0;
     this.worldRoot.position.set(0,0,0);
   }
 }

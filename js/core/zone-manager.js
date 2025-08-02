@@ -151,9 +151,7 @@ export class ZoneManager {
     }
     
     if(camera) {
-      camera.mouseX = 0; 
-      camera.mouseY = 0;
-      camera.yaw = 0;
+      camera.reset();
       // Kamera-Ausrichtung für Third-Person
       camera.camera.position.set(0, 5, 8);
       camera.camera.lookAt(0, 1, 0);
@@ -179,7 +177,7 @@ export class ZoneManager {
     return this.currentZoneId ? this.zoneMeshes[this.currentZoneId] : null;
   }
 
-  updateAnimations(dt, clock, isObjectInRange) {
+  updateAnimations(dt, clock, isObjectInRange, camera) {
     const z = this.getCurrentZone();
     if(!z) return;
 
@@ -209,7 +207,6 @@ export class ZoneManager {
       }
       if(o.userData?.type==='persona'){
         // billboard to camera
-        const camera = arguments[2]; // Hack: pass camera as 3rd argument
         if(camera) {
           o.lookAt(camera.position.x, o.position.y, camera.position.z);
         }

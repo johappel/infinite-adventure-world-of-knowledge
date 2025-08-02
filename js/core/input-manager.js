@@ -2,10 +2,9 @@ export class InputManager {
   constructor() {
     this.keys = new Set();
     this.isRightMouseDown = false;
-    this.mouseX = 0;
-    this.mouseY = 0;
     this.onInteract = null;
     this.onMouseInteract = null;
+    this.onMouseMove = null;
   }
 
   // Prüfen ob gerade im Chat-Input getippt wird
@@ -63,9 +62,9 @@ export class InputManager {
     
     document.addEventListener('mousemove', (e) => {
       if (this.isRightMouseDown && document.pointerLockElement === canvas) {
-        this.mouseX += e.movementX * 0.002;
-        this.mouseY += e.movementY * 0.002;
-        this.mouseY = Math.max(-Math.PI/3, Math.min(Math.PI/3, this.mouseY));
+        if(this.onMouseMove) {
+          this.onMouseMove(e.movementX, e.movementY);
+        }
       }
     });
   }
@@ -76,5 +75,9 @@ export class InputManager {
 
   setMouseInteractCallback(callback) {
     this.onMouseInteract = callback;
+  }
+
+  setMouseMoveCallback(callback) {
+    this.onMouseMove = callback;
   }
 }

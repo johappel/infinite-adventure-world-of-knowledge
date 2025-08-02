@@ -5,7 +5,6 @@ export class ThirdPersonCamera {
     this.camera = camera;
     this.playerMarker = playerMarker;
     this.yaw = 0;
-    this.mouseX = 0;
     this.mouseY = 0;
     this.distance = 8;
     this.height = 5;
@@ -27,12 +26,29 @@ export class ThirdPersonCamera {
     this.playerMarker.rotation.y = this.yaw;
   }
 
-  setMouseRotation(mouseX, mouseY) {
-    this.mouseX = mouseX;
-    this.mouseY = Math.max(-Math.PI/3, Math.min(Math.PI/3, mouseY)); // Begrenzen der vertikalen Rotation
+  addMouseRotation(deltaX, deltaY) {
+    // Horizontale Maus-Bewegung direkt zum Yaw addieren
+    this.yaw += deltaX * 0.002;
+    
+    // Vertikale Maus-Bewegung für Kamera-Höhe
+    this.mouseY += deltaY * 0.002;
+    this.mouseY = Math.max(-Math.PI/3, Math.min(Math.PI/3, this.mouseY));
+  }
+
+  addKeyboardRotation(deltaYaw) {
+    this.yaw += deltaYaw;
+  }
+
+  getYaw() {
+    return this.yaw;
   }
 
   setYaw(yaw) {
     this.yaw = yaw;
+  }
+
+  reset() {
+    this.yaw = 0;
+    this.mouseY = 0;
   }
 }

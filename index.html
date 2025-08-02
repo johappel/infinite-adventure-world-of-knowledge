@@ -8,6 +8,12 @@
   <link rel="stylesheet" href="styles/main.css">
   <meta name="description" content="Prototyp einer KI-gestützten Wissens-Entdeckungswelt: dynamisch generierte 3D-Zonen, Personas, Portale, Chat und persistente Spuren." />
   <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+  <script>
+    // Polyfill for import maps on older browsers
+    if (!HTMLScriptElement.supports || !HTMLScriptElement.supports('importmap')) {
+      document.currentScript.setAttribute('data-needs-polyfill', 'true');
+    }
+  </script>
   <script type="importmap">
   {
     "imports": {
@@ -63,7 +69,7 @@
 
   <footer>
     <div class="dialog">
-      <div class="dialog-header">Dialog • <span id="activeNPC" style="color:var(--accent); margin-left:6px;">Niemand</span></div>
+      <div class="dialog-header">Dialog • <span id="activeNPC">Niemand</span></div>
       <div class="dialog-body" id="dialogBody"></div>
       <div class="dialog-input">
         <input id="userInput" placeholder="Nachricht eingeben oder Optionen wählen …" />
@@ -71,13 +77,13 @@
       </div>
     </div>
     <div class="refs">
-      <div style="margin-bottom:6px; color:var(--ink); font-weight:600;">Konzept-Notizen & Referenzen</div>
-      <ul style="margin:0 0 6px 16px; padding:0;">
+      <div class="refs-title">Konzept-Notizen & Referenzen</div>
+      <ul class="refs-list">
         <li>Dezentrale Multi-User-Architektur mit Nostr-Events für Inhalte, Markdown-first, optionale eigene Event-Kinds und Snips. Siehe Clients-Übersicht für Ökosystem-Kontext: <a href="https://nostr.com/clients" target="_blank" rel="noopener">nostr.com</a>. Einführung in Client-Typen und Nutzungsszenarien: <a href="https://nostr.how/en/clients" target="_blank" rel="noopener">nostr.how</a>. Design-Guidelines und Produktüberlegungen: <a href="https://nostrdesign.org/" target="_blank" rel="noopener">nostrdesign.org</a>.</li>
         <li>Als Inspiration für Client-Umsetzungen/Engines: Beispiel eines Unity-Clients (nicht verwendet, nur Referenz): <a href="https://github.com/NostrTraining/Nostr-Unity3D-Client" target="_blank" rel="noopener">github.com</a>.</li>
         <li>Leaderboards/Anzeigetafeln als Spielmechanik-Idee: Funktions-/KV-Store-Ansatz erklärt von PubNub (Konzeptreferenz): <a href="https://dev.to/pubnub-de/so-fugen-sie-eine-anzeigetafel-und-ein-leaderboard-zu-ihrem-unity-spiel-hinzu-1j85" target="_blank" rel="noopener">dev.to</a>.</li>
       </ul>
-      <div style="font-size:11px; color:var(--ink-dim);">
+      <div class="refs-note">
         Hinweis: Dieser Prototyp erzeugt alle Assets prozedural im Browser. Keine externen Medien. Nostr ist hier nur modelliert (lokaler Event-Log), nicht live verbunden.
       </div>
     </div>
@@ -89,7 +95,5 @@
     // Initialize the application
     const app = new WisdomWorld();
   </script>
-</body>
-</html>
 </body>
 </html>

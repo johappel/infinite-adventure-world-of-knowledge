@@ -1,4 +1,4 @@
-import { worldStore, EVENT_KINDS } from './event-store.js';
+import { worldStore, EVENT_KINDS } from '../core/event-store.js';
 
 export class UIManager {
   constructor() {
