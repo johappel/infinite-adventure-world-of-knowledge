@@ -1,6 +1,6 @@
 # UI-Panel hinzufügen – Schritt für Schritt
 
-Ziel: Ein neues UI-Panel hinzufügen, das mit dem State verbunden ist, Actions dispatcht und Änderungen in der 3D-Szene sichtbar macht. Dieses Guide verknüpft UI, [State & Events](docs/features/state-and-events.md) und [three.Scene()](docs/features/scene-basics.md:1).
+Ziel: Ein neues UI-Panel hinzufügen, das mit dem State verbunden ist, Actions dispatcht und Änderungen in der 3D-Szene sichtbar macht. Dieses Guide verknüpft UI, [State & Events](features/state-and-events.md) und [three.Scene()](features/scene-basics.md:1).
 
 Inhaltsverzeichnis
 - Voraussetzungen
@@ -13,14 +13,14 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Voraussetzungen
-- Lokales Setup läuft: [setup-local.md](docs/guides/setup-local.md)
-- Grundverständnis: [ui-overview.md](docs/ui-overview.md), [state-and-events.md](docs/features/state-and-events.md), [scene-basics.md](docs/features/scene-basics.md)
+- Lokales Setup läuft: [setup-local.md](guides/setup-local.md)
+- Grundverständnis: [ui-overview.md](ui-overview.md), [state-and-events.md](features/state-and-events.md), [scene-basics.md](features/scene-basics.md)
 
 Panel-Ziele definieren
 - Beispiel: „Selection Panel“
   - Anzeigen: aktuell selektiertes Objekt (ID, Position/Rotation/Scale).
   - Aktionen: Position inkrementieren, Objekt löschen, Materialfarbe ändern.
-  - Optional: Publiziere Änderungen als Nostr-Events (siehe [integrate-nostr.md](docs/guides/integrate-nostr.md)).
+  - Optional: Publiziere Änderungen als Nostr-Events (siehe [integrate-nostr.md](guides/integrate-nostr.md)).
 
 Panel-Template anlegen
 - HTML-Struktur (schematisch in deiner App-HTML, z. B. [client_ux_boilerplate.html](client_ux_boilerplate.html)):
@@ -39,7 +39,7 @@ Panel-Template anlegen
       </div>
     </div>
   </aside>
-- JavaScript-Initialisierung (Entry-Module via Import Map/Shim, siehe [module-shims.md](docs/features/module-shims.md)):
+- JavaScript-Initialisierung (Entry-Module via Import Map/Shim, siehe [module-shims.md](features/module-shims.md)):
   - Selektiere die Elemente (sel-id, pos-x, pos-y, pos-z, Buttons).
   - Binde Event-Listener an Buttons/Inputs.
 
@@ -62,8 +62,8 @@ Actions dispatchen
   - dispatcht `removeObject({ id })`.
 - Optional: Farbwahl (Farbfeld-Input) → `updateMaterial({ id, color })`.
 - Eventfluss:
-  - UI → [State](docs/features/state-and-events.md) → Scene-Effect → [three.Mesh()](docs/features/scene-basics.md:1) aktualisieren.
-  - Optional: Nostr-Effect → [nostr.publish()](docs/features/nostr-basics.md:1).
+  - UI → [State](features/state-and-events.md) → Scene-Effect → [three.Mesh()](features/scene-basics.md:1) aktualisieren.
+  - Optional: Nostr-Effect → [nostr.publish()](features/nostr-basics.md:1).
 
 Styling, A11y und Responsiveness
 - CSS:
@@ -88,6 +88,6 @@ Tests/Checks
   - Ungültige Werte: Eingaben validieren (min/max/step).
 
 Nächste Schritte
-- Nostr-Anbindung für Änderungsereignisse: [integrate-nostr.md](docs/guides/integrate-nostr.md)
-- Weiterführende Muster: [extensibility.md](docs/features/extensibility.md)
-- Architektur verstehen: [architecture.md](docs/reference/architecture.md)
+- Nostr-Anbindung für Änderungsereignisse: [integrate-nostr.md](guides/integrate-nostr.md)
+- Weiterführende Muster: [extensibility.md](features/extensibility.md)
+- Architektur verstehen: [architecture.md](reference/architecture.md)

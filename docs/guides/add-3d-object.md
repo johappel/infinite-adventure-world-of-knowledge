@@ -1,6 +1,6 @@
 # 3D-Objekt hinzufügen – Schritt für Schritt
 
-Ziel: Ein einfaches 3D-Objekt (z. B. Würfel) zur Szene hinzufügen, im Render-Loop sichtbar machen und erste Interaktionen ermöglichen. Du benötigst nur Grundkenntnisse aus [three.Scene()](docs/features/scene-basics.md:1) und dem UI-/State-Flow aus [State & Events](docs/features/state-and-events.md).
+Ziel: Ein einfaches 3D-Objekt (z. B. Würfel) zur Szene hinzufügen, im Render-Loop sichtbar machen und erste Interaktionen ermöglichen. Du benötigst nur Grundkenntnisse aus [three.Scene()](features/scene-basics.md:1) und dem UI-/State-Flow aus [State & Events](features/state-and-events.md).
 
 Inhaltsverzeichnis
 - Voraussetzungen
@@ -11,20 +11,20 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Voraussetzungen
-- Projekt lokal gestartet nach [setup-local.md](docs/guides/setup-local.md).
-- Scene/Renderer/Kamera sind initialisiert, siehe [three.js Grundlagen](docs/features/scene-basics.md).
+- Projekt lokal gestartet nach [setup-local.md](guides/setup-local.md).
+- Scene/Renderer/Kamera sind initialisiert, siehe [three.js Grundlagen](features/scene-basics.md).
 
 Objekt hinzufügen (Minimalweg)
 1) Erzeuge eine Geometrie:
-   - geometry = new [three.BoxGeometry()](docs/features/scene-basics.md:1)(1,1,1)
+   - geometry = new [three.BoxGeometry()](features/scene-basics.md:1)(1,1,1)
 2) Erzeuge ein Material:
-   - material = new [three.MeshStandardMaterial()](docs/features/scene-basics.md:1)({ color: "#4da3ff" })
+   - material = new [three.MeshStandardMaterial()](features/scene-basics.md:1)({ color: "#4da3ff" })
 3) Erzeuge das Mesh:
-   - cube = new [three.Mesh()](docs/features/scene-basics.md:1)(geometry, material)
+   - cube = new [three.Mesh()](features/scene-basics.md:1)(geometry, material)
 4) Füge es der Szene hinzu:
    - scene.add(cube)
 5) Stelle sicher, dass Licht vorhanden ist:
-   - light = new [three.DirectionalLight()](docs/features/scene-basics.md:1)(0xffffff, 1)
+   - light = new [three.DirectionalLight()](features/scene-basics.md:1)(0xffffff, 1)
    - light.position.set(3,3,3)
    - scene.add(light)
 
@@ -36,9 +36,9 @@ Position/Material konfigurieren
 - Skalierung:
   - cube.scale.set(sx, sy, sz)
 - Material-Varianten:
-  - [three.MeshPhongMaterial()](docs/features/scene-basics.md:1) (glänzend, simpel)
-  - [three.MeshBasicMaterial()](docs/features/scene-basics.md:1) (ohne Licht)
-  - [three.MeshPhysicalMaterial()](docs/features/scene-basics.md:1) (PBR, realistischer)
+  - [three.MeshPhongMaterial()](features/scene-basics.md:1) (glänzend, simpel)
+  - [three.MeshBasicMaterial()](features/scene-basics.md:1) (ohne Licht)
+  - [three.MeshPhysicalMaterial()](features/scene-basics.md:1) (PBR, realistischer)
 
 Interaktion: Auswahl per Raycaster
 - Ziel: Auf Klick soll das Objekt ausgewählt werden.
@@ -62,6 +62,6 @@ Häufige Fehler
   - Raycaster durchsucht nicht rekursiv: `intersectObjects(..., true)` setzen.
 
 Nächste Schritte
-- Baue ein Panel, um Objekteigenschaften live zu ändern: [add-ui-panel.md](docs/guides/add-ui-panel.md)
-- Veröffentliche die Aktion als Event über Nostr: [integrate-nostr.md](docs/guides/integrate-nostr.md)
-- Mehr Performance-/Architektur-Details: [scene-basics.md](docs/features/scene-basics.md), [architecture.md](docs/reference/architecture.md)
+- Baue ein Panel, um Objekteigenschaften live zu ändern: [add-ui-panel.md](guides/add-ui-panel.md)
+- Veröffentliche die Aktion als Event über Nostr: [integrate-nostr.md](guides/integrate-nostr.md)
+- Mehr Performance-/Architektur-Details: [scene-basics.md](features/scene-basics.md), [architecture.md](reference/architecture.md)

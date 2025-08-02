@@ -57,14 +57,14 @@ Beispiel-Workflow
      - kind: 30001 (Beispiel-App-Kind)
      - content: JSON.stringify({ type: "cube_added", id, position })
      - tags: [["t","scene"], ["type","cube_added"]]
-  4) Event wird signiert und an Relays publiziert: [nostr.publish()](docs/features/nostr-basics.md:1)
+  4) Event wird signiert und an Relays publiziert: [nostr.publish()](features/nostr-basics.md:1)
   5) Subscription-Filter:
      - kinds: [30001]
      - tags: [["type","cube_added"]]
   6) Eingehende Events werden validiert, dann ggf. als State-Aktion angewendet.
-- Mapping UI/Scene/Nostr ist im Detail unter [State & Events](docs/features/state-and-events.md) beschrieben.
+- Mapping UI/Scene/Nostr ist im Detail unter [State & Events](features/state-and-events.md) beschrieben.
 
 Nächste Schritte
-- Einrichtung/Testen lokaler Relays und Filter in [Nostr integrieren](docs/guides/integrate-nostr.md).
-- UI-Eventfluss nachlesen in [State & Events](docs/features/state-and-events.md).
-- Architekturdiagramme: [architecture.md](docs/reference/architecture.md).
+- Einrichtung/Testen lokaler Relays und Filter in [Nostr integrieren](guides/integrate-nostr.md).
+- UI-Eventfluss nachlesen in [State & Events](features/state-and-events.md).
+- Architekturdiagramme: [architecture.md](reference/architecture.md).

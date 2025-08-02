@@ -9,7 +9,7 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Flowchart: Module und Datenflüsse
-[mermaid.flowchart()](docs/reference/architecture.md:1)
+[mermaid.flowchart()](reference/architecture.md:1)
 flowchart LR
   UI[UI Layer] -- actions --> State[(State)]
   State -- updates --> Scene[three.js]
@@ -20,7 +20,7 @@ flowchart LR
   UI -- reflects --> Scene
 
 Sequenzdiagramm: Interaktion „Add Cube“
-[mermaid.sequenceDiagram()](docs/reference/architecture.md:30)
+[mermaid.sequenceDiagram()](reference/architecture.md:30)
 sequenceDiagram
   participant User
   participant UI
@@ -50,6 +50,6 @@ Datenmodell (vereinfacht)
   - queue: EventDraft[]
 
 Nächste Schritte
-- Details zum Event-/State-Flow: [state-and-events.md](docs/features/state-and-events.md)
-- three.js Basics: [scene-basics.md](docs/features/scene-basics.md)
-- Nostr-Grundlagen: [nostr-basics.md](docs/features/nostr-basics.md)
+- Details zum Event-/State-Flow: [state-and-events.md](features/state-and-events.md)
+- three.js Basics: [scene-basics.md](features/scene-basics.md)
+- Nostr-Grundlagen: [nostr-basics.md](features/nostr-basics.md)

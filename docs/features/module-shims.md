@@ -1,6 +1,6 @@
 # es-module-shims und Import Maps – warum und wie
 
-Ziel: Verstehen, warum [es-module-shims.importMap()](docs/features/module-shims.md:1) nützlich ist, wie Import Maps funktionieren und wie du Module (z. B. three.js) sauber referenzierst – lokal und via CDN.
+Ziel: Verstehen, warum [es-module-shims.importMap()](features/module-shims.md:1) nützlich ist, wie Import Maps funktionieren und wie du Module (z. B. three.js) sauber referenzierst – lokal und via CDN.
 
 Inhaltsverzeichnis
 - Problemstellung
@@ -24,7 +24,7 @@ Import Maps – Grundlagen
   - "three": "https://cdn.example/three/0.158.0/build/three.module.js"
   - "three/addons/": "https://cdn.example/three/0.158.0/examples/jsm/"
 - Vorteil: Im Code importierst du einfach `import { Scene } from "three";` statt einer langen URL.
-- Einschränkung: Nicht alle Browser unterstützen Import Maps nativ – hier hilft es, [es-module-shims.importMap()](docs/features/module-shims.md:1) vorzuschalten.
+- Einschränkung: Nicht alle Browser unterstützen Import Maps nativ – hier hilft es, [es-module-shims.importMap()](features/module-shims.md:1) vorzuschalten.
 
 es-module-shims – was es löst
 - Polyfill/Shim, der Import Maps in mehr Browsern nutzbar macht.
@@ -63,5 +63,5 @@ Fallbacks & Troubleshooting
   - Für breite Kompatibilität bleibe bei `importmap-shim` und `module-shim`.
 
 Nächste Schritte
-- Siehe [three.js Grundlagen](docs/features/scene-basics.md), um die imports direkt zu nutzen.
-- Gehe zu [setup-local.md](docs/guides/setup-local.md), um das Projekt mit Import Map lokal zu starten.
+- Siehe [three.js Grundlagen](features/scene-basics.md), um die imports direkt zu nutzen.
+- Gehe zu [setup-local.md](guides/setup-local.md), um das Projekt mit Import Map lokal zu starten.

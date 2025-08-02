@@ -13,9 +13,9 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Voraussetzungen
-- Lokales Setup läuft: [setup-local.md](docs/guides/setup-local.md)
-- Grundverständnis Nostr: [nostr-basics.md](docs/features/nostr-basics.md)
-- State/Actions bekannt: [state-and-events.md](docs/features/state-and-events.md)
+- Lokales Setup läuft: [setup-local.md](guides/setup-local.md)
+- Grundverständnis Nostr: [nostr-basics.md](features/nostr-basics.md)
+- State/Actions bekannt: [state-and-events.md](features/state-and-events.md)
 
 Schlüssel erzeugen/verwenden
 - Für Demos: Erzeuge testweise ein Schlüsselpaar im Client (Web Crypto) und speichere den privaten Schlüssel NICHT dauerhaft.
@@ -82,6 +82,6 @@ Robustheit und Sicherheit
   - Signatur/Hashing in Worker auslagern, um UI ruckelfrei zu halten.
 
 Nächste Schritte
-- Ein UI-Panel für Nostr-Status/Relays bauen: [add-ui-panel.md](docs/guides/add-ui-panel.md)
-- Event-Schema in Referenz ergänzen: [architecture.md](docs/reference/architecture.md)
+- Ein UI-Panel für Nostr-Status/Relays bauen: [add-ui-panel.md](guides/add-ui-panel.md)
+- Event-Schema in Referenz ergänzen: [architecture.md](reference/architecture.md)
 - Vollständigen Flow testen mit lokalem/öffentlichem Relay.

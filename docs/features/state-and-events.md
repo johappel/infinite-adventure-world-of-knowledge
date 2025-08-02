@@ -29,8 +29,8 @@ Actions, Reducer, Effects
   - updateTransform({ id, position?, rotation?, scale? })
 - Reducer: Pure Funktion, die (state, action) → newState berechnet.
 - Effects: Side-Effects auf Basis von Actions/State:
-  - Scene-Effect: Wendet Änderungen auf [three.Scene()](docs/features/scene-basics.md:1) an.
-  - Nostr-Effect: Publiziert Events via [nostr.publish()](docs/features/nostr-basics.md:1) oder reagiert auf Abos.
+  - Scene-Effect: Wendet Änderungen auf [three.Scene()](features/scene-basics.md:1) an.
+  - Nostr-Effect: Publiziert Events via [nostr.publish()](features/nostr-basics.md:1) oder reagiert auf Abos.
 
 Eventfluss UI ⇄ State ⇄ Scene ⇄ Nostr
 - UI → State:
@@ -38,10 +38,10 @@ Eventfluss UI ⇄ State ⇄ Scene ⇄ Nostr
   - UI dispatcht addCube.
   - Reducer fügt ein Cube-Model in den State ein.
 - State → Scene:
-  - Scene-Effect beobachtet State-Änderungen und erstellt ein [three.Mesh()](docs/features/scene-basics.md:1) mit [three.BoxGeometry()](docs/features/scene-basics.md:1).
+  - Scene-Effect beobachtet State-Änderungen und erstellt ein [three.Mesh()](features/scene-basics.md:1) mit [three.BoxGeometry()](features/scene-basics.md:1).
   - Renderer visualisiert die Änderung im nächsten Frame.
 - State → Nostr (optional):
-  - Nostr-Effect serialisiert die Domain-Änderung als Event (kind, content, tags) und ruft [nostr.publish()](docs/features/nostr-basics.md:1) auf.
+  - Nostr-Effect serialisiert die Domain-Änderung als Event (kind, content, tags) und ruft [nostr.publish()](features/nostr-basics.md:1) auf.
 - Nostr → State:
   - Subscription liefert ein passendes Event (z. B. "cube_added").
   - Nostr-Effect validiert, mappt auf Action addCubeFromRemote und dispatcht.
@@ -69,6 +69,6 @@ Testen und Debugging
   - Debug-Overlay in WebGL (Bounding Boxes, Gizmos).
 
 Nächste Schritte
-- UI-Panel bauen, das Actions dispatcht: [add-ui-panel.md](docs/guides/add-ui-panel.md)
-- 3D-Objekt hinzufügen: [add-3d-object.md](docs/guides/add-3d-object.md)
-- Architekturdiagramme ansehen: [architecture.md](docs/reference/architecture.md)
+- UI-Panel bauen, das Actions dispatcht: [add-ui-panel.md](guides/add-ui-panel.md)
+- 3D-Objekt hinzufügen: [add-3d-object.md](guides/add-3d-object.md)
+- Architekturdiagramme ansehen: [architecture.md](reference/architecture.md)

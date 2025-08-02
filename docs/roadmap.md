@@ -44,6 +44,6 @@ Langfristig (8+ Wochen)
   - Signatur in Worker, Policy für Rate-Limits/Backoff.
 
 Nächste Schritte
-- Baue ein Nostr-Statuspanel: [add-ui-panel.md](docs/guides/add-ui-panel.md)
-- Definiere Event-Schemata in der Referenz: [architecture.md](docs/reference/architecture.md)
-- Plane die Plugin-API anhand von [extensibility.md](docs/features/extensibility.md)
+- Baue ein Nostr-Statuspanel: [add-ui-panel.md](guides/add-ui-panel.md)
+- Definiere Event-Schemata in der Referenz: [architecture.md](reference/architecture.md)
+- Plane die Plugin-API anhand von [extensibility.md](features/extensibility.md)

@@ -11,14 +11,14 @@ Inhaltsverzeichnis
 
 Anzeigeprobleme (weiß/schwarz)
 - Konsole prüfen: Syntaxfehler, 404 auf Module.
-- Reihenfolge im HTML: es-module-shims vor Import Map und vor erstem Module-Import. Siehe [module-shims.md](docs/features/module-shims.md).
+- Reihenfolge im HTML: es-module-shims vor Import Map und vor erstem Module-Import. Siehe [module-shims.md](features/module-shims.md).
 - Kamera/Objekte: Kamera blickt am Objekt vorbei; nutze `camera.lookAt` und sinnvolle Start-Positionen.
-- Licht: PBR-Materialien brauchen Licht. Teste mit [three.MeshBasicMaterial()](docs/features/scene-basics.md:1).
+- Licht: PBR-Materialien brauchen Licht. Teste mit [three.MeshBasicMaterial()](features/scene-basics.md:1).
 
 Module/Import Maps
 - 404 bei Addons: "three/addons/" korrekt auf JSM-Pfad gemappt?
 - Cache: DevTools → Disable cache aktivieren.
-- Pfade konsistent halten (ein CDN, feste Versionen). Siehe [module-shims.md](docs/features/module-shims.md).
+- Pfade konsistent halten (ein CDN, feste Versionen). Siehe [module-shims.md](features/module-shims.md).
 
 Interaktion/Raycasting
 - NDC falsch: Verwende aktuelle Canvas-Größe und Device-Pixel-Ratio.
@@ -38,5 +38,5 @@ Nostr/Relays
 - Filter: Enge Filter verwenden, um Spam zu reduzieren.
 
 Weiterführend
-- Architektur: [architecture.md](docs/reference/architecture.md)
-- Glossar: [glossary.md](docs/reference/glossary.md)
+- Architektur: [architecture.md](reference/architecture.md)
+- Glossar: [glossary.md](reference/glossary.md)

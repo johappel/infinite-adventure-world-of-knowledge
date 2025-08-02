@@ -1,6 +1,6 @@
 # Lokale Einrichtung und Start
 
-Ziel: Das Projekt lokal öffnen, die HTML über einen lokalen Server ausliefern, [es-module-shims.importMap()](docs/features/module-shims.md:1) korrekt laden und typische Setup-Probleme lösen.
+Ziel: Das Projekt lokal öffnen, die HTML über einen lokalen Server ausliefern, [es-module-shims.importMap()](features/module-shims.md:1) korrekt laden und typische Setup-Probleme lösen.
 
 Inhaltsverzeichnis
 - Voraussetzungen
@@ -18,7 +18,7 @@ Voraussetzungen
 Projekt öffnen
 1) Klone oder öffne das Repository im Editor.
 2) Prüfe die Startdatei [client_ux_boilerplate.html](client_ux_boilerplate.html) – hier wird die Import Map und der App-Entry definiert.
-3) Lies kurz [README.md](docs/README.md), um den Überblick zu bekommen.
+3) Lies kurz [README.md](README.md), um den Überblick zu bekommen.
 
 Lokalen Server starten
 Option A: VS Code Live Server
@@ -57,9 +57,9 @@ Troubleshooting
   - Bei CDN-Imports `crossorigin`-Attribute setzen; SRI nur mit passenden Hashes.
 - Performance langsam:
   - DevTools Performance/Memory nutzen.
-  - Siehe [three.js Grundlagen](docs/features/scene-basics.md) für Render-Loop-Optimierungen.
+  - Siehe [three.js Grundlagen](features/scene-basics.md) für Render-Loop-Optimierungen.
 
 Nächste Schritte
-- Lies [ui-overview.md](docs/ui-overview.md).
-- Füge ein Objekt hinzu über [add-3d-object.md](docs/guides/add-3d-object.md).
-- Erzeuge ein UI-Panel über [add-ui-panel.md](docs/guides/add-ui-panel.md).
+- Lies [ui-overview.md](ui-overview.md).
+- Füge ein Objekt hinzu über [add-3d-object.md](guides/add-3d-object.md).
+- Erzeuge ein UI-Panel über [add-ui-panel.md](guides/add-ui-panel.md).
