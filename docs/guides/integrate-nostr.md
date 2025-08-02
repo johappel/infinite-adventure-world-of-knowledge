@@ -13,7 +13,7 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Voraussetzungen
-- Lokales Setup läuft: [setup-local.md](guides/setup-local.md)
+- Lokales Setup läuft: [setup-local.md](./setup-local.md)
 - Grundverständnis Nostr: [nostr-basics.md](features/nostr-basics.md)
 - State/Actions bekannt: [state-and-events.md](features/state-and-events.md)
 
@@ -82,6 +82,6 @@ Robustheit und Sicherheit
   - Signatur/Hashing in Worker auslagern, um UI ruckelfrei zu halten.
 
 Nächste Schritte
-- Ein UI-Panel für Nostr-Status/Relays bauen: [add-ui-panel.md](guides/add-ui-panel.md)
+- Ein UI-Panel für Nostr-Status/Relays bauen: [add-ui-panel.md](./add-ui-panel.md)
 - Event-Schema in Referenz ergänzen: [architecture.md](reference/architecture.md)
 - Vollständigen Flow testen mit lokalem/öffentlichem Relay.

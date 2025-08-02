@@ -61,5 +61,5 @@ Troubleshooting
 
 Nächste Schritte
 - Lies [ui-overview.md](ui-overview.md).
-- Füge ein Objekt hinzu über [add-3d-object.md](guides/add-3d-object.md).
-- Erzeuge ein UI-Panel über [add-ui-panel.md](guides/add-ui-panel.md).
+- Füge ein Objekt hinzu über [add-3d-object.md](./add-3d-object.md).
+- Erzeuge ein UI-Panel über [add-ui-panel.md](./add-ui-panel.md).

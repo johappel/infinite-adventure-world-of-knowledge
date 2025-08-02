@@ -13,14 +13,14 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Voraussetzungen
-- Lokales Setup läuft: [setup-local.md](guides/setup-local.md)
+- Lokales Setup läuft: [setup-local.md](./setup-local.md)
 - Grundverständnis: [ui-overview.md](ui-overview.md), [state-and-events.md](features/state-and-events.md), [scene-basics.md](features/scene-basics.md)
 
 Panel-Ziele definieren
 - Beispiel: „Selection Panel“
   - Anzeigen: aktuell selektiertes Objekt (ID, Position/Rotation/Scale).
   - Aktionen: Position inkrementieren, Objekt löschen, Materialfarbe ändern.
-  - Optional: Publiziere Änderungen als Nostr-Events (siehe [integrate-nostr.md](guides/integrate-nostr.md)).
+  - Optional: Publiziere Änderungen als Nostr-Events (siehe [integrate-nostr.md](./integrate-nostr.md)).
 
 Panel-Template anlegen
 - HTML-Struktur (schematisch in deiner App-HTML, z. B. [client_ux_boilerplate.html](client_ux_boilerplate.html)):
@@ -88,6 +88,6 @@ Tests/Checks
   - Ungültige Werte: Eingaben validieren (min/max/step).
 
 Nächste Schritte
-- Nostr-Anbindung für Änderungsereignisse: [integrate-nostr.md](guides/integrate-nostr.md)
+- Nostr-Anbindung für Änderungsereignisse: [integrate-nostr.md](./integrate-nostr.md)
 - Weiterführende Muster: [extensibility.md](features/extensibility.md)
 - Architektur verstehen: [architecture.md](reference/architecture.md)
