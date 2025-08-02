@@ -1,14 +1,14 @@
-# Guides – Schritt-für-Schritt Anleitungen
+# Guides – Übersicht
 
-Diese Guides führen dich praxisnah durch typische Aufgaben. Jede Anleitung ist in kleine, überprüfbare Schritte gegliedert und verlinkt die relevanten Konzepte wie [three.Scene()](features/scene-basics.md:1), [es-module-shims.importMap()](features/module-shims.md:1) und [nostr.publish()](features/nostr-basics.md:1).
+Diese Guides führen dich praxisnah durch typische Aufgaben. Jede Anleitung ist in kleine, überprüfbare Schritte gegliedert und verlinkt die relevanten Konzepte wie [three.Scene](../features/scene-basics.md), [es-module-shims.importMap](../features/module-shims.md) und [nostr.publish](../features/nostr-basics.md).
 
-Inhaltsverzeichnis
-- [Lokale Einrichtung und Start](guides/setup-local.md)
-- [3D-Objekt hinzufügen](guides/add-3d-object.md)
-- [UI-Panel hinzufügen](guides/add-ui-panel.md)
-- [Nostr integrieren](guides/integrate-nostr.md)
+## Inhalte
+- [Lokale Einrichtung und Start](./setup-local.md)
+- [3D-Objekt hinzufügen](./add-3d-object.md)
+- [UI-Panel hinzufügen](./add-ui-panel.md)
+- [Nostr integrieren](./integrate-nostr.md)
 
-Empfohlene Reihenfolge
+## Empfohlene Reihenfolge
 1) Lokale Einrichtung
 2) 3D-Objekt hinzufügen
 3) UI-Panel hinzufügen

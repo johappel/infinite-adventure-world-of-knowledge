@@ -12,11 +12,11 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Kernkonzepte
-- Szene: [three.Scene()](features/scene-basics.md:1) ist der logische Container für alle 3D-Objekte (Meshes, Lights, Gruppen).
-- Kamera: Perspektivische Kamera via [three.PerspectiveCamera()](features/scene-basics.md:1) definiert, was und wie gesehen wird.
-- Renderer: [three.WebGLRenderer()](features/scene-basics.md:1) zeichnet die Szene mit der Kamera in ein Canvas.
-- Geometrie/Material: [three.BoxGeometry()](features/scene-basics.md:1) + [three.MeshStandardMaterial()](features/scene-basics.md:1) ergeben zusammen ein sichtbares Objekt.
-- Licht: Ohne Licht wirken physikalisch basierte Materialien dunkel; nutze z. B. [three.DirectionalLight()](features/scene-basics.md:1).
+- Szene: [three.Scene](./scene-basics.md) ist der logische Container für alle 3D-Objekte (Meshes, Lights, Gruppen).
+- Kamera: Perspektivische Kamera via [three.PerspectiveCamera](./scene-basics.md) definiert, was und wie gesehen wird.
+- Renderer: [three.WebGLRenderer](./scene-basics.md) zeichnet die Szene mit der Kamera in ein Canvas.
+- Geometrie/Material: [three.BoxGeometry](./scene-basics.md) + [three.MeshStandardMaterial](./scene-basics.md) ergeben zusammen ein sichtbares Objekt.
+- Licht: Ohne Licht wirken physikalisch basierte Materialien dunkel; nutze z. B. [three.DirectionalLight](./scene-basics.md).
 
 Minimalaufbau einer Szene
 1) Canvas aus HTML selektieren (oder Renderer erzeugt eigenes).
@@ -27,14 +27,11 @@ Minimalaufbau einer Szene
 Beispiel (pseudocode-orientiert):
 - HTML: ein Canvas-Element (oder Container-DIV).
 - JS-Setup:
-  - scene = new [three.Scene()](features/scene-basics.md:1)
-  - camera = new [three.PerspectiveCamera()](features/scene-basics.md:1)(fov, aspect, near, far)
-  - renderer = new [three.WebGLRenderer()](features/scene-basics.md:1)({ antialias: true })
-  - renderer.setSize(width, height)
-  - container.appendChild(renderer.domElement)
-  - cube = new [three.Mesh()](features/scene-basics.md:1)(new [three.BoxGeometry()](features/scene-basics.md:1)(1,1,1), new [three.MeshStandardMaterial()](features/scene-basics.md:1)())
-  - scene.add(cube)
-  - light = new [three.DirectionalLight()](features/scene-basics.md:1)(0xffffff, 1)
+  - scene = new [three.Scene](./scene-basics.md)
+  - camera = new [three.PerspectiveCamera](./scene-basics.md)(fov, aspect, near, far)
+  - renderer = new [three.WebGLRenderer](./scene-basics.md)({ antialias: true })
+  - cube = new [three.Mesh](./scene-basics.md)(new [three.BoxGeometry](./scene-basics.md)(1,1,1), new [three.MeshStandardMaterial](./scene-basics.md)())
+  - light = new [three.DirectionalLight](./scene-basics.md)(0xffffff, 1)
   - light.position.set(3,3,3)
   - scene.add(light)
 
@@ -59,7 +56,7 @@ Interaktion (Raycasting)
   - raycaster.setFromCamera(mouse, camera)
   - intersects = raycaster.intersectObjects(scene.children, true)
   - Treffer auswerten und State/Selektion aktualisieren.
-- Dieser Flow wird im UI-Kontext in [State & Events](features/state-and-events.md) weiter beschrieben.
+- Dieser Flow wird im UI-Kontext in [State & Events](./state-and-events.md) weiter beschrieben.
 
 Performance-Hinweise
 - Vermeide unnötige Material-/Geometrie-Instanzen (reuse).
@@ -68,6 +65,6 @@ Performance-Hinweise
 - Reduziere overdraw (weniger transparente Flächen).
 
 Nächste Schritte
-- Ein erstes Objekt hinzufügen: [add-3d-object.md](guides/add-3d-object.md)
-- Event-/State-Fluss verstehen: [state-and-events.md](features/state-and-events.md)
-- Architekturdiagramme: [architecture.md](reference/architecture.md)
+- Ein erstes Objekt hinzufügen: [add-3d-object.md](../guides/add-3d-object.md)
+- Event-/State-Fluss verstehen: [state-and-events.md](./state-and-events.md)
+- Architekturdiagramme: [architecture.md](../reference/architecture.md)

@@ -12,7 +12,7 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Prinzipien der Erweiterbarkeit
-- Trenne Darstellung (UI), Logik (State) und IO (Scene, Nostr) strikt. Siehe [State & Events](features/state-and-events.md).
+- Trenne Darstellung (UI), Logik (State) und IO (Scene, Nostr) strikt. Siehe [State & Events](./state-and-events.md).
 - Baue auf kleine, fokussierte Module – klare Responsibility, geringe Kopplung.
 - Verwende Adapter-Schnittstellen für Dritt-IO (Nostr/Relays), um Austauschbarkeit zu gewährleisten.
 - Biete öffentliche, dokumentierte Entry Points für Erweiterungen an, nicht interne Details.
@@ -42,7 +42,7 @@ Hook-Punkte in UI, Scene und Nostr
 
 Abhängigkeits- und Versionsstrategie
 - three.js:
-  - Version pinnen, Breaking Changes beobachten. Import-Pfade via Import Map pflegen. Siehe [es-module-shims und Import Maps](features/module-shims.md).
+  - Version pinnen, Breaking Changes beobachten. Import-Pfade via Import Map pflegen. Siehe [es-module-shims und Import Maps](./module-shims.md).
 - Nostr-Client-Bibliotheken:
   - API-Stabilität beachten; baue dünne Adapter-Layer, damit ein Lib-Wechsel wenig Aufwand ist.
 - Intern:
@@ -65,15 +65,15 @@ Qualitäts-Gates: Tests, Lint, Review-Checkliste
 Beispiele für Erweiterungen
 - Neues UI-Panel
   - Template anlegen, Controls definieren, Actions dispatchen, Selectors binden.
-  - Siehe [UI-Panel hinzufügen](guides/add-ui-panel.md).
+  - Siehe [UI-Panel hinzufügen](../guides/add-ui-panel.md).
 - Neues 3D-Objekt/Tool
-  - Scene-API nutzen: [three.Mesh()](features/scene-basics.md:1) erstellen, State-IDs sauber verwalten.
-  - Siehe [3D-Objekt hinzufügen](guides/add-3d-object.md).
+  - Scene-API nutzen: [three.Mesh](./scene-basics.md) erstellen, State-IDs sauber verwalten.
+  - Siehe [3D-Objekt hinzufügen](../guides/add-3d-object.md).
 - Nostr-Eventtyp
   - Neues kind definieren, Event-Schema beschreiben (content/tags), Mapping in Publish/Subscribe ergänzen.
-  - Siehe [Nostr integrieren](guides/integrate-nostr.md).
+  - Siehe [Nostr integrieren](../guides/integrate-nostr.md).
 
 Nächste Schritte
-- Lies [architecture.md](reference/architecture.md) für den Gesamtüberblick.
-- Baue ein Panel gemäß [add-ui-panel.md](guides/add-ui-panel.md).
-- Ergänze einen End-to-End-Flow inkl. Nostr nach [integrate-nostr.md](guides/integrate-nostr.md).
+- Lies [architecture.md](../reference/architecture.md) für den Gesamtüberblick.
+- Baue ein Panel gemäß [add-ui-panel.md](../guides/add-ui-panel.md).
+- Ergänze einen End-to-End-Flow inkl. Nostr nach [integrate-nostr.md](../guides/integrate-nostr.md).
