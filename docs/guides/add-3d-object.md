@@ -11,7 +11,7 @@ Inhaltsverzeichnis
 - Nächste Schritte
 
 Voraussetzungen
-- Projekt lokal gestartet nach [setup-local.md](guides/setup-local.md).
+- Projekt lokal gestartet nach [setup-local.md](setup-local.md).
 - Scene/Renderer/Kamera sind initialisiert, siehe [three.js Grundlagen](features/scene-basics.md).
 
 Objekt hinzufügen (Minimalweg)
@@ -62,6 +62,6 @@ Häufige Fehler
   - Raycaster durchsucht nicht rekursiv: `intersectObjects(..., true)` setzen.
 
 Nächste Schritte
-- Baue ein Panel, um Objekteigenschaften live zu ändern: [add-ui-panel.md](guides/add-ui-panel.md)
-- Veröffentliche die Aktion als Event über Nostr: [integrate-nostr.md](guides/integrate-nostr.md)
+- Baue ein Panel, um Objekteigenschaften live zu ändern: [add-ui-panel.md](add-ui-panel.md)
+- Veröffentliche die Aktion als Event über Nostr: [integrate-nostr.md](integrate-nostr.md)
 - Mehr Performance-/Architektur-Details: [scene-basics.md](features/scene-basics.md), [architecture.md](reference/architecture.md)
