@@ -10,24 +10,46 @@ export class InteractionSystem {
 
   interact() {
     if(!this.zoneManager.currentZoneId) return;
+    if(!this.camera || !this.camera.camera) {
+      console.error('InteractionSystem: Kamera nicht verfügbar');
+      return;
+    }
     
-    // raycast towards where the camera looks from player position
-    const rayOrig = this.playerMarker.position.clone().add(new THREE.Vector3(0,0.3,0));
-    const dir = new THREE.Vector3();
-    this.camera.getWorldDirection(dir);
-    const ray = new THREE.Raycaster(rayOrig, dir, 0, 4);
+    // E-Taste: Raycast vom Spieler in die Richtung der Kamera-Orientierung (yaw)
+    // Da der Spieler bei (0,0,0) steht, verwenden wir die yaw-Rotation direkt
+    const playerPos = new THREE.Vector3(0, 0.5, 0); // Spieler-Augenhöhe
+    const yaw = this.camera.getYaw();
+    const direction = new THREE.Vector3(
+      Math.sin(yaw),  // X-Komponente basierend auf yaw
+      0,              // Horizontal raycast
+      Math.cos(yaw)   // Z-Komponente basierend auf yaw
+    ).normalize();
+    
+    const ray = new THREE.Raycaster(playerPos, direction, 0, 4);
     const objs = this.zoneManager.getCurrentZone().group.children;
     const hits = ray.intersectObjects(objs, true);
     
+    // Debug-Ausgabe
+    console.log('E-Taste Raycast:', {
+      origin: playerPos,
+      direction: direction,
+      yaw: yaw,
+      hits: hits.length
+    });
+    
     if(hits.length){
       const obj = hits[0].object;
-      // E-Taste hat bereits Distanzcheck durch Raycast-Range (0, 4)
+      console.log('E-Taste Hit:', obj.userData?.type, obj.userData?.name);
       this.handleInteraction(obj);
     }
   }
 
   interactWithMouse(event) {
     if(!this.zoneManager.currentZoneId) return;
+    if(!this.camera || !this.camera.camera) {
+      console.error('InteractionSystem: Kamera nicht verfügbar für Maus-Interaktion');
+      return;
+    }
     
     // Maus-Position in normalisierte Device-Koordinaten (-1 bis +1)
     const canvas = event.target;
@@ -38,13 +60,21 @@ export class InteractionSystem {
     
     // Raycaster von der Kamera aus
     const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, this.camera);
+    raycaster.setFromCamera(mouse, this.camera.camera); // this.camera.camera für Three.js Kamera
     
     const objs = this.zoneManager.getCurrentZone().group.children;
     const hits = raycaster.intersectObjects(objs, true);
     
+    // Debug-Ausgabe
+    console.log('Maus-Raycast:', {
+      mouse: mouse,
+      cameraPos: this.camera.camera.position,
+      hits: hits.length
+    });
+    
     if(hits.length) {
       const obj = hits[0].object;
+      console.log('Maus Hit:', obj.userData?.type, obj.userData?.name, 'Distance:', hits[0].distance);
       // Distanzcheck: Nur interagieren wenn in der Nähe
       if(this.isObjectInRange(obj)) {
         this.handleInteraction(obj);

@@ -20,12 +20,13 @@ export class WisdomWorld {
     // Three.js setup
     this.setupThreeJS();
     
-    // Core systems
+    // Core systems - WICHTIG: Reihenfolge beachten!
     this.player = new Player(this.worldRoot);
     this.camera = new ThirdPersonCamera(this.threeCamera, this.playerMarker);
     this.inputManager = new InputManager();
     this.zoneManager = new ZoneManager(this.worldRoot);
-    this.interactionSystem = new InteractionSystem(this.zoneManager, this.threeCamera, this.playerMarker);
+    // InteractionSystem braucht camera und zoneManager
+    this.interactionSystem = new InteractionSystem(this.zoneManager, this.camera, this.playerMarker);
     this.dialogSystem = new DialogSystem();
     this.uiManager = new UIManager();
 
