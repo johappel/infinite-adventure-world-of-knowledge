@@ -4,4 +4,4 @@
 
 [Die Idee](https://github.com/johappel/infinite-adventure-world-of-knowledge/blob/main/THE_IDEA.md)
 
-[Docs](https://github.com/johappel/infinite-adventure-world-of-knowledge/docs/README.md)
+[Docs](https://github.com/johappel/infinite-adventure-world-of-knowledge/tree/main/docs)
