@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAML Preset Editor - Split View</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2d2d30;
+            padding: 10px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #4fc3f7;
+            font-size: 18px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn:hover {
+            background: #1177bb;
+        }
+
+        .btn.success {
+            background: #16825d;
+        }
+
+        .btn.success:hover {
+            background: #1e9870;
+        }
+
+        .preset-selector {
+            background: #3c3c3c;
+            border: 1px solid #5a5a5a;
+            color: #d4d4d4;
+            padding: 6px 12px;
+            border-radius: 4px;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .left-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #3e3e42;
+        }
+
+        .right-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background: #252526;
+            padding: 10px 15px;
+            border-bottom: 1px solid #3e3e42;
+            font-weight: bold;
+            color: #cccccc;
+        }
+
+        .yaml-editor {
+            flex: 1;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            border: none;
+            outline: none;
+            padding: 15px;
+            resize: none;
+            line-height: 1.5;
+        }
+
+        .canvas-container {
+            flex: 1;
+            background: #000;
+            position: relative;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #4fc3f7;
+            text-align: center;
+        }
+
+        .error {
+            background: #f44336;
+            color: white;
+            padding: 10px 15px;
+            margin: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .info {
+            background: #2196f3;
+            color: white;
+            padding: 8px 15px;
+            margin: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .status-bar {
+            background: #007acc;
+            color: white;
+            padding: 5px 15px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .subtext { font-size: 12px; margin-top: 10px; color: #4fc3f7; }
+
+        /* YAML Syntax Highlighting */
+        .yaml-editor {
+            white-space: pre;
+            tab-size: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 YAML Preset Editor</h1>
+        <div class="controls">
+            <select class="preset-selector" id="presetSelect" aria-label="Preset Template auswählen">
+                <option value="">Wähle Preset Template...</option>
+                <option value="simple_world">Einfache Welt</option>
+                <option value="forest">Wald-Zone</option>
+                <option value="library">Bibliothek</option>
+                <option value="single_terrain">Nur Terrain</option>
+                <option value="single_object">Nur Objekt</option>
+                <option value="single_persona">Nur NPC</option>
+            </select>
+            <button class="btn" id="loadBtn">📥 Laden</button>
+            <button class="btn success" id="renderBtn">🎬 Rendern</button>
+            <button class="btn" id="resetBtn">🔄 Reset</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="left-panel">
+            <div class="panel-header">
+                📝 YAML Editor
+            </div>
+            <textarea class="yaml-editor" id="yamlEditor" placeholder="# Deine YAML-Welt hier eingeben...
+name: 'Test World'
+description: 'Eine Test-Welt für Presets'
+
+terrain:
+  preset: 'forest_floor'
+
+objects:
+  - preset: 'tree_simple'
+    position: [0, 0, 0]
+
+personas:
+  - preset: 'npc_plain'
+    name: 'Test NPC'
+    position: [3, 0, 3]"></textarea>
+        </div>
+
+        <div class="right-panel">
+            <div class="panel-header">
+                🎮 3D Vorschau
+            </div>
+            <div class="canvas-container">
+                <canvas id="renderCanvas"></canvas>
+                <div class="loading" id="loadingIndicator">
+                    <div>🌍 Welt wird geladen...</div>
+                    <div class="subtext">THREE.js wird initialisiert</div>
+                </div>
+            </div>
+            <div class="status-bar">
+                <span id="statusText">Bereit zum Rendern</span>
+                <span id="objectCount">0 Objekte</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Vereinfachte YAML-Visualisierung ohne Module-Dependencies
+
+        class PresetEditor {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.currentZone = null;
+                this.animationId = null;
+
+                this.initializeElements();
+                this.initializePresetTemplates();
+                this.setupEventListeners();
+                this.initThreeJS();
+            }
+
+            initializeElements() {
+                this.yamlEditor = document.getElementById('yamlEditor');
+                this.canvas = document.getElementById('renderCanvas');
+                this.loadingIndicator = document.getElementById('loadingIndicator');
+                this.statusText = document.getElementById('statusText');
+                this.objectCount = document.getElementById('objectCount');
+                this.presetSelect = document.getElementById('presetSelect');
+                this.loadBtn = document.getElementById('loadBtn');
+                this.renderBtn = document.getElementById('renderBtn');
+                this.resetBtn = document.getElementById('resetBtn');
+            }
+
+            initializePresetTemplates() {
+                this.templates = {
+                    simple_world: `# Einfache Test-Welt
+name: "Einfache Welt"
+description: "Zum Testen der Presets"
+id: "test-simple"
+
+environment:
+  ambient_light: 0.6
+  sun_intensity: 0.8
+
+terrain:
+  preset: "grass_flat"
+
+objects:
+  - preset: "tree_simple"
+    position: [3, 0, 3]
+  
+  - preset: "rock_small"
+    position: [-3, 0, -3]
+
+personas:
+  - preset: "npc_plain"
+    name: "Test NPC"
+    position: [0, 0, 5]`,
+
+                    forest: `# Wald-Zone mit Presets
+name: "Preset Wald"
+description: "Wald mit allen Preset-Features"
+id: "test-forest"
+
+environment:
+  ambient_light: 0.4
+  sun_intensity: 0.3
+
+terrain:
+  preset: "forest_floor"
+
+objects:
+  - preset: "tree_simple"
+    position: [5, 0, 5]
+    scale: [2, 2.5, 2]
+    
+  - preset: "mushroom_small"
+    position: [2, 0, -3]
+    interactive: true
+    
+  - preset: "stone_circle_thin"
+    position: [0, 0, 0]
+
+personas:
+  - preset: "npc_guardian"
+    name: "Waldwächter"
+    position: [-3, 0, 8]
+    
+  - preset: "npc_fairy"
+    name: "Waldfee"
+    position: [3, 0, -5]`,
+
+                    library: `# Bibliotheks-Zone
+name: "Preset Bibliothek"
+description: "Bibliothek mit Scholar NPCs"
+id: "test-library"
+
+environment:
+  ambient_light: 0.8
+  sun_intensity: 0.0
+
+terrain:
+  preset: "marble_flat"
+
+objects:
+  - preset: "bookshelf"
+    position: [5, 0, 5]
+    
+  - preset: "bookshelf"
+    position: [-5, 0, 5]
+    
+  - preset: "crystal"
+    position: [0, 0, 0]
+
+personas:
+  - preset: "npc_scholar"
+    name: "Bibliothekar"
+    position: [0, 0, 8]`,
+
+                    single_terrain: `# Nur Terrain Test
+name: "Terrain Test"
+id: "test-terrain"
+
+environment:
+  ambient_light: 0.6
+
+terrain:
+  preset: "forest_floor"
+  size: [40, 40]`,
+
+                    single_object: `# Nur Objekt Test
+name: "Objekt Test"
+id: "test-object"
+
+environment:
+  ambient_light: 0.6
+
+terrain:
+  preset: "grass_flat"
+  size: [20, 20]
+
+objects:
+  - preset: "tree_simple"
+    position: [0, 0, 0]
+    scale: [2, 3, 2]`,
+
+                    single_persona: `# Nur NPC Test
+name: "NPC Test"
+id: "test-npc"
+
+environment:
+  ambient_light: 0.6
+
+terrain:
+  preset: "grass_flat"
+  size: [20, 20]
+
+personas:
+  - preset: "npc_plain"
+    name: "Test Character"
+    position: [0, 0, 3]`
+                };
+            }
+
+            setupEventListeners() {
+                this.loadBtn.addEventListener('click', () => this.loadTemplate());
+                this.renderBtn.addEventListener('click', () => this.renderYAML());
+                this.resetBtn.addEventListener('click', () => this.resetScene());
+                
+                // Auto-render bei YAML-Änderungen (mit Debounce)
+                let timeout;
+                this.yamlEditor.addEventListener('input', () => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => this.renderYAML(), 1000);
+                });
+
+                // Kamera-Kontrollen
+                this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+                this.canvas.addEventListener('wheel', (e) => this.onWheel(e));
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+
+            loadTemplate() {
+                const selectedTemplate = this.presetSelect.value;
+                if (selectedTemplate && this.templates[selectedTemplate]) {
+                    this.yamlEditor.value = this.templates[selectedTemplate];
+                    this.renderYAML();
+                }
+            }
+
+            async initThreeJS() {
+                try {
+                    // Scene
+                    this.scene = new THREE.Scene();
+                    this.scene.background = new THREE.Color(0x87ceeb);
+
+                    // Camera
+                    this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 1000);
+                    this.camera.position.set(15, 15, 15);
+                    this.camera.lookAt(0, 0, 0);
+
+                    // Renderer
+                    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+                    this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
+                    this.renderer.shadowMap.enabled = true;
+                    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+                    // Lights
+                    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                    this.scene.add(ambientLight);
+
+                    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                    directionalLight.position.set(10, 20, 10);
+                    directionalLight.castShadow = true;
+                    this.scene.add(directionalLight);
+
+                    this.loadingIndicator.style.display = 'none';
+                    this.updateStatus('THREE.js initialisiert - Bereit zum Visualisieren');
+                    
+                    this.animate();
+
+                } catch (error) {
+                    console.error('THREE.js Initialisierung fehlgeschlagen:', error);
+                    this.showError('THREE.js konnte nicht geladen werden: ' + error.message);
+                }
+            }
+
+            async renderYAML() {
+                const yamlText = this.yamlEditor.value.trim();
+                if (!yamlText) {
+                    this.updateStatus('Kein YAML-Code vorhanden');
+                    return;
+                }
+
+                try {
+                    this.updateStatus('Visualisiere YAML...');
+                    
+                    // Clear previous scene
+                    this.resetScene(false);
+
+                    // Parse YAML
+                    const worldData = jsyaml.load(yamlText);
+                    
+                    // Create simple visualization instead of full world loading
+                    this.createSimpleVisualization(worldData);
+
+                    this.updateStatus('✅ YAML erfolgreich visualisiert');
+
+                } catch (error) {
+                    console.error('YAML Visualisierung Error:', error);
+                    this.showError('YAML Fehler: ' + error.message);
+                    this.updateStatus('❌ YAML Visualisierung fehlgeschlagen');
+                }
+            }
+
+            createSimpleVisualization(worldData) {
+                const group = new THREE.Group();
+                let objectCount = 0;
+
+                // Terrain visualization
+                if (worldData.terrain) {
+                    const terrain = this.createSimpleTerrain(worldData.terrain);
+                    group.add(terrain);
+                    objectCount++;
+                }
+
+                // Objects visualization
+                if (worldData.objects && Array.isArray(worldData.objects)) {
+                    worldData.objects.forEach((obj, index) => {
+                        const mesh = this.createSimpleObject(obj, index);
+                        if (mesh) {
+                            group.add(mesh);
+                            objectCount++;
+                        }
+                    });
+                }
+
+                // Personas visualization
+                if (worldData.personas && Array.isArray(worldData.personas)) {
+                    worldData.personas.forEach((persona, index) => {
+                        const mesh = this.createSimplePersona(persona, index);
+                        if (mesh) {
+                            group.add(mesh);
+                            objectCount++;
+                        }
+                    });
+                }
+
+                this.scene.add(group);
+                this.currentZone = { group };
+                this.updateObjectCount(objectCount);
+            }
+
+            createSimpleTerrain(terrainConfig) {
+                const size = terrainConfig.size || [50, 50];
+                const geometry = new THREE.PlaneGeometry(size[0], size[1]);
+                
+                let color = '#4a7c1e';
+                if (terrainConfig.preset === 'forest_floor') color = '#2d4a22';
+                else if (terrainConfig.preset === 'marble_flat') color = '#d2b48c';
+                else if (terrainConfig.color) color = terrainConfig.color;
+
+                const material = new THREE.MeshLambertMaterial({ color: color });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.rotation.x = -Math.PI / 2;
+                mesh.position.y = terrainConfig.y || 0;
+                mesh.name = 'terrain';
+                return mesh;
+            }
+
+            createSimpleObject(objConfig, index) {
+                let geometry;
+                let color = objConfig.color || '#8b4513';
+
+                // Preset colors
+                if (objConfig.preset === 'tree_simple') color = '#1a4a1a';
+                else if (objConfig.preset === 'crystal') color = '#00ffff';
+                else if (objConfig.preset === 'mushroom_small') color = '#8b4513';
+
+                switch (objConfig.preset || objConfig.type) {
+                    case 'tree_simple':
+                    case 'tree':
+                        geometry = new THREE.ConeGeometry(1, 3, 8);
+                        break;
+                    case 'rock_small':
+                    case 'rock':
+                        geometry = new THREE.DodecahedronGeometry(0.8);
+                        break;
+                    case 'mushroom_small':
+                    case 'mushroom':
+                        geometry = new THREE.CylinderGeometry(0.5, 0.2, 1, 12);
+                        break;
+                    case 'stone_circle_thin':
+                    case 'stone_circle':
+                        geometry = new THREE.TorusGeometry(2, 0.2, 8, 16);
+                        break;
+                    case 'crystal':
+                        geometry = new THREE.OctahedronGeometry(1);
+                        break;
+                    case 'bookshelf':
+                        geometry = new THREE.BoxGeometry(2, 4, 0.5);
+                        break;
+                    default:
+                        geometry = new THREE.BoxGeometry(1, 1, 1);
+                }
+
+                const material = new THREE.MeshLambertMaterial({ color: color });
+                const mesh = new THREE.Mesh(geometry, material);
+                
+                if (objConfig.position) {
+                    mesh.position.set(...objConfig.position);
+                }
+                if (objConfig.scale) {
+                    mesh.scale.set(...objConfig.scale);
+                }
+                
+                mesh.name = `${objConfig.preset || objConfig.type}_${index}`;
+                return mesh;
+            }
+
+            createSimplePersona(personaConfig, index) {
+                // Ersatz für CapsuleGeometry (nicht in allen Three Versionen vorhanden)
+                const group = new THREE.Group();
+
+                const height = (personaConfig.appearance?.height || 1.4);
+                const bodyHeight = Math.max(0.8, height); // Körperzylinder
+                const radius = 0.5; // Breite
+
+                const cylGeom = new THREE.CylinderGeometry(radius, radius, bodyHeight, 12);
+                const sphereGeom = new THREE.SphereGeometry(radius, 12, 12);
+
+                let color = '#ff6b6b';
+                if (personaConfig.preset === 'npc_fairy') color = '#ffd700';
+                else if (personaConfig.preset === 'npc_scholar') color = '#2f4f4f';
+                else if (personaConfig.preset === 'npc_guardian') color = '#8fbc8f';
+                else if (personaConfig.appearance?.color) color = personaConfig.appearance.color;
+
+                const material = new THREE.MeshLambertMaterial({ color });
+
+                const body = new THREE.Mesh(cylGeom, material);
+                body.position.y = 0; // Mittelpunkt am Ursprung
+                group.add(body);
+
+                const headTop = new THREE.Mesh(sphereGeom, material);
+                headTop.position.y = bodyHeight/2;
+                group.add(headTop);
+
+                const headBottom = new THREE.Mesh(sphereGeom, material);
+                headBottom.position.y = -bodyHeight/2;
+                group.add(headBottom);
+
+                if (personaConfig.position) {
+                    group.position.set(...personaConfig.position);
+                    group.position.y += 1; // etwas über Boden
+                }
+
+                group.name = personaConfig.name || `persona_${index}`;
+                return group;
+            }
+
+            resetScene(updateStatus = true) {
+                // Remove current zone
+                if (this.currentZone) {
+                    this.scene.remove(this.currentZone.group);
+                    this.currentZone = null;
+                }
+
+                if (updateStatus) {
+                    this.updateStatus('Szene zurückgesetzt');
+                    this.updateObjectCount(0);
+                }
+            }
+
+            animate() {
+                this.animationId = requestAnimationFrame(() => this.animate());
+                
+                // Simple camera rotation for preview
+                if (this.currentZone) {
+                    const time = Date.now() * 0.0005;
+                    this.camera.position.x = Math.cos(time) * 20;
+                    this.camera.position.z = Math.sin(time) * 20;
+                    this.camera.lookAt(0, 0, 0);
+                }
+
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            // Helper methods
+            updateStatus(text) {
+                this.statusText.textContent = text;
+            }
+
+            updateObjectCount(count) {
+                this.objectCount.textContent = `${count} Objekte`;
+            }
+
+            showError(message) {
+                // Remove existing errors
+                const existingError = document.querySelector('.error');
+                if (existingError) existingError.remove();
+
+                // Show new error
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = message;
+                document.querySelector('.right-panel').appendChild(errorDiv);
+
+                // Auto-remove after 5 seconds
+                setTimeout(() => errorDiv.remove(), 5000);
+            }
+
+            onMouseDown(event) {
+                // Simple camera controls could go here
+            }
+
+            onWheel(event) {
+                // Zoom control
+                event.preventDefault();
+                const scale = event.deltaY > 0 ? 1.1 : 0.9;
+                this.camera.position.multiplyScalar(scale);
+            }
+
+            onWindowResize() {
+                const width = this.canvas.clientWidth;
+                const height = this.canvas.clientHeight;
+                
+                this.camera.aspect = width / height;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(width, height);
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            new PresetEditor();
+        });
+    </script>
+</body>
+</html>
