@@ -5,8 +5,8 @@ export const forestFloorPreset = {
   type: 'hills',
   size: [60,60],
   color: '#2d4a22',
-  amplitude: 3.8,
-  y: -0.02,
+  amplitude: 1.2,
+  y: -0.9,
   texture: 'forest_floor'
 };
 
