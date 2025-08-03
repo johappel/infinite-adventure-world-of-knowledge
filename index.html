@@ -7,13 +7,8 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%236ee7ff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles/main.css">
   <meta name="description" content="Prototyp einer KI-gestützten Wissens-Entdeckungswelt: dynamisch generierte 3D-Zonen, Personas, Portale, Chat und persistente Spuren." />
-  <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
-  <script>
-    // Polyfill for import maps on older browsers
-    if (!HTMLScriptElement.supports || !HTMLScriptElement.supports('importmap')) {
-      document.currentScript.setAttribute('data-needs-polyfill', 'true');
-    }
-  </script>
+  
+  <!-- Import Map für THREE.js -->
   <script type="importmap">
   {
     "imports": {
@@ -22,6 +17,7 @@
     }
   }
   </script>
+  
   <!-- YAML Parser für Weltendateien -->
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
 </head>
