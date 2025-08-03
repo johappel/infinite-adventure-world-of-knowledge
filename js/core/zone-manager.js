@@ -2,12 +2,17 @@ import * as THREE from 'three';
 import { seededRng, pick } from '../utils/random.js';
 import { makeSkyboxTextures, makeGroundTexture, makePersonaTexture, makePortalMaterial } from '../graphics/asset-generators.js';
 import { worldStore, createEvent, EVENT_KINDS } from './event-store.js';
+import { WorldLoader } from './world-loader.js';
+import { YAMLWorldLoader } from './yaml-world-loader.js';
 
 export class ZoneManager {
   constructor(worldRoot) {
     this.worldRoot = worldRoot;
     this.currentZoneId = null;
     this.zoneMeshes = {}; // zoneId -> { group, personas[], portals[] }
+    this.worldLoader = new WorldLoader();
+    this.yamlWorldLoader = new YAMLWorldLoader(this);
+    this.loadedWorldDocs = new Map(); // Cache für YAML-Welten
   }
 
   generateZone(zoneId, personaHint) {
@@ -136,10 +141,20 @@ export class ZoneManager {
     ].join('\n');
   }
 
-  setCurrentZone(zoneId, personaHint, player, camera) {
+  async setCurrentZone(zoneId, personaHint, player, camera) {
     // hide all
     Object.values(this.zoneMeshes).forEach(z=>z.group.visible=false);
-    if(!this.zoneMeshes[zoneId]) this.generateZone(zoneId, personaHint);
+    
+    // Prüfe zuerst ob es eine YAML-Zone ist
+    if(!this.zoneMeshes[zoneId]) {
+      // Versuche YAML-Zone zu laden, andernfalls generiere prozedural
+      if (this.isYAMLZone(zoneId)) {
+        await this.loadYAMLZone(zoneId);
+      } else {
+        this.generateZone(zoneId, personaHint);
+      }
+    }
+    
     this.zoneMeshes[zoneId].group.visible = true;
     this.currentZoneId = zoneId;
     
@@ -160,6 +175,47 @@ export class ZoneManager {
     // Trace visit
     const evt = createEvent(EVENT_KINDS.TRACE, { zone: zoneId, action: 'visit' }, [['zone', zoneId]]);
     worldStore.add(evt);
+  }
+
+  /**
+   * Lädt eine YAML-Zone basierend auf Zone-ID
+   */
+  async loadYAMLZone(zoneId) {
+    try {
+      const yamlPath = `./worlds/${zoneId}.yaml`;
+      console.log(`🌍 Versuche YAML-Zone zu laden: ${yamlPath}`);
+      
+      const zoneInfo = await this.yamlWorldLoader.loadWorldFromYAML(yamlPath, zoneId);
+      console.log(`✅ YAML-Zone "${zoneId}" erfolgreich geladen`);
+      return zoneInfo;
+    } catch (error) {
+      console.warn(`⚠️ YAML-Zone "${zoneId}" konnte nicht geladen werden, generiere prozedural:`, error);
+      return this.generateZone(zoneId);
+    }
+  }
+
+  /**
+   * Lädt eine YAML-Zone aus einer spezifischen Datei
+   */
+  async loadZoneFromYaml(yamlPath, zoneId = null) {
+    try {
+      console.log(`🌍 Lade Zone aus YAML: ${yamlPath}`);
+      const zoneInfo = await this.yamlWorldLoader.loadWorldFromYAML(yamlPath, zoneId);
+      console.log(`✅ Zone aus YAML geladen`);
+      return zoneInfo;
+    } catch (error) {
+      console.error(`❌ Fehler beim Laden der YAML-Zone:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Prüft ob eine Zone-ID eine YAML-Zone ist
+   */
+  isYAMLZone(zoneId) {
+    // Standard YAML-Zonen
+    const yamlZones = ['zone-start', 'zone-forest', 'zone-archive'];
+    return yamlZones.includes(zoneId) || this.yamlWorldLoader.isYAMLZone(zoneId);
   }
 
   linkPortal(fromZone, toZone) {
@@ -218,5 +274,123 @@ export class ZoneManager {
     Object.values(this.zoneMeshes).forEach(z=>this.worldRoot.remove(z.group));
     for(const k of Object.keys(this.zoneMeshes)) delete this.zoneMeshes[k];
     this.currentZoneId = null;
+  }
+
+  /**
+   * Lädt eine Zone aus einer YAML-Datei
+   */
+  async loadZoneFromYaml(yamlPath) {
+    try {
+      console.log(`🌍 Lade YAML-Zone: ${yamlPath}`);
+      
+      // YAML-Weltdaten laden
+      const worldData = await this.worldLoader.loadWorld(yamlPath);
+      
+      // Validierung
+      const validation = this.worldLoader.validateWorldData(worldData);
+      if (!validation.isValid) {
+        console.error('❌ YAML-Validation fehlgeschlagen:', validation.errors);
+        throw new Error(`YAML-Validation fehlgeschlagen: ${validation.errors.join(', ')}`);
+      }
+      
+      if (validation.warnings.length > 0) {
+        console.warn('⚠️ YAML-Warnungen:', validation.warnings);
+      }
+      
+      // Zur Zone wechseln
+      this.generateYamlZone(worldData.id, worldData);
+      this.currentZoneId = worldData.id;
+      
+      // WorldDoc im Cache speichern
+      this.loadedWorldDocs.set(worldData.id, worldData);
+      
+      console.log(`✅ YAML-Zone geladen: ${worldData.name}`);
+      return worldData;
+      
+    } catch (error) {
+      console.error(`❌ Fehler beim Laden der YAML-Zone ${yamlPath}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generiert eine Zone aus YAML-Daten
+   */
+  generateYamlZone(zoneId, worldData) {
+    console.log(`🏗️ Generiere YAML-Zone: ${worldData.name}`);
+    
+    // Bestehende Zone entfernen
+    if (this.zoneMeshes[zoneId]) {
+      this.worldRoot.remove(this.zoneMeshes[zoneId].group);
+      delete this.zoneMeshes[zoneId];
+    }
+    
+    const group = new THREE.Group();
+    group.userData.zoneId = zoneId;
+    group.userData.isYamlZone = true;
+    group.userData.worldData = worldData;
+
+    // YAML-Weltdaten zu THREE.js konvertieren
+    const result = this.worldLoader.convertToThreeJS(worldData, group);
+    
+    // Sammle referenzen für Animationen und Interaktionen
+    const personas = result.personas || [];
+    const portals = result.portals || [];
+    const objects = result.objects || [];
+    
+    this.worldRoot.add(group);
+    this.zoneMeshes[zoneId] = { 
+      group, 
+      personas, 
+      portals,
+      objects,
+      isYamlZone: true,
+      worldData 
+    };
+
+    // Store zone event if not already present
+    const existing = worldStore.latestByTag(EVENT_KINDS.ZONE, 'zone', zoneId);
+    if (!existing) {
+      worldStore.add(createEvent(EVENT_KINDS.ZONE, {
+        name: worldData.name,
+        description: worldData.description,
+        seed: worldData.seed || Math.floor(Math.random() * 1000000),
+        yamlSource: true
+      }, [['zone', zoneId]]));
+    }
+
+    console.log(`✅ YAML-Zone generiert: ${worldData.name} (${personas.length} Personas, ${portals.length} Portale, ${objects.length} Objekte)`);
+  }
+
+  /**
+   * Gibt das aktuelle WorldDoc zurück (falls YAML-Zone)
+   */
+  getCurrentWorldDoc() {
+    if (!this.currentZoneId) return null;
+    return this.loadedWorldDocs.get(this.currentZoneId);
+  }
+
+  /**
+   * Lädt Beispielwelten
+   */
+  async loadExampleWorlds() {
+    const examples = [
+      'worlds/zone-start.yaml',
+      'worlds/zone-forest.yaml', 
+      'worlds/zone-archive.yaml'
+    ];
+
+    console.log('📚 Lade Beispielwelten...');
+    
+    for (const yamlPath of examples) {
+      try {
+        await this.loadZoneFromYaml(yamlPath);
+        console.log(`✅ ${yamlPath} geladen`);
+      } catch (error) {
+        console.error(`❌ Fehler bei ${yamlPath}:`, error);
+      }
+    }
+    
+    console.log(`📚 ${this.loadedWorldDocs.size} Beispielwelten geladen`);
   }
 }

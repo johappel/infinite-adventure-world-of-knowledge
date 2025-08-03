@@ -123,6 +123,22 @@ export class InteractionSystem {
         }
       }
     }
+
+    // YAML-spezifische interaktive Objekte
+    if(obj.userData?.interaction) {
+      if(this.onFeedback) {
+        this.onFeedback(obj.userData.interaction.text || 'Ein interessantes Objekt.');
+      }
+      return;
+    }
+
+    // Info-Schilder
+    if(obj.userData?.type==='info_sign') {
+      if(this.onFeedback) {
+        this.onFeedback(obj.userData.text || 'Ein Schild ohne Text.');
+      }
+      return;
+    }
   }
 
   setPersonaInteractCallback(callback) {

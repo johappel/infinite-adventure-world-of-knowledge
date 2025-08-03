@@ -79,6 +79,31 @@ export class UIManager {
       });
     };
 
+    // YAML World Buttons
+    document.getElementById('yamlStartBtn').onclick = ()=> {
+      this.withLoading(()=>{
+        if(callbacks.onLoadYamlZone) {
+          callbacks.onLoadYamlZone('zone-start');
+        }
+      });
+    };
+
+    document.getElementById('yamlForestBtn').onclick = ()=> {
+      this.withLoading(()=>{
+        if(callbacks.onLoadYamlZone) {
+          callbacks.onLoadYamlZone('zone-forest');
+        }
+      });
+    };
+
+    document.getElementById('yamlArchiveBtn').onclick = ()=> {
+      this.withLoading(()=>{
+        if(callbacks.onLoadYamlZone) {
+          callbacks.onLoadYamlZone('zone-archive');
+        }
+      });
+    };
+
     // Persona Select
     document.getElementById('personaSelect').onchange = (e)=>{
       document.getElementById('personaHUD').textContent = 'Persona: '+e.target.value;

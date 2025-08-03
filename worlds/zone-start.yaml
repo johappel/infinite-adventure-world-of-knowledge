@@ -1,0 +1,95 @@
+# Startwiese - Eine ruhige Eingangszone
+name: "Startwiese"
+description: "Eine ruhige Wiese, wo neue Abenteurer ihre Reise beginnen"
+id: "zone-start"
+
+# Umgebungseinstellungen
+environment:
+  skybox: "clear_day"        # clear_day, sunset, night, storm
+  time_of_day: 0.3           # 0.0 = Mitternacht, 0.5 = Mittag, 1.0 = Mitternacht
+  ambient_light: 0.6         # Stärke des Umgebungslichts
+  sun_intensity: 0.8         # Stärke der Sonne
+  fog_distance: 100          # Sichtweite
+  ambient_sound: "birds"     # Hintergrundgeräusche
+
+# Terrain/Boden
+terrain:
+  type: "flat"               # flat, hills, mountains
+  size: [50, 50]            # [width, height] in Einheiten
+  color: "#4a7c1e"          # Farbe des Bodens
+  texture: "grass"          # grass, stone, sand, snow
+
+# Objekte in der Welt
+objects:
+  - type: "rock"
+    position: [5, 0, 3]      # [x, y, z]
+    scale: [1.2, 0.8, 1.1]   # [x, y, z] Skalierung
+    color: "#8b7355"
+    
+  - type: "tree" 
+    position: [-3, 0, 2]
+    scale: [1, 1, 1]
+    color: "#228b22"
+    
+  - type: "tree"
+    position: [8, 0, -4]
+    scale: [1.5, 1.2, 1.5]
+    color: "#228b22"
+    
+  - type: "tree"
+    position: [-6, 0, -3]
+    scale: [0.8, 1, 0.8]
+    color: "#228b22"
+    
+  - type: "crystal"
+    position: [0, 0, -8]
+    scale: [1, 1, 1]
+    color: "#00ffff"
+    interactive: true
+    script: |
+      // Beispiel für zukünftige Skript-Unterstützung
+      console.log("Kristall berührt!");
+
+# Portale zu anderen Zonen
+portals:
+  - id: "to-forest"
+    name: "Zum Mystischen Wald"
+    position: [-10, 1, 0]
+    size: [2, 3, 0.5]        # Portal-Dimensionen
+    destination: "zone-forest"
+    color: "#9370db"
+    
+  - id: "to-archive"
+    name: "Zur Bibliothek des Wissens"
+    position: [10, 1, 0]
+    size: [2, 3, 0.5]
+    destination: "zone-archive"
+    color: "#4169e1"
+
+# NPCs/Personas in dieser Zone
+personas:
+  - name: "Lehrmeister Aelion"
+    position: [0, 0, 5]
+    appearance:
+      color: "#ff6b6b"
+      height: 1.8
+      type: "humanoid"
+    behavior:
+      greeting: "Willkommen in der Startwiese, junger Abenteurer!"
+      idle_animation: "breathe"
+    dialogue:
+      opening: "Ich bin Aelion, euer Führer. Was möchtet ihr wissen?"
+      topics:
+        - question: "Wie funktioniert diese Welt?"
+          answer: "Diese Welt entsteht aus YAML-Konfigurationen. Jede Zone ist einzigartig definiert."
+        - question: "Wo kann ich hingehen?"
+          answer: "Seht ihr die leuchtenden Portale? Sie führen zu anderen Zonen. Probiert das Portal zum Wald!"
+        - question: "Was ist mit dem Kristall?"
+          answer: "Der Kristall ist eine interaktive Entität. Geht näher heran und drückt E!"
+
+# Erweiterte Einstellungen für zukünftige Features
+extensions:
+  weather: "sunny"           # sunny, rainy, snowy, cloudy
+  season: "spring"           # spring, summer, autumn, winter
+  scripts_enabled: true      # Erlaubt benutzerdefinierte Skripte
+  multiplayer_spawn: [0, 0, 0] # Standard-Spawn-Position für Multiplayer

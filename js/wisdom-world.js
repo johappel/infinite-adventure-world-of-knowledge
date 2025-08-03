@@ -116,6 +116,17 @@ export class WisdomWorld {
         this.uiManager.appendLog('Portal markiert zu: ' + this.zoneManager.synthZoneTitle(target));
         this.updateUI();
       },
+      onLoadYamlZone: async (zoneId) => {
+        try {
+          console.log(`🌍 Lade YAML-Zone: ${zoneId}`);
+          await this.zoneManager.setCurrentZone(zoneId, null, this.player, this.camera);
+          this.updateUI();
+          this.uiManager.appendLog(`YAML-Zone geladen: ${this.zoneManager.synthZoneTitle(zoneId)}`);
+        } catch (error) {
+          console.error('❌ Fehler beim Laden der YAML-Zone:', error);
+          this.uiManager.appendLog(`Fehler beim Laden von ${zoneId}: ${error.message}`);
+        }
+      },
       onReset: () => {
         localStorage.removeItem('wisdom_world_events_v1');
         worldStore.load();
@@ -149,6 +160,22 @@ export class WisdomWorld {
         () => this.updateUI()
       );
     };
+
+    // YAML-Funktionen global verfügbar machen
+    window.yamlHelpers = {
+      loadZone: (yamlPath) => this.loadZoneFromYaml(yamlPath),
+      loadExamples: () => this.zoneManager.loadExampleWorlds(),
+      listWorlds: () => Array.from(this.zoneManager.loadedWorldDocs.keys()),
+      getWorldDoc: (id) => this.zoneManager.loadedWorldDocs.get(id),
+      switchToZone: (id) => this.switchToYamlZone(id)
+    };
+
+    console.log('🎮 YAML-Hilfsfunktionen verfügbar:');
+    console.log('- yamlHelpers.loadZone(path) - Lädt YAML-Zone');
+    console.log('- yamlHelpers.loadExamples() - Lädt alle Beispielwelten');
+    console.log('- yamlHelpers.listWorlds() - Listet geladene Welten');
+    console.log('- yamlHelpers.getWorldDoc(id) - Holt Weltdaten');
+    console.log('- yamlHelpers.switchToZone(id) - Wechselt zu Zone');
   }
 
   setupRenderLoop() {
@@ -213,5 +240,46 @@ export class WisdomWorld {
     this.renderer.setSize(rect.width, rect.height, false);
     this.threeCamera.aspect = rect.width/rect.height;
     this.threeCamera.updateProjectionMatrix();
+  }
+
+  /**
+   * Lädt eine YAML-Zone
+   */
+  async loadZoneFromYaml(yamlPath) {
+    try {
+      const worldData = await this.zoneManager.loadZoneFromYaml(yamlPath);
+      this.updateUI();
+      this.uiManager.appendLog(`YAML-Zone geladen: ${worldData.name}`);
+      return worldData;
+    } catch (error) {
+      this.uiManager.appendLog(`Fehler beim Laden: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Wechselt zu einer bereits geladenen YAML-Zone
+   */
+  switchToYamlZone(zoneId) {
+    const worldData = this.zoneManager.loadedWorldDocs.get(zoneId);
+    if (!worldData) {
+      this.uiManager.appendLog(`Zone ${zoneId} nicht gefunden. Lade zuerst mit yamlHelpers.loadZone()`);
+      return;
+    }
+
+    // Clear current zone and generate YAML zone
+    if (this.zoneManager.currentZoneId && this.zoneManager.zoneMeshes[this.zoneManager.currentZoneId]) {
+      this.zoneManager.worldRoot.remove(this.zoneManager.zoneMeshes[this.zoneManager.currentZoneId].group);
+    }
+
+    this.zoneManager.generateYamlZone(zoneId, worldData);
+    this.zoneManager.currentZoneId = zoneId;
+
+    // Reset player position
+    this.player.reset();
+    this.camera.reset();
+
+    this.updateUI();
+    this.uiManager.appendLog(`Wechsel zu YAML-Zone: ${worldData.name}`);
   }
 }
