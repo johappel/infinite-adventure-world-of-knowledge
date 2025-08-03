@@ -463,7 +463,7 @@ export class YAMLWorldLoader {
     // Gradient-Hintergrund für bessere Sichtbarkeit
     const gradient = ctx.createRadialGradient(256, 256, 0, 256, 256, 256);
     gradient.addColorStop(0, baseColor);
-    gradient.addColorStop(0.7, `${baseColor}cc`);
+    gradient.addColorStop(0.1, `${baseColor}aa`);
     gradient.addColorStop(1, '#000000');
     ctx.fillStyle = gradient;
     ctx.fillRect(20, 20, 472, 472);
@@ -532,9 +532,9 @@ export class YAMLWorldLoader {
       transparent: true,
       alphaTest: 0.1,
       emissive: new THREE.Color(baseColor),
-      emissiveIntensity: 0.3,
+      emissiveIntensity: 0.1, // Leichter Glüheffekt
       roughness: 0.1,
-      metalness: 0.1
+      metalness: 0.2
     });
 
     // Größere Geometrie für bessere Sichtbarkeit
@@ -584,7 +584,7 @@ export class YAMLWorldLoader {
       opacity: 0.4,  // Reduzierte Opacity für weniger Flimmern
       side: THREE.DoubleSide,
       roughness: 0.8,
-      metalness: 0.1,
+      metalness: 0.3,
       emissive: new THREE.Color(0x002200),
       emissiveIntensity: 0.2
     });
