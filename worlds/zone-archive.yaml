@@ -12,40 +12,25 @@ environment:
   ambient_sound: "library"   # Leises Geraschel von Papier
 
 terrain:
-  type: "flat"
-  size: [80, 80]
-  color: "#d2b48c"          # Warmer Steinboden
-  texture: "marble"
+  preset: "marble_flat"
 
 objects:
-  - type: "bookshelf"
+  - preset: "bookshelf"
     position: [10, 0, 10]
-    scale: [2, 4, 0.5]
-    color: "#8b4513"
-    interactive: true
     script: |
       // Zufälliges Buch beim Interagieren
       const books = ["Magie der Elemente", "Geschichte der Welten", "Geheimnisse der Zeit"];
       const randomBook = books[Math.floor(Math.random() * books.length)];
       console.log(`Du findest das Buch: ${randomBook}`);
       
-  - type: "bookshelf"
+  - preset: "bookshelf"
     position: [-10, 0, 10]
-    scale: [2, 4, 0.5]
-    color: "#8b4513"
-    interactive: true
     
-  - type: "bookshelf"
+  - preset: "bookshelf"
     position: [10, 0, -10]
-    scale: [2, 4, 0.5]
-    color: "#8b4513"
-    interactive: true
     
-  - type: "bookshelf"
+  - preset: "bookshelf"
     position: [-10, 0, -10]
-    scale: [2, 4, 0.5]
-    color: "#8b4513"
-    interactive: true
     
   - type: "reading_table"
     position: [0, 0, 5]
@@ -87,15 +72,11 @@ portals:
     color: "#4b0082"
 
 personas:
-  - name: "Bibliothekar Magnus"
+  - preset: "npc_scholar"
+    name: "Bibliothekar Magnus"
     position: [0, 0, 12]
-    appearance:
-      color: "#2f4f4f"
-      height: 1.9
-      type: "scholar"
     behavior:
       greeting: "Willkommen im Großen Archiv! Hier ist alles Wissen der Welten gesammelt."
-      idle_animation: "read"
     dialogue:
       opening: "Ich bin Magnus, Hüter dieses Archivs. Welches Wissen sucht ihr?"
       topics:

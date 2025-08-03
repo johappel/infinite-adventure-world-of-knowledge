@@ -12,40 +12,34 @@ environment:
   fog_distance: 100          # Sichtweite
   ambient_sound: "birds"     # Hintergrundgeräusche
 
-# Terrain/Boden
+# Terrain/Boden mit Preset
 terrain:
-  type: "flat"               # flat, hills, mountains
-  size: [50, 50]            # [width, height] in Einheiten
-  color: "#4a7c1e"          # Farbe des Bodens
-  texture: "grass"          # grass, stone, sand, snow
+  preset: "grass_flat"
 
-# Objekte in der Welt
+# Objekte in der Welt mit Presets
 objects:
-  - type: "rock"
+  - preset: "rock_small"
     position: [5, 0, 3]      # [x, y, z]
-    scale: [1.2, 0.8, 1.1]   # [x, y, z] Skalierung
+    scale: [1.2, 0.8, 1.1]   # [x, y, z] Skalierung überschreibt Preset
     color: "#8b7355"
     
-  - type: "tree" 
+  - preset: "tree_simple" 
     position: [-3, 0, 2]
     scale: [1, 1, 1]
     color: "#228b22"
     
-  - type: "tree"
+  - preset: "tree_simple"
     position: [8, 0, -4]
     scale: [1.5, 1.2, 1.5]
     color: "#228b22"
     
-  - type: "tree"
+  - preset: "tree_simple"
     position: [-6, 0, -3]
     scale: [0.8, 1, 0.8]
     color: "#228b22"
     
-  - type: "crystal"
+  - preset: "crystal"
     position: [0, 0, -8]
-    scale: [1, 1, 1]
-    color: "#00ffff"
-    interactive: true
     script: |
       // Beispiel für zukünftige Skript-Unterstützung
       console.log("Kristall berührt!");
@@ -66,14 +60,13 @@ portals:
     destination: "zone-archive"
     color: "#4169e1"
 
-# NPCs/Personas in dieser Zone
+# NPCs/Personas in dieser Zone mit Presets
 personas:
-  - name: "Lehrmeister Aelion"
+  - preset: "npc_plain"
+    name: "Lehrmeister Aelion"
     position: [0, 0, 5]
     appearance:
-      color: "#ff6b6b"
       height: 1.8
-      type: "humanoid"
     behavior:
       greeting: "Willkommen in der Startwiese, junger Abenteurer!"
       idle_animation: "breathe"

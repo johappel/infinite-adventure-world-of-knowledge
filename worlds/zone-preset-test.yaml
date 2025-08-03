@@ -1,0 +1,29 @@
+# Test Preset Welt
+name: "Preset Test Zone"
+description: "Eine kleine Zone zum Testen der neuen Presets"
+id: "zone-preset-test"
+
+environment:
+  ambient_light: 0.6
+  sun_intensity: 0.8
+
+terrain:
+  preset: "grass_flat"
+  size: [30, 30]  # Überschreibt Preset-Größe
+
+objects:
+  - preset: "tree_simple"
+    position: [5, 0, 5]
+    
+  - preset: "rock_small"
+    position: [-5, 0, -5]
+    
+  - preset: "crystal"
+    position: [0, 0, 0]
+
+personas:
+  - preset: "npc_plain"
+    name: "Test NPC"
+    position: [3, 0, 3]
+    behavior:
+      greeting: "Hallo! Ich teste die neuen Presets!"

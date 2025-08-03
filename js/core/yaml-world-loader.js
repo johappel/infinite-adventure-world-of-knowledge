@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import { worldStore, createEvent, EVENT_KINDS } from './event-store.js';
+import { terrainPresets, objectPresets, personaPresets, textures, deepMerge, withDefaultsTerrain, withDefaultsObject, withDefaultsPersona } from '../presets/index.js';
 
 // Globaler Zugriff auf js-yaml (falls via CDN geladen)
 const yaml = window.jsyaml;
@@ -56,75 +57,74 @@ export class YAMLWorldLoader {
    */
   convertYAMLToZone(worldData, zoneId) {
     console.log(`🏗️ Konvertiere YAML zu Zone: ${zoneId}`);
-    
-    // Basis-Zonen-Gruppe erstellen
     const zoneGroup = new THREE.Group();
     zoneGroup.name = zoneId;
-    zoneGroup.visible = false; // Standardmäßig unsichtbar
+    zoneGroup.visible = false;
 
     const personas = [];
     const portals = [];
 
-    // 1. Terrain erstellen
+    // Terrain mit Preset/Defaults
     if (worldData.terrain) {
-      this.createTerrain(worldData.terrain, zoneGroup);
+      const terrCfg = this.resolveTerrainConfig(worldData.terrain);
+      this.createTerrain(terrCfg, zoneGroup);
     }
 
-    // 2. Umgebung einrichten
     if (worldData.environment) {
       this.setupEnvironment(worldData.environment, zoneGroup);
     }
 
-    // 3. Objekte erstellen
     if (worldData.objects) {
-      this.createObjects(worldData.objects, zoneGroup);
+      const list = worldData.objects.map(o=> this.resolveObjectConfig(o));
+      this.createObjects(list, zoneGroup);
     }
 
-    // 4. NPCs/Personas erstellen
     if (worldData.personas) {
-      const createdPersonas = this.createPersonas(worldData.personas, zoneGroup, zoneId);
+      const list = worldData.personas.map(p=> this.resolvePersonaConfig(p));
+      const createdPersonas = this.createPersonas(list, zoneGroup, zoneId);
       personas.push(...createdPersonas);
     }
 
-    // 5. Portale erstellen
     if (worldData.portals) {
       const createdPortals = this.createPortals(worldData.portals, zoneGroup, zoneId);
       portals.push(...createdPortals);
     }
 
-    // 6. Interaktive Elemente
     if (worldData.interactive_elements) {
       this.createInteractiveElements(worldData.interactive_elements, zoneGroup);
     }
 
-    // 7. Animation-Loop für dynamische Elemente starten
     this.startZoneAnimations(zoneGroup);
-
-    // Zur WorldRoot hinzufügen
     this.zoneManager.worldRoot.add(zoneGroup);
 
-    // Zone-Info im bestehenden Format zurückgeben
-    const zoneInfo = {
-      group: zoneGroup,
-      personas,
-      portals,
-      worldData
-    };
-
-    // Im ZoneManager registrieren
+    const zoneInfo = { group: zoneGroup, personas, portals, worldData };
     this.zoneManager.zoneMeshes[zoneId] = zoneInfo;
 
-    // Zone-Event speichern (für Persistenz)
-    const evt = createEvent(EVENT_KINDS.ZONE, {
-      id: zoneId,
-      name: worldData.name,
-      description: worldData.description,
-      source: 'yaml'
-    }, [['zone', zoneId]]);
+    const evt = createEvent(EVENT_KINDS.ZONE, { id: zoneId, name: worldData.name, description: worldData.description, source: 'yaml' }, [['zone', zoneId]]);
     worldStore.add(evt);
 
     console.log(`✅ Zone "${zoneId}" konvertiert: ${personas.length} NPCs, ${portals.length} Portale`);
     return zoneInfo;
+  }
+
+  resolveTerrainConfig(cfg){
+    let out = cfg;
+    if (cfg.preset && terrainPresets[cfg.preset]) out = deepMerge(terrainPresets[cfg.preset], cfg);
+    return withDefaultsTerrain(out);
+  }
+
+  resolveObjectConfig(cfg){
+    if (cfg.preset && objectPresets[cfg.preset]) {
+      return withDefaultsObject(deepMerge(objectPresets[cfg.preset], cfg));
+    }
+    return withDefaultsObject(cfg);
+  }
+
+  resolvePersonaConfig(cfg){
+    if (cfg.preset && personaPresets[cfg.preset]) {
+      return withDefaultsPersona(deepMerge(personaPresets[cfg.preset], cfg));
+    }
+    return withDefaultsPersona(cfg);
   }
 
   /**
@@ -141,7 +141,7 @@ export class YAMLWorldLoader {
       geometry = new THREE.PlaneGeometry(width, height, 96, 96);
       const pos = geometry.attributes.position;
       const v = new THREE.Vector3();
-      const amplitude = terrainConfig.amplitude ?? 2.5; // stärker sichtbar
+      const amplitude = terrainConfig.amplitude ?? 2.5;
       for (let i = 0; i < pos.count; i++) {
         v.fromBufferAttribute(pos, i);
         const x = v.x, z = v.z;
@@ -172,7 +172,6 @@ export class YAMLWorldLoader {
       geometry = new THREE.PlaneGeometry(width, height, 2, 2);
     }
 
-    // Material – kein DoubleSide, um Z-Fighting zu minimieren
     const material = new THREE.MeshStandardMaterial({
       color: terrainConfig.color || '#4a7c1e',
       roughness: 0.75,
@@ -180,18 +179,22 @@ export class YAMLWorldLoader {
       side: THREE.FrontSide
     });
 
+    // Canvas-Textur anwenden, wenn texture: 'forest_floor'
+    if (terrainConfig.texture === 'forest_floor') {
+      const tex = textures.makeForestFloorTexture();
+      material.map = tex;
+      material.needsUpdate = true;
+    }
+
     const terrain = new THREE.Mesh(geometry, material);
     terrain.rotation.x = -Math.PI / 2;
-    terrain.position.y = terrainConfig.y ?? 0; // YAML kann y überschreiben
+    terrain.position.y = terrainConfig.y ?? 0;
     terrain.name = 'terrain';
     terrain.receiveShadow = true;
-    // Wichtig: Terrain immer zuerst und undurchsichtig zeichnen
     terrain.renderOrder = -10;
-    if (terrain.material) {
-      terrain.material.transparent = false;
-      terrain.material.depthWrite = true;
-      terrain.material.depthTest = true;
-    }
+    terrain.material.transparent = false;
+    terrain.material.depthWrite = true;
+    terrain.material.depthTest = true;
     parentGroup.add(terrain);
     console.log('✅ Terrain erstellt');
   }
@@ -309,8 +312,6 @@ export class YAMLWorldLoader {
       if (persona) {
         parentGroup.add(persona);
         personas.push(persona);
-
-        // Aura-Ring für NPC (wie im bestehenden System)
         const auraRing = this.createPersonaAura(persona);
         parentGroup.add(auraRing);
       }
@@ -415,7 +416,7 @@ export class YAMLWorldLoader {
     });
 
     // Größere Geometrie für bessere Sichtbarkeit
-    const geometry = new THREE.PlaneGeometry(6, 6);
+    const geometry = new THREE.PlaneGeometry( (personaConfig.appearance?.height||1.4) * 2.8, (personaConfig.appearance?.height||1.4) * 2.8 );
     const persona = new THREE.Mesh(geometry, material);
 
     // Position setzen

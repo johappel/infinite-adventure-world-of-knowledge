@@ -12,35 +12,25 @@ environment:
   ambient_sound: "forest"
 
 terrain:
-  type: "hills"
-  size: [60, 60]
-  color: "#2d4a22"          # Dunkleres Grün
-  texture: "forest_floor"
-  amplitude: 4.4
-  y: -0.03
+  preset: "forest_floor"
 
 objects:
-  - type: "tree"
+  - preset: "tree_simple"
     position: [3, 0, 5]
-    scale: [2, 2.5, 2]       # Große Bäume
-    color: "#1a4a1a"
     
-  - type: "tree"
+  - preset: "tree_simple"
     position: [-5, 0, 3]
     scale: [1.8, 2.2, 1.8]
-    color: "#1a4a1a"
     
-  - type: "tree"
+  - preset: "tree_simple"
     position: [8, 0, -2]
     scale: [2.2, 3, 2.2]
-    color: "#1a4a1a"
     
-  - type: "tree"
+  - preset: "tree_simple"
     position: [-8, 0, -5]
     scale: [1.5, 2, 1.5]
-    color: "#1a4a1a"
     
-  - type: "mushroom"          # Neuer Objekttyp
+  - preset: "mushroom_small"
     position: [2, 0, -3]
     scale: [0.5, 0.8, 0.5]
     color: "#8b4513"
@@ -48,7 +38,7 @@ objects:
     script: |
       this.userData.glowIntensity = Math.sin(Date.now() * 0.003) * 0.5 + 0.5;
       
-  - type: "stone_circle"      # Mystischer Steinkreis
+  - preset: "stone_circle_thin"
     position: [0, 0, 0]
     scale: [0.7, 0.7 ,4]
     color: "#696969"
@@ -70,15 +60,9 @@ portals:
     color: "#228b22"
 
 personas:
-  - name: "Waldwächter Theron"
+  - preset: "npc_guardian"
+    name: "Waldwächter Theron"
     position: [-3, 0, 8]
-    appearance:
-      color: "#8fbc8f"
-      height: 2.0
-      type: "tall_humanoid"
-    behavior:
-      greeting: "Psst... hier sprechen wir leise. Der Wald hört mit."
-      idle_animation: "sway"
     dialogue:
       opening: "Ich bin Theron, Hüter dieses alten Waldes. Was führt euch hierher?"
       topics:
@@ -89,12 +73,12 @@ personas:
         - question: "Wohin führt das tiefe Portal?"
           answer: "Tiefer in das Herz des Waldes, wo wenige sich hintrauen. Seid ihr bereit?"
 
-  - name: "Waldfee Aria"
+  - preset: "npc_fairy"
+    name: "Waldfee Aria"
     position: [5, 0, -8]
     appearance:
       color: "#ffd700"
       height: 1.2
-      type: "fairy"
     behavior:
       greeting: "Willkommen, Reisender! Die Bäume haben mir von euch erzählt."
       idle_animation: "float"
