@@ -573,14 +573,52 @@ personas:
                 const group = new THREE.Group();
                 let objectCount = 0;
 
-                // // TEST: Sichtbare Test-Box hinzufügen (kleiner und höher)
-                // const testGeo = new THREE.BoxGeometry(2, 0.5, 2);
-                // const testMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-                // const testCube = new THREE.Mesh(testGeo, testMat);
-                // testCube.position.set(10, 2, 10); // Weiter weg und höher
-                // group.add(testCube);
-                // console.log('🔴 Test-Würfel zur Zone hinzugefügt (preset-editor)');
-                // objectCount++;
+                // Environment anwenden wie im YAMLWorldLoader
+                if (worldData.environment) {
+                    const env = worldData.environment;
+                    // Hintergrundfarbe (Skybox-Simulation)
+                    const tod = typeof env.time_of_day === 'number' ? Math.max(0, Math.min(1, env.time_of_day)) : 0.5;
+                    const sky = env.skybox || 'clear_day';
+                    const skyColor = this._getSkyColor(sky, tod);
+                    this.scene.background = new THREE.Color(skyColor);
+
+                    // Nebel (vereinfachte Simulation: linearer Nebel)
+                    if (env.fog_distance) {
+                        this.scene.fog = new THREE.Fog(new THREE.Color(skyColor), 10, env.fog_distance);
+                    } else {
+                        this.scene.fog = null;
+                    }
+
+                    // Entferne bestehende Lichter im Scene-Root, um Doppelungen zu vermeiden
+                    const lightsToRemove = [];
+                    this.scene.traverse((obj) => {
+                        if (obj.isLight) lightsToRemove.push(obj);
+                    });
+                    lightsToRemove.forEach(l => this.scene.remove(l));
+
+                    // Ambient Light
+                    const ambientIntensity = env.ambient_light ?? 0.6;
+                    const ambientLight = new THREE.AmbientLight(0x404040, ambientIntensity);
+                    this.scene.add(ambientLight);
+
+                    // Sonnenlicht nach time_of_day
+                    const sunIntensity = env.sun_intensity ?? 0.8;
+                    const dir = new THREE.DirectionalLight(0xffffff, sunIntensity);
+                    const angle = (tod * Math.PI * 2);
+                    const sunY = Math.max(0.15, Math.sin(angle));
+                    const radius = 30;
+                    dir.position.set(Math.cos(angle) * radius, sunY * radius, Math.sin(angle) * radius);
+                    dir.castShadow = false;
+                    this.scene.add(dir);
+
+                    // Hemisphere Fill
+                    const fill = new THREE.HemisphereLight(0xaaccff, 0x223344, 0.15);
+                    this.scene.add(fill);
+
+                    if (env.ambient_sound) {
+                        group.userData.ambient_sound = env.ambient_sound; // Marker
+                    }
+                }
 
                 // Terrain visualization mit Preset-Support
                 if (worldData.terrain) {
@@ -676,6 +714,39 @@ personas:
                 this.scene.add(group);
                 this.currentZone = { group };
                 this.updateObjectCount(objectCount);
+            }
+
+            // Hilfsfunktion: gleich wie im Loader
+            _getSkyColor(skyPreset, t) {
+                const lerpHex = (a, b, t) => {
+                    const ca = new THREE.Color(a);
+                    const cb = new THREE.Color(b);
+                    return new THREE.Color(ca.r + (cb.r - ca.r) * t, ca.g + (cb.g - ca.g) * t, ca.b + (cb.b - ca.b) * t).getHex();
+                };
+                switch (skyPreset) {
+                    case 'sunset':
+                        if (t < 0.25) return lerpHex(0x0b0d26, 0xff7e5f, t / 0.25);
+                        if (t < 0.5) return lerpHex(0xff7e5f, 0x87ceeb, (t - 0.25) / 0.25);
+                        if (t < 0.75) return lerpHex(0x87ceeb, 0xff9966, (t - 0.5) / 0.25);
+                        return lerpHex(0xff9966, 0x0b0d26, (t - 0.75) / 0.25);
+                    case 'night':
+                        return 0x0b0d26;
+                    case 'storm':
+                        return 0x3b3f47;
+                    case 'mystery_dark':
+                        return 0x1a1a1a;
+                    case 'skyline':
+                        return 0x334455;
+                    case 'ocean':
+                        return 0x2e6f95;
+                    case 'bay':
+                        return 0x5fa3c8;
+                    case 'clear_day':
+                    default:
+                        if (t < 0.25) return lerpHex(0x0b0d26, 0x87ceeb, t / 0.25);
+                        if (t < 0.75) return 0x87ceeb;
+                        return lerpHex(0x87ceeb, 0x0b0d26, (t - 0.75) / 0.25);
+                }
             }
 
             createSimpleTerrain(terrainConfig) {

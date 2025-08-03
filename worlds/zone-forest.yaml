@@ -4,11 +4,11 @@ description: "Ein dichter Wald voller Geheimnisse und magischer Kreaturen"
 id: "zone-forest"
 
 environment:
-  skybox: "twilight"
-  time_of_day: 0.7           # Dämmerstunde
-  ambient_light: 0.4         # Gedämpftes Licht
-  sun_intensity: 0.3         # Schwaches Sonnenlicht durch Bäume
-  fog_distance: 30           # Dichterer Nebel
+  skybox: "skyline"
+  time_of_day: 0.1           # Dämmerstunde
+  ambient_light: 0.3         # Gedämpftes Licht
+  sun_intensity: -0.3        # Schwaches Sonnenlicht durch Bäume
+  fog_distance: 20          # Dichterer Nebel
   ambient_sound: "forest"
 
 terrain:

@@ -254,18 +254,90 @@ export class YAMLWorldLoader {
    */
   setupEnvironment(envConfig, parentGroup) {
     console.log('🌅 Richte Umgebung ein:', envConfig);
-    const ambientLight = new THREE.AmbientLight(0x404040, envConfig.ambient_light || 0.7);
+
+    // Skybox / Hintergrundfarbe abhängig vom Preset und time_of_day
+    if (this.zoneManager && this.zoneManager.worldRoot && this.zoneManager.worldRoot.parent && this.zoneManager.worldRoot.parent.background !== undefined) {
+      const scene = this.zoneManager.worldRoot.parent; // Annahme: worldRoot ist der Zonen-Container innerhalb der THREE.Scene
+      const tod = typeof envConfig.time_of_day === 'number' ? Math.max(0, Math.min(1, envConfig.time_of_day)) : 0.5;
+      const sky = envConfig.skybox || 'clear_day';
+      const skyColor = this._getSkyColor(sky, tod);
+      scene.background = new THREE.Color(skyColor);
+    }
+
+    // Nebel (linear)
+    if (envConfig.fog_distance) {
+      const scene = this.zoneManager.worldRoot.parent;
+      scene.fog = new THREE.Fog((scene.background instanceof THREE.Color) ? scene.background : new THREE.Color(0x87ceeb), 10, envConfig.fog_distance);
+    }
+
+    // Umgebungslicht
+    const ambientIntensity = envConfig.ambient_light ?? 0.7;
+    const ambientLight = new THREE.AmbientLight(0x404040, ambientIntensity);
     parentGroup.add(ambientLight);
-    const dir = new THREE.DirectionalLight(0xffffff, envConfig.sun_intensity || 0.9);
-    dir.position.set(10, 20, 8);
+
+    // Sonnenlicht (Richtung abhängig von time_of_day)
+    const sunIntensity = envConfig.sun_intensity ?? 0.9;
+    const dir = new THREE.DirectionalLight(0xffffff, sunIntensity);
+    // time_of_day: 0.0 = Mitternacht → Sonne unter Horizont; 0.5 = Mittag → hoch oben
+    const tod = typeof envConfig.time_of_day === 'number' ? Math.max(0, Math.min(1, envConfig.time_of_day)) : 0.5;
+    const angle = (tod * Math.PI * 2); // 0..2PI
+    const sunY = Math.max(0.15, Math.sin(angle)); // nie ganz 0, damit etwas Licht bleibt
+    const radius = 30;
+    dir.position.set(Math.cos(angle) * radius, sunY * radius, Math.sin(angle) * radius);
     dir.castShadow = true;
     dir.shadow.mapSize.set(2048, 2048);
     dir.shadow.camera.near = 0.5;
-    dir.shadow.camera.far = 80;
+    dir.shadow.camera.far = 120;
     parentGroup.add(dir);
+
+    // Fill-Light
     const fill = new THREE.HemisphereLight(0xaaccff, 0x223344, 0.15);
     parentGroup.add(fill);
+
+    // Ambient Sound (Platzhalter: nur Markierung, echte Audio-Engine nicht integriert)
+    if (envConfig.ambient_sound) {
+      parentGroup.userData.ambient_sound = envConfig.ambient_sound;
+      console.log('🎵 Ambient Sound gesetzt:', envConfig.ambient_sound);
+    }
+
     console.log('✅ Umgebung eingerichtet');
+  }
+
+  // Interne Hilfsfunktion: Liefert Himmelsfarbe für Skybox-Preset und Tageszeit
+  _getSkyColor(skyPreset, t) {
+    // t ∈ [0,1]
+    const lerpHex = (a, b, t) => {
+      const ca = new THREE.Color(a);
+      const cb = new THREE.Color(b);
+      return new THREE.Color(ca.r + (cb.r - ca.r) * t, ca.g + (cb.g - ca.g) * t, ca.b + (cb.b - ca.b) * t).getHex();
+    };
+
+    switch (skyPreset) {
+      case 'sunset':
+        // Nacht → Morgenrot → Tag → Abendrot → Nacht
+        if (t < 0.25) return lerpHex(0x0b0d26, 0xff7e5f, t / 0.25);
+        if (t < 0.5) return lerpHex(0xff7e5f, 0x87ceeb, (t - 0.25) / 0.25);
+        if (t < 0.75) return lerpHex(0x87ceeb, 0xff9966, (t - 0.5) / 0.25);
+        return lerpHex(0xff9966, 0x0b0d26, (t - 0.75) / 0.25);
+      case 'night':
+        return 0x0b0d26; // tiefes Nachtblau
+      case 'storm':
+        return 0x3b3f47; // stürmisch-grau
+      case 'mystery_dark':
+        return 0x1a1a1a; // sehr dunkel
+      case 'skyline':
+        return 0x334455; // urbanes Blau-Grau
+      case 'ocean':
+        return 0x2e6f95; // ozeanblau
+      case 'bay':
+        return 0x5fa3c8; // helleres Hafenblau
+      case 'clear_day':
+      default:
+        // klarer Tageshimmel über Tageszeit
+        if (t < 0.25) return lerpHex(0x0b0d26, 0x87ceeb, t / 0.25); // Nacht → Morgen
+        if (t < 0.75) return 0x87ceeb; // Tag
+        return lerpHex(0x87ceeb, 0x0b0d26, (t - 0.75) / 0.25); // Abend → Nacht
+    }
   }
 
   /**
