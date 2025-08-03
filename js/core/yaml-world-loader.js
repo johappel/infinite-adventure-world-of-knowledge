@@ -132,7 +132,6 @@ export class YAMLWorldLoader {
    */
   createTerrain(terrainConfig, parentGroup) {
     console.log('🌍 Erstelle Terrain:', terrainConfig);
-
     const width = terrainConfig.size?.[0] || terrainConfig.width || 50;
     const height = terrainConfig.size?.[1] || terrainConfig.height || 50;
 
@@ -183,10 +182,16 @@ export class YAMLWorldLoader {
 
     const terrain = new THREE.Mesh(geometry, material);
     terrain.rotation.x = -Math.PI / 2;
-    terrain.position.y = terrainConfig.y || 0;
+    terrain.position.y = terrainConfig.y ?? 0; // YAML kann y überschreiben
     terrain.name = 'terrain';
     terrain.receiveShadow = true;
-
+    // Wichtig: Terrain immer zuerst und undurchsichtig zeichnen
+    terrain.renderOrder = -10;
+    if (terrain.material) {
+      terrain.material.transparent = false;
+      terrain.material.depthWrite = true;
+      terrain.material.depthTest = true;
+    }
     parentGroup.add(terrain);
     console.log('✅ Terrain erstellt');
   }
