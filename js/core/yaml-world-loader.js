@@ -64,6 +64,14 @@ export class YAMLWorldLoader {
     const personas = [];
     const portals = [];
 
+    // // TEST: Sichtbare Test-Box hinzufügen
+    // const testGeo = new THREE.BoxGeometry(10, 1, 10);
+    // const testMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    // const testCube = new THREE.Mesh(testGeo, testMat);
+    // testCube.position.y = 0.5;
+    // zoneGroup.add(testCube);
+    // console.log('🔴 Test-Würfel zur Zone hinzugefügt');
+
     // Terrain mit Preset/Defaults
     if (worldData.terrain) {
       const terrCfg = this.resolveTerrainConfig(worldData.terrain);
@@ -102,6 +110,10 @@ export class YAMLWorldLoader {
 
     const evt = createEvent(EVENT_KINDS.ZONE, { id: zoneId, name: worldData.name, description: worldData.description, source: 'yaml' }, [['zone', zoneId]]);
     worldStore.add(evt);
+
+    // WICHTIG: Zone für Test sichtbar machen
+    zoneGroup.visible = true;
+    console.log('✅ Zone sichtbar gesetzt für Test');
 
     console.log(`✅ Zone "${zoneId}" konvertiert: ${personas.length} NPCs, ${portals.length} Portale`);
     return zoneInfo;
@@ -144,12 +156,12 @@ export class YAMLWorldLoader {
       const amplitude = terrainConfig.amplitude ?? 2.5;
       for (let i = 0; i < pos.count; i++) {
         v.fromBufferAttribute(pos, i);
-        const x = v.x, z = v.z;
-        const wave1 = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 0.9;
-        const wave2 = Math.sin(x * 0.18 + 1.2) * Math.cos(z * 0.14 + 0.7) * 0.6;
-        const wave3 = Math.sin(x * 0.3 + 2.4) * Math.cos(z * 0.22 + 1.7) * 0.3;
+        const x = v.x, y = v.y; // Ebene liegt in XY
+        const wave1 = Math.sin(x * 0.08) * Math.cos(y * 0.08) * 0.9;
+        const wave2 = Math.sin(x * 0.18 + 1.2) * Math.cos(y * 0.14 + 0.7) * 0.6;
+        const wave3 = Math.sin(x * 0.3 + 2.4) * Math.cos(y * 0.22 + 1.7) * 0.3;
         const elevation = (wave1 + wave2 + wave3) * amplitude;
-        pos.setY(i, elevation);
+        pos.setZ(i, elevation); // Höhe in Z schreiben
       }
       pos.needsUpdate = true;
       geometry.computeVertexNormals();
@@ -161,9 +173,9 @@ export class YAMLWorldLoader {
       const amplitude = terrainConfig.amplitude ?? 6.0;
       for (let i = 0; i < pos.count; i++) {
         v.fromBufferAttribute(pos, i);
-        const r = Math.hypot(v.x, v.z);
-        const ridge = Math.sin(r * 0.06) * 0.8 + Math.sin(v.x * 0.08) * Math.cos(v.z * 0.08) * 0.6;
-        pos.setY(i, Math.max(0, ridge * amplitude));
+        const r = Math.hypot(v.x, v.y); // XY verwenden
+        const ridge = Math.sin(r * 0.06) * 0.8 + Math.sin(v.x * 0.08) * Math.cos(v.y * 0.08) * 0.6;
+        pos.setZ(i, Math.max(0, ridge * amplitude));
       }
       pos.needsUpdate = true;
       geometry.computeVertexNormals();
@@ -182,7 +194,13 @@ export class YAMLWorldLoader {
     // Canvas-Textur anwenden, wenn texture: 'forest_floor'
     if (terrainConfig.texture === 'forest_floor') {
       const tex = textures.makeForestFloorTexture();
+      // Farbdarstellung verbessern und Textur sichtbar machen
+      if (THREE.sRGBEncoding !== undefined) {
+        tex.encoding = THREE.sRGBEncoding;
+      }
       material.map = tex;
+      // Optional: neutrale Farbe, damit die Textur nicht abgedunkelt wird
+      material.color = new THREE.Color('#ffffff');
       material.needsUpdate = true;
     }
 
