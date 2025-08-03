@@ -392,17 +392,99 @@ personas:
                 this.renderBtn.addEventListener('click', () => this.renderYAML());
                 this.resetBtn.addEventListener('click', () => this.resetScene());
                 
-                // Auto-render bei YAML-Änderungen (mit Debounce)
+                // Auto-render bei YAML-Änderungen (mit Debounce und besserer Fehlerbehandlung)
                 let timeout;
                 this.yamlEditor.addEventListener('input', () => {
                     clearTimeout(timeout);
-                    timeout = setTimeout(() => this.renderYAML(), 1000);
+                    timeout = setTimeout(() => {
+                        // Nur rendern wenn YAML vollständig aussieht
+                        const yamlText = this.yamlEditor.value.trim();
+                        console.log('🔄 Auto-render check:', { 
+                            hasText: !!yamlText, 
+                            isValid: this.isValidTypingState(yamlText),
+                            textLength: yamlText.length 
+                        });
+                        
+                        if (yamlText && this.isValidTypingState(yamlText)) {
+                            console.log('✅ Auto-rendering YAML...');
+                            this.renderYAML();
+                        } else {
+                            console.log('⏳ Waiting for complete YAML...');
+                        }
+                    }, 1500); // Längere Wartezeit
                 });
 
                 // Kamera-Kontrollen
                 this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
                 this.canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
                 window.addEventListener('resize', () => this.onWindowResize());
+            }
+
+            isValidTypingState(text) {
+                // Schnellchecks
+                if (!text || !text.trim()) return false;
+                const trimmed = text.trim();
+
+                // 1) Offensichtliche Tipp-Zustände (ohne false-positives bei gültigen Blöcken)
+                const loosePatterns = [
+                    /^\s*-\s*$/m,           // leeres Listen-Item
+                    /^\s*preset:\s*$/m,     // preset: ohne Wert
+                    /\[\s*\d+\s*,?\s*$/,   // unvollständiges Array [1,
+                ];
+                for (const p of loosePatterns) {
+                    if (p.test(trimmed)) {
+                        console.log('🚫 Typing pattern detected:', p.toString());
+                        return false;
+                    }
+                }
+
+                // 2) Kontext-basierter Check für Key-Zeilen: "key:" ist nur Tipp, wenn keine sinnvolle Folgezeile folgt
+                const lines = trimmed.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const next = lines[i + 1];
+
+                    const isKeyOnly = /^\s*[\w-]+:\s*$/.test(line);
+                    if (isKeyOnly) {
+                        // Wenn nächste Zeile fehlt oder nur Leerraum → noch Tippzustand
+                        if (!next || /^\s*$/.test(next)) {
+                            console.log('🚫 Key with empty or missing next line:', line);
+                            return false;
+                        }
+                        // Wenn nächste Zeile nicht eingerückt ist → Struktur noch nicht begonnen
+                        const isIndentedNext = /^\s+/.test(next);
+                        if (!isIndentedNext) {
+                            console.log('🚫 Key without indented content yet:', line);
+                            return false;
+                        }
+                    }
+                }
+
+                // 3) Robuster Check auf ungeschlossene Strings per Quote-Zählung
+                const dqCount = (trimmed.match(/\"/g) || []).length; // count "
+                const sqCount = (trimmed.match(/'/g) || []).length;    // count '
+                // Wenn ungerade Anzahl, ist irgendein String offen
+                if (dqCount % 2 !== 0 || sqCount % 2 !== 0) {
+                    console.log('🚫 Unmatched quotes detected (single or double)');
+                    return false;
+                }
+
+                // 4) YAML Parse-Probe
+                try {
+                    const parsed = jsyaml.load(trimmed);
+                    const isObject = parsed !== null && typeof parsed === 'object';
+                    if (!isObject) {
+                        console.log('🚫 YAML parsed but not an object');
+                        return false;
+                    }
+                } catch (e) {
+                    console.log('❌ YAML parse error (still typing?):', e.message);
+                    return false;
+                }
+
+                // 5) Sonderfall: minimales, aber gültiges Snippet erlauben (z.B. nur terrain + preset)
+                // Wenn wir bis hierher kommen, ist es renderbar
+                return true;
             }
 
             loadTemplate() {
@@ -476,8 +558,14 @@ personas:
 
                 } catch (error) {
                     console.error('YAML Visualisierung Error:', error);
-                    this.showError('YAML Fehler: ' + error.message);
-                    this.updateStatus('❌ YAML Visualisierung fehlgeschlagen');
+                    
+                    // Nur echte Fehler anzeigen, nicht Tipp-Fehler
+                    if (error.name === 'YAMLException' && error.message.includes('colon is missed')) {
+                        this.updateStatus('⚠️ YAML wird getippt... (Doppelpunkt fehlt)');
+                    } else {
+                        this.showError('YAML Fehler: ' + error.message);
+                        this.updateStatus('❌ YAML Visualisierung fehlgeschlagen');
+                    }
                 }
             }
 
@@ -485,17 +573,69 @@ personas:
                 const group = new THREE.Group();
                 let objectCount = 0;
 
-                // Terrain visualization
+                // // TEST: Sichtbare Test-Box hinzufügen (kleiner und höher)
+                // const testGeo = new THREE.BoxGeometry(2, 0.5, 2);
+                // const testMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                // const testCube = new THREE.Mesh(testGeo, testMat);
+                // testCube.position.set(10, 2, 10); // Weiter weg und höher
+                // group.add(testCube);
+                // console.log('🔴 Test-Würfel zur Zone hinzugefügt (preset-editor)');
+                // objectCount++;
+
+                // Terrain visualization mit Preset-Support
                 if (worldData.terrain) {
-                    const terrain = this.createSimpleTerrain(worldData.terrain);
+                    let terrainConfig = worldData.terrain;
+                    
+                    // Preset auflösen
+                    if (terrainConfig.preset) {
+                        const presetDefaults = {
+                            'forest_floor': {
+                                type: 'hills',
+                                texture: 'forest_floor',
+                                color: '#4a7c1e',
+                                amplitude: 2.5,
+                                size: [50, 50]
+                            },
+                            'grass_flat': {
+                                type: 'flat',
+                                color: '#4a7c1e',
+                                size: [50, 50]
+                            }
+                        };
+                        
+                        const preset = presetDefaults[terrainConfig.preset];
+                        if (preset) {
+                            terrainConfig = { ...preset, ...terrainConfig };
+                        }
+                    }
+                    
+                    const terrain = this.createSimpleTerrain(terrainConfig);
                     group.add(terrain);
                     objectCount++;
                 }
 
-                // Objects visualization
+                // Objects visualization mit Preset-Support
                 if (worldData.objects && Array.isArray(worldData.objects)) {
                     worldData.objects.forEach((obj, index) => {
-                        const mesh = this.createSimpleObject(obj, index);
+                        let objConfig = obj;
+                        
+                        // Preset auflösen
+                        if (obj.preset) {
+                            const objectPresets = {
+                                'tree_simple': { type: 'tree', color: '#1a4a1a', scale: [1, 1, 1] },
+                                'rock_small': { type: 'rock', color: '#8b7355', scale: [0.8, 0.8, 0.8] },
+                                'crystal': { type: 'crystal', color: '#00ffff', scale: [1, 1, 1] },
+                                'mushroom_small': { type: 'mushroom', color: '#8b4513', scale: [0.5, 0.8, 0.5] },
+                                'stone_circle_thin': { type: 'stone_circle', color: '#696969', scale: [4, 4, 4] }
+                            };
+                            
+                            const preset = objectPresets[obj.preset];
+                            if (preset) {
+                                objConfig = { ...preset, ...obj };
+                            }
+                        }
+                        
+                        const mesh = this.createSimpleObject(objConfig, index);
                         if (mesh) {
                             group.add(mesh);
                             objectCount++;
@@ -503,10 +643,29 @@ personas:
                     });
                 }
 
-                // Personas visualization
+                // Personas visualization mit Preset-Support
                 if (worldData.personas && Array.isArray(worldData.personas)) {
                     worldData.personas.forEach((persona, index) => {
-                        const mesh = this.createSimplePersona(persona, index);
+                        let personaConfig = persona;
+                        
+                        // Preset auflösen
+                        if (persona.preset) {
+                            const personaPresets = {
+                                'npc_plain': { role: 'NPC', appearance: { color: '#ff6b6b', height: 1.6 } },
+                                'npc_guardian': { role: 'Guardian', appearance: { color: '#4169e1', height: 1.8 } }
+                            };
+                            
+                            const preset = personaPresets[persona.preset];
+                            if (preset) {
+                                personaConfig = { ...preset, ...persona };
+                                // Merge nested appearance object
+                                if (preset.appearance && persona.appearance) {
+                                    personaConfig.appearance = { ...preset.appearance, ...persona.appearance };
+                                }
+                            }
+                        }
+                        
+                        const mesh = this.createSimplePersona(personaConfig, index);
                         if (mesh) {
                             group.add(mesh);
                             objectCount++;
@@ -527,21 +686,26 @@ personas:
                 const geometry = new THREE.PlaneGeometry(size[0], size[1], seg, seg);
                 
                 let color = '#4a7c1e';
-                const material = new THREE.MeshLambertMaterial({ color: color, side: THREE.FrontSide });
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: color, 
+                    side: THREE.FrontSide,
+                    roughness: 0.75,
+                    metalness: 0.05
+                });
 
                 // Height variation für hills anwenden (wie im Loader)
                 if (isHills) {
                     const pos = geometry.attributes.position;
                     const v = new THREE.Vector3();
-                    const amplitude = (typeof terrainConfig.amplitude === 'number') ? terrainConfig.amplitude : 3.8; // Default wie Preset
+                    const amplitude = (typeof terrainConfig.amplitude === 'number') ? terrainConfig.amplitude : 2.5; // Default wie echtes Preset
                     for (let i = 0; i < pos.count; i++) {
                         v.fromBufferAttribute(pos, i);
-                        const x = v.x, z = v.z;
-                        const wave1 = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 0.9;
-                        const wave2 = Math.sin(x * 0.18 + 1.2) * Math.cos(z * 0.14 + 0.7) * 0.6;
-                        const wave3 = Math.sin(x * 0.3 + 2.4) * Math.cos(z * 0.22 + 1.7) * 0.3;
+                        const x = v.x, y = v.y; // PlaneGeometry liegt in XY-Ebene
+                        const wave1 = Math.sin(x * 0.08) * Math.cos(y * 0.08) * 0.9;
+                        const wave2 = Math.sin(x * 0.18 + 1.2) * Math.cos(y * 0.14 + 0.7) * 0.6;
+                        const wave3 = Math.sin(x * 0.3 + 2.4) * Math.cos(y * 0.22 + 1.7) * 0.3;
                         const elevation = (wave1 + wave2 + wave3) * amplitude;
-                        pos.setY(i, elevation);
+                        pos.setZ(i, elevation); // Höhe in Z-Richtung setzen (wie im echten Loader)
                     }
                     pos.needsUpdate = true;
                     geometry.computeVertexNormals();
@@ -628,6 +792,12 @@ personas:
                 }
                 if (objConfig.scale) {
                     mesh.scale.set(...objConfig.scale);
+                }
+                
+                // Spezifische Ausrichtung für Stone Circle (flach auf den Boden)
+                if (objConfig.preset === 'stone_circle_thin' || objConfig.type === 'stone_circle') {
+                    mesh.rotation.x = Math.PI / 2; // 90 Grad um X-Achse = flach auf Boden
+                    mesh.position.y = Math.max(mesh.position.y || 0, 0.02); // Leicht über Boden gegen Z-Fighting
                 }
                 
                 mesh.name = `${objConfig.preset || objConfig.type}_${index}`;
