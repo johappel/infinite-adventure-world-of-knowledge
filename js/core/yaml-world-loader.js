@@ -137,88 +137,55 @@ export class YAMLWorldLoader {
     const height = terrainConfig.size?.[1] || terrainConfig.height || 50;
 
     let geometry;
-    
-    // Verschiedene Terrain-Typen
     if (terrainConfig.type === 'hills') {
       console.log('🏔️ Erstelle Hills-Terrain mit Höhenvariation');
-      // Hills: PlaneGeometry mit mehr Segmenten für Verformung
-      geometry = new THREE.PlaneGeometry(width, height, 64, 64);
-      
-      // Vertices manipulieren für Hills-Effekt
-      const positionAttribute = geometry.attributes.position;
-      const vertex = new THREE.Vector3();
-      
-      for (let i = 0; i < positionAttribute.count; i++) {
-        vertex.fromBufferAttribute(positionAttribute, i);
-        
-        // Mehrere Hügel mit verschiedenen Frequenzen
-        const x = vertex.x;
-        const z = vertex.z;
-        
-        // Haupthügel
-        const wave1 = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 3;
-        // Kleinere Hügel
-        const wave2 = Math.sin(x * 0.15 + 1.5) * Math.cos(z * 0.12 + 0.8) * 2;
-        // Detailstrukturen
-        const wave3 = Math.sin(x * 0.25 + 3) * Math.cos(z * 0.2 + 2) * 1;
-        // Zufälliges Rauschen
-        const noise = (Math.random() - 0.5) * 0.5;
-        
-        const elevation = wave1 + wave2 + wave3 + noise;
-        positionAttribute.setY(i, elevation);
+      geometry = new THREE.PlaneGeometry(width, height, 96, 96);
+      const pos = geometry.attributes.position;
+      const v = new THREE.Vector3();
+      const amplitude = terrainConfig.amplitude ?? 2.5; // stärker sichtbar
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i);
+        const x = v.x, z = v.z;
+        const wave1 = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 0.9;
+        const wave2 = Math.sin(x * 0.18 + 1.2) * Math.cos(z * 0.14 + 0.7) * 0.6;
+        const wave3 = Math.sin(x * 0.3 + 2.4) * Math.cos(z * 0.22 + 1.7) * 0.3;
+        const elevation = (wave1 + wave2 + wave3) * amplitude;
+        pos.setY(i, elevation);
       }
-      
-      // WICHTIG: Position-Updates aktivieren
-      positionAttribute.needsUpdate = true;
-      // Normale neu berechnen für korrekte Beleuchtung
+      pos.needsUpdate = true;
       geometry.computeVertexNormals();
     } else if (terrainConfig.type === 'mountains') {
       console.log('⛰️ Erstelle Mountains-Terrain');
-      // Mountains: noch stärkere Höhenunterschiede
-      geometry = new THREE.PlaneGeometry(width, height, 96, 96);
-      
-      const positionAttribute = geometry.attributes.position;
-      const vertex = new THREE.Vector3();
-      
-      for (let i = 0; i < positionAttribute.count; i++) {
-        vertex.fromBufferAttribute(positionAttribute, i);
-        
-        const x = vertex.x;
-        const z = vertex.z;
-        const distance = Math.sqrt(x * x + z * z);
-        
-        // Bergketten
-        const mountain1 = Math.sin(distance * 0.03) * 12;
-        const mountain2 = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 8;
-        const ridges = Math.sin(x * 0.1) * Math.sin(z * 0.1) * 4;
-        const noise = (Math.random() - 0.5) * 2;
-        
-        const elevation = mountain1 + mountain2 + ridges + noise;
-        positionAttribute.setY(i, Math.max(0, elevation));
+      geometry = new THREE.PlaneGeometry(width, height, 128, 128);
+      const pos = geometry.attributes.position;
+      const v = new THREE.Vector3();
+      const amplitude = terrainConfig.amplitude ?? 6.0;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i);
+        const r = Math.hypot(v.x, v.z);
+        const ridge = Math.sin(r * 0.06) * 0.8 + Math.sin(v.x * 0.08) * Math.cos(v.z * 0.08) * 0.6;
+        pos.setY(i, Math.max(0, ridge * amplitude));
       }
-      
-      positionAttribute.needsUpdate = true;
+      pos.needsUpdate = true;
       geometry.computeVertexNormals();
     } else {
       console.log('🟢 Erstelle flaches Terrain');
-      // Flat terrain (default)
       geometry = new THREE.PlaneGeometry(width, height, 2, 2);
     }
 
-    // Material für bessere Sichtbarkeit - MeshStandardMaterial statt Lambert
+    // Material – kein DoubleSide, um Z-Fighting zu minimieren
     const material = new THREE.MeshStandardMaterial({
       color: terrainConfig.color || '#4a7c1e',
-      roughness: 0.7,
-      metalness: 0.1,
-      side: THREE.DoubleSide  // Terrain von beiden Seiten sichtbar
+      roughness: 0.75,
+      metalness: 0.05,
+      side: THREE.FrontSide
     });
 
     const terrain = new THREE.Mesh(geometry, material);
-    terrain.rotation.x = -Math.PI / 2;  // Horizontal ausrichten
+    terrain.rotation.x = -Math.PI / 2;
     terrain.position.y = terrainConfig.y || 0;
     terrain.name = 'terrain';
-    terrain.receiveShadow = true;  // Schatten empfangen
-    terrain.castShadow = false;    // Selbst keine Schatten werfen
+    terrain.receiveShadow = true;
 
     parentGroup.add(terrain);
     console.log('✅ Terrain erstellt');
@@ -229,30 +196,17 @@ export class YAMLWorldLoader {
    */
   setupEnvironment(envConfig, parentGroup) {
     console.log('🌅 Richte Umgebung ein:', envConfig);
-
-    // Stärkere Umgebungsbeleuchtung
-    const ambientLight = new THREE.AmbientLight(0x404040, envConfig.ambient_light || 0.8);
+    const ambientLight = new THREE.AmbientLight(0x404040, envConfig.ambient_light || 0.7);
     parentGroup.add(ambientLight);
-
-    // Hauptlicht mit Schatten
-    const directionalLight = new THREE.DirectionalLight(0xffffff, envConfig.sun_intensity || 1.0);
-    directionalLight.position.set(10, 20, 5);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 50;
-    directionalLight.shadow.camera.left = -20;
-    directionalLight.shadow.camera.right = 20;
-    directionalLight.shadow.camera.top = 20;
-    directionalLight.shadow.camera.bottom = -20;
-    parentGroup.add(directionalLight);
-    
-    // Zusätzliches Fülllicht
-    const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
-    fillLight.position.set(-10, 10, -5);
-    parentGroup.add(fillLight);
-
+    const dir = new THREE.DirectionalLight(0xffffff, envConfig.sun_intensity || 0.9);
+    dir.position.set(10, 20, 8);
+    dir.castShadow = true;
+    dir.shadow.mapSize.set(2048, 2048);
+    dir.shadow.camera.near = 0.5;
+    dir.shadow.camera.far = 80;
+    parentGroup.add(dir);
+    const fill = new THREE.HemisphereLight(0xaaccff, 0x223344, 0.15);
+    parentGroup.add(fill);
     console.log('✅ Umgebung eingerichtet');
   }
 
@@ -277,9 +231,17 @@ export class YAMLWorldLoader {
    */
   createSingleObject(objConfig, index) {
     let geometry;
-
-    // Geometrie basierend auf Typ erstellen
     switch (objConfig.type) {
+      case 'stone_circle': {
+        const radius = (objConfig.scale?.[0] ?? 3);
+        const tube = Math.max(0.08 * radius, 0.15); // dünner, klarer Ring
+        geometry = new THREE.TorusGeometry(radius, tube, 12, 64);
+        break;
+      }
+      case 'mushroom': {
+        geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.5, 10, 1);
+        break;
+      }
       case 'rock':
         geometry = new THREE.DodecahedronGeometry(0.5);
         break;
@@ -292,52 +254,39 @@ export class YAMLWorldLoader {
       case 'sphere':
         geometry = new THREE.SphereGeometry(objConfig.size || 1, 16, 16);
         break;
-      case 'mushroom':
-        // Pilz: Kleiner Stiel + breiter Hut
-        geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8, 1);
-        break;
-      case 'stone_circle':
-        // Steinkreis als flacher Torus
-        geometry = new THREE.TorusGeometry(2, 0.2, 8, 32);
-        break;
       case 'bookshelf':
       case 'box':
       default:
         geometry = new THREE.BoxGeometry(1, 1, 1);
-        break;
     }
 
-    // Material mit MeshStandardMaterial für bessere Beleuchtung
     const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(objConfig.color || '#8b4513'),
-      roughness: 0.7,
-      metalness: 0.1
+      roughness: 0.75,
+      metalness: 0.08
     });
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = `${objConfig.type}_${index}`;
-    mesh.castShadow = true;    // Schatten werfen
-    mesh.receiveShadow = true; // Schatten empfangen
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
 
-    // Position setzen
     if (objConfig.position) {
       mesh.position.set(...objConfig.position);
     }
-
-    // Skalierung setzen
     if (objConfig.scale) {
       mesh.scale.set(...objConfig.scale);
     }
 
-    // Interaktive Eigenschaften
-    if (objConfig.interactive) {
-      mesh.userData.interactive = true;
-      mesh.userData.script = objConfig.script;
+    // Spezifische Ausrichtung für Stone Circle
+    if (objConfig.type === 'stone_circle') {
+      mesh.rotation.x = Math.PI / 2;        // flach auf den Boden
+      mesh.position.y = Math.max(mesh.position.y ?? 0, 0.02); // leicht über Boden -> kein Flimmern
     }
 
-    // Interaktions-Text
-    if (objConfig.interaction) {
-      mesh.userData.interaction = objConfig.interaction;
+    // Interaktiv
+    if (objConfig.interactive) {
+      mesh.userData.interactive = true;
     }
 
     return mesh;
@@ -547,15 +496,14 @@ export class YAMLWorldLoader {
    * Erstellt ein einzelnes Portal
    */
   createSinglePortal(portalConfig, index, zoneId) {
-    // Portal-Material (animiert wie im bestehenden System) - MeshStandardMaterial verwenden
     const portalMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color(portalConfig.color || '#4169e1'),
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.6,
       emissive: new THREE.Color(portalConfig.color || '#4169e1'),
-      emissiveIntensity: 0.3,  // Reduzierte Intensität
-      roughness: 0.1,
-      metalness: 0.3,
+      emissiveIntensity: 0.25,
+      roughness: 0.2,
+      metalness: 0.2,
       side: THREE.DoubleSide
     });
 
