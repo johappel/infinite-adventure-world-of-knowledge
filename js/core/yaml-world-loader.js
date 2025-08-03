@@ -154,13 +154,47 @@ export class YAMLWorldLoader {
       const pos = geometry.attributes.position;
       const v = new THREE.Vector3();
       const amplitude = terrainConfig.amplitude ?? 2.5;
+
+      // Parameter für flache Mitte
+      const flatRadius = terrainConfig.flat_radius ?? Math.min(width, height) * 0.15; // absoluter Radius in Welt-Einheiten
+      const blendRadius = terrainConfig.blend_radius ?? Math.min(width, height) * 0.25; // Übergangsbreite
+      const centerX = 0; // PlaneGeometry ist um Ursprung zentriert
+      const centerY = 0;
+
+      // Vorab: maximaler Radius (bis Ecke) für optionale Normalisierung
+      const maxR = Math.hypot(width * 0.5, height * 0.5);
+
       for (let i = 0; i < pos.count; i++) {
         v.fromBufferAttribute(pos, i);
         const x = v.x, y = v.y; // Ebene liegt in XY
+
+        // Radialer Abstand vom Zentrum
+        const r = Math.hypot(x - centerX, y - centerY);
+
+        // 1) Roh-Höhenfeld (Wellen wie zuvor)
         const wave1 = Math.sin(x * 0.08) * Math.cos(y * 0.08) * 0.9;
         const wave2 = Math.sin(x * 0.18 + 1.2) * Math.cos(y * 0.14 + 0.7) * 0.6;
         const wave3 = Math.sin(x * 0.3 + 2.4) * Math.cos(y * 0.22 + 1.7) * 0.3;
-        const elevation = (wave1 + wave2 + wave3) * amplitude;
+        const baseElevation = (wave1 + wave2 + wave3) * amplitude;
+
+        // 2) Radialer Blend-Faktor: 0 in der Mitte (flach), 1 außen (volle Hügel)
+        // Stückweise linearer Übergang mit sanfter S-Kurve
+        let blend;
+        if (r <= flatRadius) {
+          blend = 0; // komplett flach
+        } else if (r >= flatRadius + blendRadius) {
+          blend = 1; // volle Hügel
+        } else {
+          const t = (r - flatRadius) / Math.max(1e-6, blendRadius); // 0..1
+          // S-Kurve zur Glättung
+          blend = t * t * (3 - 2 * t); // smoothstep
+        }
+
+        // 3) Optionale zusätzliche Außenverstärkung (sanft ansteigend nach außen)
+        const outerGain = terrainConfig.outer_gain ?? 1.0; // 1.0 = aus
+        const radialFactor = outerGain === 1.0 ? 1.0 : (1 + (outerGain - 1) * (r / maxR));
+
+        const elevation = baseElevation * blend * radialFactor;
         pos.setZ(i, elevation); // Höhe in Z schreiben
       }
       pos.needsUpdate = true;
@@ -194,12 +228,10 @@ export class YAMLWorldLoader {
     // Canvas-Textur anwenden, wenn texture: 'forest_floor'
     if (terrainConfig.texture === 'forest_floor') {
       const tex = textures.makeForestFloorTexture();
-      // Farbdarstellung verbessern und Textur sichtbar machen
       if (THREE.sRGBEncoding !== undefined) {
         tex.encoding = THREE.sRGBEncoding;
       }
       material.map = tex;
-      // Optional: neutrale Farbe, damit die Textur nicht abgedunkelt wird
       material.color = new THREE.Color('#ffffff');
       material.needsUpdate = true;
     }

@@ -680,39 +680,57 @@ personas:
 
             createSimpleTerrain(terrainConfig) {
                 const size = terrainConfig.size || [50, 50];
-                // Wenn hills oder forest_floor → hohe Segmentzahl für Höhenvariation
+                const width = size[0];
+                const height = size[1];
                 const isHills = terrainConfig.type === 'hills' || terrainConfig.preset === 'forest_floor';
                 const seg = isHills ? 96 : 2;
-                const geometry = new THREE.PlaneGeometry(size[0], size[1], seg, seg);
+                const geometry = new THREE.PlaneGeometry(width, height, seg, seg);
                 
-                let color = '#4a7c1e';
                 const material = new THREE.MeshStandardMaterial({ 
-                    color: color, 
+                    color: new THREE.Color(terrainConfig.color || '#4a7c1e'),
                     side: THREE.FrontSide,
                     roughness: 0.75,
                     metalness: 0.05
                 });
 
-                // Height variation für hills anwenden (wie im Loader)
                 if (isHills) {
                     const pos = geometry.attributes.position;
                     const v = new THREE.Vector3();
-                    const amplitude = (typeof terrainConfig.amplitude === 'number') ? terrainConfig.amplitude : 2.5; // Default wie echtes Preset
+                    const amplitude = (typeof terrainConfig.amplitude === 'number') ? terrainConfig.amplitude : 2.5;
+
+                    // Parameter identisch zu YAMLWorldLoader
+                    const flatRadius = (typeof terrainConfig.flat_radius === 'number') ? terrainConfig.flat_radius : Math.min(width, height) * 0.15;
+                    const blendRadius = (typeof terrainConfig.blend_radius === 'number') ? terrainConfig.blend_radius : Math.min(width, height) * 0.25;
+                    const outerGain = (typeof terrainConfig.outer_gain === 'number') ? terrainConfig.outer_gain : 1.0;
+
+                    const centerX = 0, centerY = 0;
+                    const maxR = Math.hypot(width * 0.5, height * 0.5);
+
                     for (let i = 0; i < pos.count; i++) {
                         v.fromBufferAttribute(pos, i);
-                        const x = v.x, y = v.y; // PlaneGeometry liegt in XY-Ebene
+                        const x = v.x, y = v.y;
+
                         const wave1 = Math.sin(x * 0.08) * Math.cos(y * 0.08) * 0.9;
                         const wave2 = Math.sin(x * 0.18 + 1.2) * Math.cos(y * 0.14 + 0.7) * 0.6;
                         const wave3 = Math.sin(x * 0.3 + 2.4) * Math.cos(y * 0.22 + 1.7) * 0.3;
-                        const elevation = (wave1 + wave2 + wave3) * amplitude;
-                        pos.setZ(i, elevation); // Höhe in Z-Richtung setzen (wie im echten Loader)
+                        const baseElevation = (wave1 + wave2 + wave3) * amplitude;
+
+                        const r = Math.hypot(x - centerX, y - centerY);
+                        let blend;
+                        if (r <= flatRadius) blend = 0; else if (r >= flatRadius + blendRadius) blend = 1; else {
+                            const t = (r - flatRadius) / Math.max(1e-6, blendRadius);
+                            blend = t * t * (3 - 2 * t);
+                        }
+                        const radialFactor = outerGain === 1.0 ? 1.0 : (1 + (outerGain - 1) * (r / maxR));
+
+                        const elevation = baseElevation * blend * radialFactor;
+                        pos.setZ(i, elevation);
                     }
                     pos.needsUpdate = true;
                     geometry.computeVertexNormals();
                 }
 
-                // Textur für forest_floor
-                if (terrainConfig.preset === 'forest_floor' || terrainConfig.texture === 'forest_floor') {
+                if (terrainConfig.texture === 'forest_floor' || terrainConfig.preset === 'forest_floor') {
                     const c = document.createElement('canvas');
                     c.width = 512; c.height = 512;
                     const ctx = c.getContext('2d');
@@ -732,15 +750,12 @@ personas:
                     material.map = tex;
                     material.color = new THREE.Color('#ffffff');
                     material.needsUpdate = true;
-                } else {
-                    if (terrainConfig.color) material.color = new THREE.Color(terrainConfig.color);
                 }
 
                 const mesh = new THREE.Mesh(geometry, material);
                 mesh.rotation.x = -Math.PI / 2;
-                mesh.position.y = (typeof terrainConfig.y === 'number') ? terrainConfig.y : 0.01; // leichter Offset
+                mesh.position.y = (typeof terrainConfig.y === 'number') ? terrainConfig.y : 0.01;
                 mesh.name = 'terrain';
-                // Stabilität gegen Z-Fighting
                 mesh.renderOrder = -10;
                 material.transparent = false;
                 material.depthWrite = true;
