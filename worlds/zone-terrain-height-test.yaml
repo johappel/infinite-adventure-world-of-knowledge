@@ -1,0 +1,79 @@
+name: "Terrain Height Test"
+description: "Test der automatischen Terrain-Höhen-Anpassung"
+
+terrain:
+  preset: "forest_floor"
+  size: [60, 60]
+  amplitude: 4.0  # Stärkere Hügel für besseren Test
+  flat_radius: 5
+  blend_radius: 8
+  paths:
+    - points:
+        - [-20, 0, -15]
+        - [0, 0, 0]
+        - [20, 0, 15]
+      smooth: true
+  path_options:
+    pathWidth: 18
+
+objects:
+  # Diese Objekte sollen automatisch an Terrain-Höhe angepasst werden
+  - preset: "tree_simple"
+    position: [-15, 0, -10]  # Auf einem Hügel
+    scale: [2, 2, 2]
+    
+  - preset: "tree_simple"
+    position: [15, 0, 10]    # Auf einem anderen Hügel
+    scale: [1.5, 1.5, 1.5]
+    
+  - type: "deciduous_tree"
+    position: [-8, 0, 12]    # Im Tal
+    
+  - type: "conifer_tree"
+    position: [12, 0, -8]    # Auf Hügel
+    
+  - type: "circle_of_rocks"
+    position: [-5, 0, 5]     # Teilweise auf Hügel
+    number: 8
+    radius: 3
+    
+  # Objekte mit Pfad-Vermeidung (werden auch höhen-angepasst)
+  - preset: "rock_small"
+    avoid_paths: true
+    min_path_distance: 8
+    
+  - preset: "mushroom_small"
+    avoid_paths: true
+    min_path_distance: 5
+    
+  - preset: "crystal"
+    position: [0, 0, 0]      # Auf Pfad, wird an Terrain angepasst
+    avoid_paths: false
+    color: "#66ffee"
+
+personas:
+  # NPCs sollen auch terrain-angepasst werden
+  - preset: "npc_guardian"
+    name: "Hügel-Wächter"
+    position: [-10, 0, -5]   # Auf Hügel
+    dialogue:
+      opening: "Von hier oben überblicke ich das ganze Tal!"
+      
+  - preset: "npc_scholar"
+    name: "Tal-Forscher"
+    position: [8, 0, 8]      # Im Tal
+    dialogue:
+      opening: "Hier unten sammle ich Kräuter und Steine."
+      
+  # NPC mit Pfad-Vermeidung
+  - preset: "npc_fairy"
+    name: "Wald-Fee"
+    avoid_paths: true
+    min_path_distance: 12
+    dialogue:
+      opening: "Ich tanze zwischen den Bäumen, fern der Wege!"
+
+portals:
+  - id: "exit"
+    position: [0, 1.6, -25]  # Portal wird auch angepasst
+    size: [1.2, 3.5, 0.3]

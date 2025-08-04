@@ -357,10 +357,13 @@ export function buildTerrain(cfg){
   mesh.name = 'terrain'; 
   mesh.renderOrder = -10; 
   
-  // Store path mask in userData for object placement logic
+  // Store terrain information in userData for object placement logic
+  mesh.userData.terrainSize = size;
+  if(isHills) {
+    mesh.userData.isHills = true;
+  }
   if(pathMask){
     mesh.userData.pathMask = pathMask;
-    mesh.userData.terrainSize = size;
   }
   
   // Return both terrain and path mesh if paths exist

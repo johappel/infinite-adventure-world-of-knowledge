@@ -6,15 +6,15 @@ import { startZoneAnimations } from './animation.js';
 import { findFreePos, isOnPath } from '../presets/index.js';
 
 // Handle automatic path-aware placement for objects and personas
-function handlePathAwarePlacement(spec, pathMask, terrainSize) {
+function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh) {
   // If position is already specified and avoid_paths is explicitly false, don't modify
   if (spec.position && spec.avoid_paths === false) {
-    return spec;
+    return adjustToTerrainHeight(spec, terrainMesh);
   }
   
-  // If no paths exist, return original spec
+  // If no paths exist, still adjust to terrain height
   if (!pathMask) {
-    return spec;
+    return adjustToTerrainHeight(spec, terrainMesh);
   }
   
   // If position is not specified or avoid_paths is true (default), find free position
@@ -28,14 +28,103 @@ function handlePathAwarePlacement(spec, pathMask, terrainSize) {
     
     if (freePos) {
       // Create new spec with found position
-      return {
+      const newSpec = {
         ...spec,
         position: [freePos[0], spec.position?.[1] || 0, freePos[1]]
       };
+      return adjustToTerrainHeight(newSpec, terrainMesh);
     }
   }
   
-  return spec;
+  return adjustToTerrainHeight(spec, terrainMesh);
+}
+
+// Adjust object/persona position to terrain height
+function adjustToTerrainHeight(spec, terrainMesh) {
+  if (!spec.position || !terrainMesh) {
+    return spec;
+  }
+  
+  const [x, y, z] = spec.position;
+  let terrainHeight = 0;
+  
+  // Get terrain height at position
+  if (terrainMesh.type === 'Group') {
+    // Terrain with paths - get terrain mesh from group
+    const terrain = terrainMesh.children.find(child => child.name === 'terrain');
+    if (terrain) {
+      terrainHeight = getTerrainHeightAt(terrain, x, z);
+    }
+  } else {
+    // Single terrain mesh
+    terrainHeight = getTerrainHeightAt(terrainMesh, x, z);
+  }
+  
+  // Adjust Y position to terrain height + small offset
+  const adjustedY = terrainHeight + (y || 0) + 0.1; // Small offset to prevent Z-fighting
+  
+  return {
+    ...spec,
+    position: [x, adjustedY, z]
+  };
+}
+
+// Get terrain height at specific world coordinates using raycasting
+function getTerrainHeightAt(terrainMesh, worldX, worldZ) {
+  if (!terrainMesh || !terrainMesh.geometry) {
+    return 0;
+  }
+  
+  // For hills terrain with geometry data
+  if (terrainMesh.geometry.attributes.position) {
+    const geometry = terrainMesh.geometry;
+    const position = geometry.attributes.position;
+    
+    // Get terrain dimensions
+    const terrainSize = terrainMesh.userData.terrainSize || [50, 50];
+    const [width, height] = terrainSize;
+    
+    // Convert world coordinates to geometry coordinates
+    const localX = worldX + width * 0.5;  // Convert to 0..width
+    const localZ = worldZ + height * 0.5; // Convert to 0..height
+    
+    // Clamp to terrain bounds
+    const clampedX = Math.max(0, Math.min(width, localX));
+    const clampedZ = Math.max(0, Math.min(height, localZ));
+    
+    // Get geometry resolution (segments + 1)
+    const segments = Math.sqrt(position.count) - 1;
+    const segmentSize = width / segments;
+    
+    // Find nearest vertices
+    const segX = Math.floor(clampedX / segmentSize);
+    const segZ = Math.floor(clampedZ / segmentSize);
+    
+    // Get heights of the 4 surrounding vertices
+    const getVertexHeight = (sx, sz) => {
+      sx = Math.max(0, Math.min(segments, sx));
+      sz = Math.max(0, Math.min(segments, sz));
+      const index = sz * (segments + 1) + sx;
+      return index < position.count ? position.getZ(index) : 0;
+    };
+    
+    const h00 = getVertexHeight(segX, segZ);
+    const h10 = getVertexHeight(segX + 1, segZ);
+    const h01 = getVertexHeight(segX, segZ + 1);
+    const h11 = getVertexHeight(segX + 1, segZ + 1);
+    
+    // Bilinear interpolation
+    const fx = (clampedX % segmentSize) / segmentSize;
+    const fz = (clampedZ % segmentSize) / segmentSize;
+    
+    const h0 = h00 * (1 - fx) + h10 * fx;
+    const h1 = h01 * (1 - fx) + h11 * fx;
+    const interpolatedHeight = h0 * (1 - fz) + h1 * fz;
+    
+    return interpolatedHeight;
+  }
+  
+  return 0; // Fallback for flat terrain
 }
 
 export function buildZoneFromSpec(worldData, options={}){
@@ -81,7 +170,7 @@ export function buildZoneFromSpec(worldData, options={}){
   // Objects with path-aware placement
   const objects=[];
   (spec.objects||[]).forEach((objSpec, i) => {
-    const enhancedSpec = handlePathAwarePlacement(objSpec, pathMask, terrainSize);
+    const enhancedSpec = handlePathAwarePlacement(objSpec, pathMask, terrainSize, terrainMesh);
     const mesh = buildObject(enhancedSpec, i); 
     if(mesh){ 
       group.add(mesh); 
@@ -96,7 +185,7 @@ export function buildZoneFromSpec(worldData, options={}){
   // Personas with path-aware placement
   const personas=[];
   (spec.personas||[]).forEach((personaSpec, i) => {
-    const enhancedSpec = handlePathAwarePlacement(personaSpec, pathMask, terrainSize);
+    const enhancedSpec = handlePathAwarePlacement(personaSpec, pathMask, terrainSize, terrainMesh);
     const npc = buildPersona(enhancedSpec, i); 
     if(npc){ 
       group.add(npc); 
