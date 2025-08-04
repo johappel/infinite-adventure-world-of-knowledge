@@ -185,10 +185,23 @@ export const objectCollections = {
  * @returns {Object[]} Array of object specifications
  */
 export function generateFromCollections(collections, count, options = {}) {
-  const { seed = 0, pathMask, terrainSize, avoidPaths = true } = options;
+  const { seed: providedSeed, pathMask, terrainSize, avoidPaths = true } = options;
+  
+  // Seed-Quelle bestimmen: 1) explizit übergeben 2) zone_id aus globalem Kontext 3) echter Zufall
+  let effectiveSeed = providedSeed;
+  if (effectiveSeed == null || effectiveSeed === '') {
+    // Versuche, eine zone_id aus globalem Kontext zu lesen (z. B. vom Loader in window.__zone_id)
+    const zoneId = (typeof window !== 'undefined' && window.__zone_id) ? window.__zone_id : null;
+    if (zoneId) {
+      effectiveSeed = `${zoneId}__collections_default`;
+    } else {
+      // Fallback: einmalige, nicht-deterministische Seed-Quelle
+      effectiveSeed = Math.random() * 1e9;
+    }
+  }
   
   // Create seeded RNG for deterministic object generation
-  const rng = makeSeededRNG(seed);
+  const rng = makeSeededRNG(effectiveSeed);
   
   // Gather all objects from specified collections
   const allObjects = [];
