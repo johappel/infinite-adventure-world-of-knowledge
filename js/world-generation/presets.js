@@ -10,7 +10,7 @@ export const objectPresets = {
   rock_small:  { type: 'rock', color: '#8b7355', scale: [0.8,0.8,0.8] },
   crystal:     { type: 'crystal', color: '#00ffff', scale: [1,1,1] },
   mushroom_small: { type: 'mushroom', color: '#8b4513', scale: [0.5,0.8,0.5] },
-  stone_circle_thin: { type: 'stone_circle', color: '#696969', scale: [4,4,4] },
+  stone_circle_thin: { type: 'stone_circle', color: '#696969', scale: [2,2,2] },
   bookshelf:   { type: 'bookshelf', color: '#8b6d5c', scale: [1,1,1] }
 };
 

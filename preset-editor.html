@@ -164,6 +164,19 @@
             tab-size: 2;
         }
     </style>
+    
+    <!-- Import Map wie in index.html -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+      }
+    }
+    </script>
+
+    <!-- YAML Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
 </head>
 <body>
     <div class="header">
@@ -225,9 +238,8 @@ personas:
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script type="module">
+        import * as THREE from 'three';
         import { buildZoneFromSpec } from './js/world-generation/index.js';
         import { resolveWorldSpec } from './js/world-generation/resolve.js';
         
@@ -536,8 +548,10 @@ personas:
                     const spec = resolveWorldSpec(worldData);
                     const rng = Math.random;
                     const zoneInfo = buildZoneFromSpec(spec, { rng });
-                    // camera reference for billboarding
+
+                    // Kamera-Referenz für Billboarding setzen (wie in index.html Welt)
                     this.scene.userData.__camera = this.camera;
+
                     this.scene.add(zoneInfo.group);
                     this.currentZone = zoneInfo;
                     const count = (zoneInfo.objects?.length||0) + (zoneInfo.personas?.length||0) + (zoneInfo.portals?.length||0) + 1;
@@ -566,7 +580,7 @@ personas:
             animate() {
                 this.animationId = requestAnimationFrame(() => this.animate());
                 
-                // Simple camera rotation for preview
+                // Einfache Kamerafahrt für die Vorschau
                 if (this.currentZone) {
                     const time = Date.now() * 0.0005;
                     this.camera.position.x = Math.cos(time) * 20;

@@ -50,7 +50,8 @@ export function buildObject(cfg, index){
     case 'rock': geometry = new THREE.IcosahedronGeometry(0.8); break; // Icosa statt Dodeca
     case 'mushroom': geometry = new THREE.CylinderGeometry(0.5,0.2,1,12); break;
     case 'stone_circle': geometry = new THREE.TorusGeometry(2,0.2,12,24); break;
-    case 'crystal': geometry = new THREE.OctahedronGeometry(1); break;
+    case 'crystal': geometry = new THREE.OctahedronGeometry(1,0); break;
+    case 'ball': geometry = new THREE.OctahedronGeometry(1,10); break;
     case 'bookshelf': geometry = new THREE.BoxGeometry(2,4,0.5); break;
     default: geometry = new THREE.BoxGeometry(1,1,1);
   }
