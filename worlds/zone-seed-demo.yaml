@@ -32,13 +32,13 @@ objects:
     position: [15, 0, 15]  # Feste Position
     
   # Collections mit Seed für reproduzierbare Platzierung
-  - collections: ["village"]
-    count: 8
-    seed: "village_objects_123"  # Expliziter Seed
+  - collections: ["trees"]
+    count: 5
+    seed: "tree_objects_123"  # Expliziter Seed
     
-  - collections: ["trees", "rocks"]
-    count: 15
-    # seed wird automatisch generiert: "seed_demo_world_objects_2"
+  - collections: ["rocks"]
+    count: 8
+    # seed wird automatisch generiert: "seed_demo_world_objects_1"
     
   # Einzelne Objekte ohne Position - deterministische Auto-Platzierung
   - type: well

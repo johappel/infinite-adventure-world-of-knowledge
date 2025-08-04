@@ -12,7 +12,7 @@ function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh, zone
   const shouldPreferPaths = pathPreferringTypes.includes(spec.type);
   
   // Create a unique seed for this object based on zone seed and object properties
-  const objectSeed = `${zoneSeed || 'default'}_${spec.type || 'object'}_${spec.position ? spec.position.join('_') : 'auto'}_${Math.random().toString(36).substring(7)}`;
+  const objectSeed = `${zoneSeed || 'default'}_${spec.type || 'object'}_${spec.position ? spec.position.join('_') : 'auto'}`;
   
   // If position is already specified and avoid_paths is explicitly false, don't modify
   if (spec.position && spec.avoid_paths === false) {

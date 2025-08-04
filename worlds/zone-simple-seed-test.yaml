@@ -1,0 +1,56 @@
+# Simplified Seed Demo - Testing deterministic world generation
+zone_id: "simple_seed_test"
+description: "Simplified demo for testing seed system"
+
+# Deterministic hills terrain
+terrain:
+  type: hills
+  size: [40, 40]
+  texture: grass_texture
+  amplitude: 1.5
+  flat_radius: 8
+  blend_radius: 12
+
+# Simple paths
+paths:
+  - points: [[0, -15], [0, 0], [0, 15]]
+    smooth: true
+  - points: [[-15, 0], [0, 0], [15, 0]]
+    smooth: true
+
+# Objects with deterministic placement
+objects:
+  # Fixed positions
+  - type: castle_gate
+    position: [0, 0, 0]
+    
+  - type: house_simple
+    position: [10, 0, 10]
+    
+  # Simple collections that should work
+  - collections: ["trees"]
+    count: 6
+    seed: "test_trees_123"
+    
+  - collections: ["rocks"]
+    count: 8
+    seed: "test_rocks_456"
+    
+  # Single objects with auto-placement
+  - type: well
+  - type: crystal
+
+# Simple personas
+personas:
+  - name: "Test Guard"
+    position: [1, 0, 1]
+    role: "guard"
+    behavior:
+      greeting: "Testing seed system!"
+
+environment:
+  lighting:
+    type: ambient_directional
+    ambient_intensity: 0.5
+    directional_intensity: 0.8
+    shadow_enabled: true

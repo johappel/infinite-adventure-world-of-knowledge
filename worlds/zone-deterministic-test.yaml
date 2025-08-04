@@ -1,0 +1,46 @@
+# Deterministik-Test für Collections
+
+zone_id: "deterministic_test_001"
+description: "Test für Collections-Determinismus"
+
+terrain:
+  type: hills
+  size: [30, 30]
+  texture: grass_texture
+  amplitude: 1.5
+  flat_radius: 5
+  blend_radius: 8
+
+paths:
+  - points: [[0, -10], [0, 0], [0, 10]]
+    smooth: true
+
+objects:
+  # Simple collections test with explicit seed
+  - collections: ["trees"]
+    count: 5
+    seed: "test_trees_fixed"
+    
+  - collections: ["rocks"]
+    count: 3
+    seed: "test_rocks_fixed"
+    
+  # Collections without explicit seed - should use zone_id
+  - collections: ["trees"]
+    count: 4
+    
+  # Test single object auto-placement
+  - type: well
+  - type: crystal
+
+personas:
+  - name: "Test NPC"
+    role: "guard"
+    behavior:
+      greeting: "Testing deterministic placement!"
+
+environment:
+  lighting:
+    type: ambient_directional
+    ambient_intensity: 0.6
+    directional_intensity: 0.8

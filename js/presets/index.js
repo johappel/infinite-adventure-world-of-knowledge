@@ -83,15 +83,15 @@ export const objectCollections = {
   ],
   
   forest_objects: [
-    { type: "tree", weight: 3, position: [0, 2, 0] , color: "#084b5c" },
+    { type: "tree", weight: 3, color: "#084b5c" },
     { type: "deciduous_tree", weight: 2 },
     { type: "conifer_tree", weight: 2 },
     { type: "rock", weight: 1, color: "#6b5b4f" },
-    { type: "mushroom_group", weight: 5 , variations: [
+    { type: "mushroom_group", weight: 5, variations: [
       { scale: [0.5, 0.8, 0.5], color: "#8b4513" },
       { scale: [0.6, 1.0, 0.6], color: "#a0522d" },
       { scale: [0.4, 0.7, 0.4], color: "#cd853f" }
-    ]},
+    ]}
   ],
   
   mystical: [
@@ -187,25 +187,27 @@ export const objectCollections = {
 export function generateFromCollections(collections, count, options = {}) {
   const { seed = 0, pathMask, terrainSize, avoidPaths = true } = options;
   
-  // Simple deterministic random based on seed
-  let rngState = seed;
-  const rng = () => {
-    rngState = (rngState * 1664525 + 1013904223) % 4294967296;
-    return rngState / 4294967296;
-  };
+  // Create seeded RNG for deterministic object generation
+  const rng = makeSeededRNG(seed);
   
   // Gather all objects from specified collections
   const allObjects = [];
   collections.forEach(collectionName => {
     const collection = objectCollections[collectionName];
-    if (collection) {
-      collection.forEach(objDef => {
-        const weight = objDef.weight || 1;
-        // Add object multiple times based on weight
-        for (let i = 0; i < weight; i++) {
-          allObjects.push(objDef);
+    if (collection && Array.isArray(collection)) {
+      collection.forEach((objDef, index) => {
+        if (objDef && (objDef.type || objDef.preset)) { // Ensure valid object definition
+          const weight = objDef.weight || 1;
+          // Add object multiple times based on weight
+          for (let i = 0; i < weight; i++) {
+            allObjects.push(objDef);
+          }
+        } else {
+          console.warn(`Invalid object definition in collection '${collectionName}' at index ${index}:`, objDef);
         }
       });
+    } else {
+      console.warn(`Collection '${collectionName}' not found or not an array`);
     }
   });
   
@@ -341,7 +343,7 @@ export function findFreePos(pathMask, terrainSize, options = {}){
     maxAttempts: 50,
     minDistance: 2, // minimum distance from paths
     margin: 5,      // margin from terrain edges
-    seed: Date.now(), // default fallback seed
+    seed: 12345, // deterministic default seed
     ...options
   };
   
@@ -396,7 +398,7 @@ export function findPathPosition(pathMask, terrainSize, options = {}){
   const opts = {
     maxAttempts: 50,
     margin: 5,      // margin from terrain edges
-    seed: Date.now(), // default fallback seed
+    seed: 12345, // deterministic default seed
     ...options
   };
   

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Collections Seed Test</title>
+</head>
+<body>
+    <h1>Collections Seed Test</h1>
+    <div id="output"></div>
+
+    <script type="module">
+        // Import the collections system
+        import { generateFromCollections } from './js/presets/index.js';
+
+        const output = document.getElementById('output');
+
+        function testSeed(seedValue, testName) {
+            output.innerHTML += `<h2>${testName} (Seed: ${seedValue})</h2>`;
+            
+            // Test trees collection 3 times with same seed
+            for (let i = 0; i < 3; i++) {
+                const result = generateFromCollections(['trees'], 5, { seed: seedValue });
+                output.innerHTML += `<p>Test ${i + 1}: ${result.map(obj => `${obj.type}(${obj.scale ? obj.scale.join(',') : 'no-scale'})`).join(', ')}</p>`;
+            }
+            
+            output.innerHTML += '<hr>';
+        }
+
+        // Test with specific seeds
+        testSeed('test_seed_123', 'Test 1');
+        testSeed('test_seed_123', 'Test 2 (Same Seed)'); // Should be identical
+        testSeed('test_seed_456', 'Test 3 (Different Seed)'); // Should be different
+        testSeed('test_seed_123', 'Test 4 (Back to Original)'); // Should match Test 1
+    </script>
+</body>
+</html>
