@@ -21,10 +21,11 @@ export class WisdomWorld {
     this.setupThreeJS();
     
     // Core systems - WICHTIG: Reihenfolge beachten!
-    this.player = new Player(this.worldRoot);
+    this.player = new Player(this.worldRoot, this.playerMarker);
     this.camera = new ThirdPersonCamera(this.threeCamera, this.playerMarker);
     this.inputManager = new InputManager();
     this.zoneManager = new ZoneManager(this.worldRoot);
+    // Terrain-Referenz wird nach initializeWorld() gesetzt, wenn Zone geladen ist
     // InteractionSystem braucht camera und zoneManager
     this.interactionSystem = new InteractionSystem(this.zoneManager, this.camera, this.playerMarker);
     this.dialogSystem = new DialogSystem();
@@ -94,6 +95,7 @@ export class WisdomWorld {
     this.interactionSystem.setPersonaInteractCallback((npc) => this.dialogSystem.openDialog(npc));
     this.interactionSystem.setPortalInteractCallback((targetZone) => {
       this.zoneManager.setCurrentZone(targetZone, null, this.player, this.camera);
+      this.setTerrainReference();
       this.updateUI();
     });
     this.interactionSystem.setFeedbackCallback((message) => this.dialogSystem.addBubble('npc', message));
@@ -103,6 +105,7 @@ export class WisdomWorld {
     this.uiManager.setupControls({
       onNewZone: (id, persona) => {
         this.zoneManager.setCurrentZone(id, persona, this.player, this.camera);
+        this.setTerrainReference();
         this.updateUI();
         this.uiManager.appendLog('Zone erzeugt: ' + this.zoneManager.synthZoneTitle(id));
       },
@@ -120,6 +123,7 @@ export class WisdomWorld {
         try {
           console.log(`🌍 Lade YAML-Zone: ${zoneId}`);
           await this.zoneManager.setCurrentZone(zoneId, null, this.player, this.camera);
+          this.setTerrainReference();
           this.updateUI();
           this.uiManager.appendLog(`YAML-Zone geladen: ${this.zoneManager.synthZoneTitle(zoneId)}`);
         } catch (error) {
@@ -212,6 +216,7 @@ export class WisdomWorld {
     this.uiManager.refreshZonesUI(
       (id) => {
         this.zoneManager.setCurrentZone(id, null, this.player, this.camera);
+        this.setTerrainReference();
         this.updateUI();
       },
       (id) => this.zoneManager.synthZoneTitle(id)
@@ -221,6 +226,40 @@ export class WisdomWorld {
       this.zoneManager.getCurrentZone(),
       (npc) => this.dialogSystem.openDialog(npc)
     );
+
+    this.setTerrainReference();
+  }
+
+  // Hilfsfunktion um Terrain-Referenz korrekt zu setzen
+  setTerrainReference() {
+    const z = this.zoneManager.getCurrentZone();
+    if (!z?.group) {
+      return;
+    }
+    
+    // Rekursive Suche nach einem Mesh mit Geometrie
+    const findTerrainMesh = (object) => {
+      // Prüfe das aktuelle Objekt
+      if (object.type === 'Mesh' && object.geometry && object.userData?.terrainSize) {
+        return object;
+      }
+      
+      // Durchsuche Kinder rekursiv
+      if (object.children) {
+        for (const child of object.children) {
+          const found = findTerrainMesh(child);
+          if (found) return found;
+        }
+      }
+      
+      return null;
+    };
+    
+    const terrain = findTerrainMesh(z.group);
+    
+    if (terrain && this.player) {
+      this.player.setTerrainRef(terrain);
+    }
   }
 
   initializeWorld() {
@@ -232,6 +271,7 @@ export class WisdomWorld {
     } else {
       this.zoneManager.setCurrentZone('start-'+crypto.randomUUID().split('-')[0], 'Forscher', this.player, this.camera);
     }
+    this.setTerrainReference();
     this.updateUI();
   }
 
@@ -279,6 +319,7 @@ export class WisdomWorld {
     this.player.reset();
     this.camera.reset();
 
+    this.setTerrainReference();
     this.updateUI();
     this.uiManager.appendLog(`Wechsel zu YAML-Zone: ${worldData.name}`);
   }
