@@ -179,6 +179,28 @@ function makePathTexture(paths=[], terrainSize=[50, 50], options={}){
   return { texture: tex, pathMask: maskCanvas };
 }
 
+// --- Deterministic Random Number Generator ---
+function makeSeededRNG(seed) {
+  let state = seed ? hashStringToNumber(seed) : 12345;
+  
+  return function() {
+    // Linear congruential generator (LCG) - same as used in presets/index.js
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
+}
+
+function hashStringToNumber(str) {
+  if (typeof str === 'number') return Math.abs(str) % 4294967296;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash) % 4294967296;
+}
+
 // --- Noise util (simple value noise) ---
 function makeNoise(width=256, height=256, scale=32){
   const c=document.createElement('canvas'); c.width=width; c.height=height; const ctx=c.getContext('2d');
@@ -272,6 +294,11 @@ export function buildTerrain(cfg){
   const seg = isHills ? 96 : 2;
   const geometry = new THREE.PlaneGeometry(width, height, seg, seg);
   const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(cfg.color||'#4a7c1e'), side: THREE.FrontSide, roughness:0.75, metalness:0.05 });
+  
+  // Seed-basierte Terrain-Generierung
+  const terrainSeed = cfg.seed || cfg.zone_id || 'default_terrain';
+  const rng = makeSeededRNG(terrainSeed);
+  
   if(isHills){
     const pos = geometry.attributes.position; const v = new THREE.Vector3();
     const amplitude = (typeof cfg.amplitude==='number') ? cfg.amplitude : 2.5;
@@ -279,12 +306,24 @@ export function buildTerrain(cfg){
     const blendRadius = (typeof cfg.blend_radius==='number') ? cfg.blend_radius : Math.min(width,height)*0.25;
     const outerGain = (typeof cfg.outer_gain==='number') ? cfg.outer_gain : 1.0;
     const maxR = Math.hypot(width*0.5, height*0.5);
+    
+    // Seed-basierte Phasenverschiebungen für deterministische Hügel
+    const phase1 = rng() * Math.PI * 2;
+    const phase2 = rng() * Math.PI * 2; 
+    const phase3 = rng() * Math.PI * 2;
+    const freq1 = 0.06 + rng() * 0.04; // 0.06-0.10
+    const freq2 = 0.12 + rng() * 0.08; // 0.12-0.20
+    const freq3 = 0.24 + rng() * 0.12; // 0.24-0.36
+    
     for(let i=0;i<pos.count;i++){
       v.fromBufferAttribute(pos,i); const x=v.x, y=v.y;
-      const wave1 = Math.sin(x*0.08)*Math.cos(y*0.08)*0.9;
-      const wave2 = Math.sin(x*0.18+1.2)*Math.cos(y*0.14+0.7)*0.6;
-      const wave3 = Math.sin(x*0.3+2.4)*Math.cos(y*0.22+1.7)*0.3;
+      
+      // Deterministische Wellen mit seed-basierten Parametern
+      const wave1 = Math.sin(x*freq1 + phase1)*Math.cos(y*freq1 + phase1*0.7)*0.9;
+      const wave2 = Math.sin(x*freq2 + phase2)*Math.cos(y*freq2 + phase2*0.8)*0.6;
+      const wave3 = Math.sin(x*freq3 + phase3)*Math.cos(y*freq3 + phase3*0.9)*0.3;
       const base = (wave1+wave2+wave3)*amplitude;
+      
       const r = Math.hypot(x, y);
       let blend; if(r<=flatRadius) blend=0; else if(r>=flatRadius+blendRadius) blend=1; else { const t=(r-flatRadius)/Math.max(1e-6,blendRadius); blend = t*t*(3-2*t); }
       const radial = outerGain===1.0 ? 1.0 : (1 + (outerGain-1)*(r/maxR));

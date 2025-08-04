@@ -6,10 +6,13 @@ import { startZoneAnimations } from './animation.js';
 import { findFreePos, isOnPath, findPathPosition, generateFromCollections } from '../presets/index.js';
 
 // Handle automatic path-aware placement for objects and personas
-function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh) {
+function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh, zoneSeed) {
   // Special handling for gate and bridge objects - they should prefer paths
   const pathPreferringTypes = ['gate_arch', 'castle_gate', 'bridge_arch', 'bridge_simple'];
   const shouldPreferPaths = pathPreferringTypes.includes(spec.type);
+  
+  // Create a unique seed for this object based on zone seed and object properties
+  const objectSeed = `${zoneSeed || 'default'}_${spec.type || 'object'}_${spec.position ? spec.position.join('_') : 'auto'}_${Math.random().toString(36).substring(7)}`;
   
   // If position is already specified and avoid_paths is explicitly false, don't modify
   if (spec.position && spec.avoid_paths === false) {
@@ -25,7 +28,8 @@ function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh) {
   if (shouldPreferPaths && (!spec.position || spec.avoid_paths !== false)) {
     const pathPos = findPathPosition(pathMask, terrainSize, {
       maxAttempts: 50,
-      margin: 5
+      margin: 5,
+      seed: objectSeed
     });
     
     if (pathPos) {
@@ -44,7 +48,8 @@ function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh) {
     const freePos = findFreePos(pathMask, terrainSize, {
       maxAttempts: 50,
       minDistance: minDistance,
-      margin: 5
+      margin: 5,
+      seed: objectSeed
     });
     
     if (freePos) {
@@ -152,6 +157,9 @@ export function buildZoneFromSpec(worldData, options={}){
   const spec = resolveWorldSpec(worldData);
   const group = new THREE.Group();
 
+  // Extract or generate zone seed for deterministic world generation
+  const zoneSeed = spec.zone_id || spec.seed || options.seed || 'default_zone';
+
   // Optional Skybox cube (procedural)
   if(spec.environment?.skybox_mode === 'cube' && typeof options.rng === 'function'){
     const skybox = buildSkyboxCube(options.rng);
@@ -161,10 +169,11 @@ export function buildZoneFromSpec(worldData, options={}){
   // Apply environment (lights/background/fog) on the group
   applyEnvironment(spec.environment, group);
 
-  // Terrain
+  // Terrain (pass zone seed to terrain builder)
   let terrainMesh = null;
   if(spec.terrain){
-    terrainMesh = buildTerrain(spec.terrain);
+    const terrainConfig = { ...spec.terrain, seed: zoneSeed };
+    terrainMesh = buildTerrain(terrainConfig);
     group.add(terrainMesh);
   }
 
@@ -194,7 +203,7 @@ export function buildZoneFromSpec(worldData, options={}){
     // Handle collections
     if (objSpec.collections && Array.isArray(objSpec.collections)) {
       const count = objSpec.number || objSpec.count || 10;
-      const seed = objSpec.seed || Math.floor(Math.random() * 10000);
+      const seed = objSpec.seed || `${zoneSeed}_objects_${i}`;
       
       const generatedObjects = generateFromCollections(
         objSpec.collections, 
@@ -209,7 +218,7 @@ export function buildZoneFromSpec(worldData, options={}){
       
       // Process each generated object
       generatedObjects.forEach((genSpec, genIndex) => {
-        const enhancedSpec = handlePathAwarePlacement(genSpec, pathMask, terrainSize, terrainMesh);
+        const enhancedSpec = handlePathAwarePlacement(genSpec, pathMask, terrainSize, terrainMesh, `${zoneSeed}_col_${i}_${genIndex}`);
         const mesh = buildObject(enhancedSpec, `${i}_col_${genIndex}`);
         if(mesh){ 
           group.add(mesh); 
@@ -218,7 +227,7 @@ export function buildZoneFromSpec(worldData, options={}){
       });
     } else {
       // Regular single object
-      const enhancedSpec = handlePathAwarePlacement(objSpec, pathMask, terrainSize, terrainMesh);
+      const enhancedSpec = handlePathAwarePlacement(objSpec, pathMask, terrainSize, terrainMesh, `${zoneSeed}_obj_${i}`);
       const mesh = buildObject(enhancedSpec, i); 
       if(mesh){ 
         group.add(mesh); 
@@ -234,7 +243,7 @@ export function buildZoneFromSpec(worldData, options={}){
   // Personas with path-aware placement
   const personas=[];
   (spec.personas||[]).forEach((personaSpec, i) => {
-    const enhancedSpec = handlePathAwarePlacement(personaSpec, pathMask, terrainSize, terrainMesh);
+    const enhancedSpec = handlePathAwarePlacement(personaSpec, pathMask, terrainSize, terrainMesh, `${zoneSeed}_persona_${i}`);
     const npc = buildPersona(enhancedSpec, i); 
     if(npc){ 
       group.add(npc); 

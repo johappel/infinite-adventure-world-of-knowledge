@@ -3,6 +3,45 @@
 ## Überblick
 Das Preset-System ermöglicht es, wiederverwendbare Konfigurationen für Terrain, Objekte und NPCs zu definieren. Dies macht YAML-Welten kürzer, einheitlicher und einfacher zu erstellen.
 
+## Seed-System für Konsistente Welten
+
+Das System verwendet Seeds für deterministische Weltgenerierung, damit Spieler in vertraute Welten zurückkehren können:
+
+### Zone-ID als Haupt-Seed
+```yaml
+zone_id: "meine_welt_123"   # Eindeutige ID für reproduzierbare Welten
+description: "Mein Abenteuer-Bereich"
+
+terrain:
+  type: hills
+  # seed wird automatisch von zone_id abgeleitet
+```
+
+### Explizite Seeds
+```yaml
+terrain:
+  type: hills
+  seed: "special_hills_42"  # Überschreibt zone_id für Terrain
+
+objects:
+  - collections: ["village"]
+    count: 10
+    seed: "village_layout_7"  # Spezifischer Seed für diese Collection
+```
+
+### Funktionsweise
+- **Terrain**: Hügel-Form wird deterministisch aus `zone_id` oder `terrain.seed` generiert
+- **Auto-Platzierung**: Objekte ohne Position bekommen deterministische Platzierung
+- **Collections**: Werden mit zone-spezifischen Seeds generiert
+- **Pfade**: Sind explizit definiert und damit immer gleich
+
+### Konsistenz-Test
+1. Lade eine Welt mehrmals mit derselben `zone_id`
+2. Alle automatisch platzierten Objekte erscheinen immer an derselben Stelle
+3. Hügel-Terrain hat immer dieselbe Form
+4. Verändere die `zone_id` → neue Anordnung
+5. Kehre zur ursprünglichen `zone_id` zurück → ursprüngliche Anordnung
+
 ## Verwendung
 
 ### Terrain Presets

@@ -212,6 +212,12 @@ export function generateFromCollections(collections, count, options = {}) {
     // Pick random object from weighted collection
     const objDef = allObjects[Math.floor(rng() * allObjects.length)];
     
+    // Safety check for undefined objDef
+    if (!objDef) {
+      console.warn('Undefined object definition in collections:', collections);
+      continue;
+    }
+    
     // Create base object spec
     const spec = {
       ...(objDef.preset ? { preset: objDef.preset } : {}),
@@ -319,7 +325,7 @@ export function isOnPath(worldX, worldZ, pathMask, terrainSize, threshold = 128)
  * Find a random position that avoids paths
  * @param {HTMLCanvasElement} pathMask - Canvas with path data
  * @param {number[]} terrainSize - [width, height] of terrain  
- * @param {Object} options - { maxAttempts: 50, minDistance: 2, margin: 5 }
+ * @param {Object} options - { maxAttempts: 50, minDistance: 2, margin: 5, seed: number|string }
  * @returns {number[]|null} [x, z] world coordinates or null if no position found
  */
 export function findFreePos(pathMask, terrainSize, options = {}){
@@ -327,20 +333,24 @@ export function findFreePos(pathMask, terrainSize, options = {}){
     maxAttempts: 50,
     minDistance: 2, // minimum distance from paths
     margin: 5,      // margin from terrain edges
+    seed: Date.now(), // default fallback seed
     ...options
   };
   
+  // Create seeded RNG for deterministic placement
+  const rng = makeSeededRNG(opts.seed);
+  
   if(!pathMask || !terrainSize) {
     // Fallback: random position with margin
-    const x = (Math.random() - 0.5) * (terrainSize[0] - opts.margin * 2);
-    const z = (Math.random() - 0.5) * (terrainSize[1] - opts.margin * 2);
+    const x = (rng() - 0.5) * (terrainSize[0] - opts.margin * 2);
+    const z = (rng() - 0.5) * (terrainSize[1] - opts.margin * 2);
     return [x, z];
   }
   
   for(let attempt = 0; attempt < opts.maxAttempts; attempt++){
     // Random position within terrain bounds, respecting margin
-    const x = (Math.random() - 0.5) * (terrainSize[0] - opts.margin * 2);
-    const z = (Math.random() - 0.5) * (terrainSize[1] - opts.margin * 2);
+    const x = (rng() - 0.5) * (terrainSize[0] - opts.margin * 2);
+    const z = (rng() - 0.5) * (terrainSize[1] - opts.margin * 2);
     
     // Check if position and surrounding area is free of paths
     let isFree = true;
@@ -371,27 +381,31 @@ export function findFreePos(pathMask, terrainSize, options = {}){
  * Find a random position ON a path (for gates, bridges, etc.)
  * @param {HTMLCanvasElement} pathMask - Canvas with path data
  * @param {number[]} terrainSize - [width, height] of terrain
- * @param {Object} options - { maxAttempts: 50, margin: 5 }
+ * @param {Object} options - { maxAttempts: 50, margin: 5, seed: number|string }
  * @returns {number[]|null} [x, z] world coordinates or null if no position found
  */
 export function findPathPosition(pathMask, terrainSize, options = {}){
   const opts = {
     maxAttempts: 50,
     margin: 5,      // margin from terrain edges
+    seed: Date.now(), // default fallback seed
     ...options
   };
   
+  // Create seeded RNG for deterministic placement
+  const rng = makeSeededRNG(opts.seed);
+  
   if(!pathMask || !terrainSize) {
     // Fallback: random position with margin
-    const x = (Math.random() - 0.5) * (terrainSize[0] - opts.margin * 2);
-    const z = (Math.random() - 0.5) * (terrainSize[1] - opts.margin * 2);
+    const x = (rng() - 0.5) * (terrainSize[0] - opts.margin * 2);
+    const z = (rng() - 0.5) * (terrainSize[1] - opts.margin * 2);
     return [x, z];
   }
   
   for(let attempt = 0; attempt < opts.maxAttempts; attempt++){
     // Random position within terrain bounds, respecting margin
-    const x = (Math.random() - 0.5) * (terrainSize[0] - opts.margin * 2);
-    const z = (Math.random() - 0.5) * (terrainSize[1] - opts.margin * 2);
+    const x = (rng() - 0.5) * (terrainSize[0] - opts.margin * 2);
+    const z = (rng() - 0.5) * (terrainSize[1] - opts.margin * 2);
     
     // Check if position is ON a path
     if(isOnPath(x, z, pathMask, terrainSize, 128)){
@@ -401,4 +415,25 @@ export function findPathPosition(pathMask, terrainSize, options = {}){
   
   // If no path position found, return null
   return null;
+}
+
+// Helper function to create seeded RNG (same as in builders.js)
+function makeSeededRNG(seed) {
+  let state = typeof seed === 'string' ? hashStringToNumber(seed) : Math.abs(seed || 12345) % 4294967296;
+  
+  return function() {
+    // Linear congruential generator (LCG)
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
+}
+
+function hashStringToNumber(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash) % 4294967296;
 }

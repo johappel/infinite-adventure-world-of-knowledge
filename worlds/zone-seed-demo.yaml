@@ -1,0 +1,80 @@
+# Demonstration: Deterministisches Seed-System
+# Diese Demo zeigt, wie Seeds für konsistente Welten sorgen
+
+zone_id: "seed_demo_world"  # Eindeutige ID für reproduzierbare Welten
+description: "Demo-Zone für Seed-basierte Weltgenerierung"
+
+# Deterministisches hügeliges Terrain
+terrain:
+  type: hills
+  size: [50, 50]
+  texture: grass_texture
+  amplitude: 2.0
+  flat_radius: 10
+  blend_radius: 15
+  # seed wird automatisch von zone_id übernommen, kann aber überschrieben werden
+  # seed: "custom_terrain_seed"
+
+# Pfade (sind nicht seed-abhängig, da explizit definiert)
+paths:
+  - points: [[0, -20], [0, -10], [0, 0], [0, 10], [0, 20]]
+    smooth: true
+  - points: [[-20, 0], [-10, 0], [0, 0], [10, 0], [20, 0]]
+    smooth: true
+
+# Objekte mit deterministischer Platzierung
+objects:
+  # Explizite Positionen bleiben deterministisch
+  - type: castle_gate
+    position: [0, 0, 0]  # Am Pfadkreuz (fest)
+    
+  - type: house_simple
+    position: [15, 0, 15]  # Feste Position
+    
+  # Collections mit Seed für reproduzierbare Platzierung
+  - collections: ["village"]
+    count: 8
+    seed: "village_objects_123"  # Expliziter Seed
+    
+  - collections: ["trees", "rocks"]
+    count: 15
+    # seed wird automatisch generiert: "seed_demo_world_objects_2"
+    
+  # Einzelne Objekte ohne Position - deterministische Auto-Platzierung
+  - type: well
+    # Position wird deterministisch aus zone_id generiert
+    
+  - type: tower_watch
+    # Auch hier deterministische Auto-Platzierung
+
+# Personas mit deterministischer Platzierung
+personas:
+  - name: "Torwächter"
+    position: [2, 0, 2]  # Feste Position nahe dem Tor
+    role: "guard"
+    behavior:
+      greeting: "Willkommen! Diese Welt bleibt immer gleich."
+      
+  - name: "Dorfbewohner"
+    # Position wird deterministisch generiert
+    role: "villager"
+    behavior:
+      greeting: "Ich stehe immer an derselben Stelle!"
+
+environment:
+  lighting:
+    type: ambient_directional
+    ambient_intensity: 0.5
+    directional_intensity: 0.9
+    shadow_enabled: true
+  
+  skybox:
+    type: gradient
+    colors: ["#87CEEB", "#98D8E8", "#B0E0E6"]
+
+# Test-Anleitung:
+# 1. Lade diese Welt mehrmals
+# 2. Alle automatisch platzierten Objekte sollten immer an derselben Stelle erscheinen
+# 3. Die Hügel sollten immer dieselbe Form haben
+# 4. Verändere die zone_id und beobachte, wie sich die Welt verändert
+# 5. Mit derselben zone_id kehrt die ursprüngliche Anordnung zurück

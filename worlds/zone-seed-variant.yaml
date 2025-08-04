@@ -1,0 +1,69 @@
+# Seed-Vergleichsdemo: Alternative Welt
+# Dieselbe Konfiguration, aber andere zone_id = andere Welt
+
+zone_id: "seed_demo_variant_A"  # Andere ID = andere deterministischen Platzierungen
+description: "Variante A der Seed-Demo"
+
+# Identische Terrain-Konfiguration wie seed-demo
+terrain:
+  type: hills
+  size: [50, 50]
+  texture: grass_texture
+  amplitude: 2.0
+  flat_radius: 10
+  blend_radius: 15
+
+# Identische Pfade
+paths:
+  - points: [[0, -20], [0, -10], [0, 0], [0, 10], [0, 20]]
+    smooth: true
+  - points: [[-20, 0], [-10, 0], [0, 0], [10, 0], [20, 0]]
+    smooth: true
+
+# Identische Objekt-Konfiguration
+objects:
+  - type: castle_gate
+    position: [0, 0, 0]  # Feste Position bleibt gleich
+    
+  - type: house_simple
+    position: [15, 0, 15]  # Feste Position bleibt gleich
+    
+  # Collections - andere automatische Platzierung durch anderen zone_id
+  - collections: ["village"]
+    count: 8
+    # Automatischer Seed: "seed_demo_variant_A_objects_0" (anders als Original)
+    
+  - collections: ["trees", "rocks"]
+    count: 15
+    # Automatischer Seed: "seed_demo_variant_A_objects_1" (anders als Original)
+    
+  - type: well
+    # Position anders durch anderen zone_id
+    
+  - type: tower_watch
+    # Position anders durch anderen zone_id
+
+# Identische Personas
+personas:
+  - name: "Torwächter"
+    position: [2, 0, 2]  # Feste Position bleibt gleich
+    role: "guard"
+    behavior:
+      greeting: "Ich bin in einer anderen Welt-Variante!"
+      
+  - name: "Dorfbewohner"
+    # Position anders durch anderen zone_id
+    role: "villager"
+    behavior:
+      greeting: "Meine Position ist in dieser Variante anders!"
+
+environment:
+  lighting:
+    type: ambient_directional
+    ambient_intensity: 0.5
+    directional_intensity: 0.9
+    shadow_enabled: true
+  
+  skybox:
+    type: gradient
+    colors: ["#87CEEB", "#98D8E8", "#B0E0E6"]
