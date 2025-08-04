@@ -55,13 +55,21 @@ export const textures = { makeForestFloorTexture };
 
 export const objectCollections = {
   trees: [
-    { preset: "tree_simple", position:[0,2,0], variations: [
-      { type: "tree", scale: [1.0, 1.0, 1.0], position:[0,2,0], color: "#084b5c" },
-      { type: "tree", scale: [1.3, 1.5, 1.3], position:[0,2,0], color: "#1a4a1a"  },
-      { type: "tree", scale: [0.8, 1.2, 0.8], position:[0,2,0], color: "#0e500e"  },
-      { type: "deciduous_tree", scale: [1.0, 1.0, 1.0] },
-      { type: "conifer_tree", scale: [1.2, 1.2, 1.2] }
+    { type: "tree", weight: 3, variations: [
+      { scale: [1.0, 1.0, 1.0], color: "#084b5c" },
+      { scale: [1.3, 1.5, 1.3], color: "#1a4a1a" },
+      { scale: [0.8, 1.2, 0.8], color: "#0e500e" }
     ]},
+    { type: "deciduous_tree", weight: 2, variations: [
+      { scale: [1.0, 1.0, 1.0] },
+      { scale: [1.1, 1.2, 1.1] },
+      { scale: [0.9, 0.8, 0.9] }
+    ]},
+    { type: "conifer_tree", weight: 2, variations: [
+      { scale: [1.2, 1.2, 1.2] },
+      { scale: [1.0, 1.5, 1.0] },
+      { scale: [0.8, 1.0, 0.8] }
+    ]}
   ],
   
   rocks: [
