@@ -27,16 +27,25 @@ terrain:
 - mushroom_small: Kleiner Pilz (interaktiv)
 - stone_circle_thin: Dünner Steinkreis-Ring
 
+**Neue Dorf-Gebäude:**
+- house_simple: Einfaches Haus mit Dach
+- house_large: Großes Haus mit Schornstein
+- hut_small: Kleine runde Hütte
+- tower_watch: Wachturm mit Plattform
+- windmill: Windmühle mit Flügeln
+- barn: Große Scheune
+- well: Dorfbrunnen
+
 YAML:
 ```yaml
 objects:
   - preset: tree_simple
     position: [3,0,5]
-  - preset: rock_small
-    position: [5,0,-2]
-  - preset: mushroom_small
-    position: [2,0,-3]
-  - preset: stone_circle_thin
+  - preset: house_simple
+    position: [10,0,0]
+  - preset: windmill
+    position: [-8,0,12]
+  - preset: well
     position: [0,0,0]
 ```
 
@@ -49,16 +58,16 @@ Das neue Collections-System ermöglicht es, sehr schnell große Mengen abwechslu
 - **rocks**: Felsen und Steine unterschiedlicher Größen  
 - **forest_objects**: Gemischte Waldlandschaft (70% Bäume, 30% andere)
 - **mystical**: Magische Elemente (Kristalle, Steinkreise)
-- **village**: Siedlungs-Objekte (Bücherregale, etc.)
+- **village**: Dorf-Gebäude (Häuser, Hütten, Türme, Brunnen, etc.)
 
 YAML:
 ```yaml
 objects:
-  - collections: ['trees', 'rocks']
-    number: 30            # Anzahl zu generierender Objekte
+  - collections: ['village']
+    number: 12            # Generiert ein kleines Dorf
     seed: 12345          # Für reproduzierbare Ergebnisse
-    avoid_paths: true    # Automatische Pfad-Vermeidung
-    min_path_distance: 4 # Mindestabstand zu Pfaden
+    avoid_paths: true    # Gebäude respektieren Straßen
+    min_path_distance: 6 # Mindestabstand zu Pfaden
 ```
 
 ### Vorteile von Collections

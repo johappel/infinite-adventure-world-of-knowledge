@@ -395,6 +395,62 @@ export function buildObject(cfg, index){
     'mushroom_group': [
       { type: 'mushroom', position: [0, 0, 0], color: '#f1e7dd' },
       { type: 'ball',   position: [0, 1, 0], scale: [.8,.5,.8], color: '#a3140a' }
+    ],
+    
+    // === DORF-GEBÄUDE ===
+    
+    // Einfaches Haus: Basis + Dach
+    'house_simple': [
+      { type: 'box', position: [0, 1.5, 0], scale: [3.0, 3.0, 3.0], color: '#8b7355' }, // Wände
+      { type: 'box', position: [0, 3.2, 0], scale: [3.4, 0.4, 3.4], color: '#654321' }, // Dach-Basis
+      { type: 'cone', position: [0, 4.0, 0], scale: [2.4, 1.6, 2.4], color: '#8b0000' } // Dach-Spitze
+    ],
+    
+    // Größeres Haus mit Schornstein
+    'house_large': [
+      { type: 'box', position: [0, 2.0, 0], scale: [4.0, 4.0, 4.0], color: '#d2b48c' }, // Haupthaus
+      { type: 'box', position: [0, 4.4, 0], scale: [4.4, 0.6, 4.4], color: '#654321' }, // Dach-Basis  
+      { type: 'cone', position: [0, 5.5, 0], scale: [3.2, 2.2, 3.2], color: '#8b0000' }, // Dach
+      { type: 'cylinder', position: [1.5, 6.5, 1.5], scale: [0.3, 2.0, 0.3], color: '#696969' } // Schornstein
+    ],
+    
+    // Kleine Hütte
+    'hut_small': [
+      { type: 'cylinder', position: [0, 1.2, 0], scale: [2.0, 2.4, 2.0], color: '#8b6914' }, // Runde Basis
+      { type: 'cone', position: [0, 3.0, 0], scale: [2.4, 2.0, 2.4], color: '#228b22' } // Stroh-Dach
+    ],
+    
+    // Wachturm
+    'tower_watch': [
+      { type: 'cylinder', position: [0, 3.0, 0], scale: [1.5, 6.0, 1.5], color: '#696969' }, // Turm-Basis
+      { type: 'cylinder', position: [0, 6.5, 0], scale: [2.0, 1.0, 2.0], color: '#8b7355' }, // Plattform
+      { type: 'cone', position: [0, 7.5, 0], scale: [1.8, 2.0, 1.8], color: '#8b0000' } // Spitzdach
+    ],
+    
+    // Windmühle
+    'windmill': [
+      { type: 'cylinder', position: [0, 4.0, 0], scale: [2.0, 8.0, 2.0], color: '#f5deb3' }, // Mühlen-Turm
+      { type: 'cone', position: [0, 8.5, 0], scale: [1.6, 1.5, 1.6], color: '#8b0000' }, // Dach
+      { type: 'box', position: [2.5, 6.0, 0], scale: [0.2, 4.0, 0.8], color: '#654321' }, // Flügel 1
+      { type: 'box', position: [-2.5, 6.0, 0], scale: [0.2, 4.0, 0.8], color: '#654321' }, // Flügel 2
+      { type: 'box', position: [0, 6.0, 2.5], scale: [0.8, 4.0, 0.2], color: '#654321' }, // Flügel 3
+      { type: 'box', position: [0, 6.0, -2.5], scale: [0.8, 4.0, 0.2], color: '#654321' } // Flügel 4
+    ],
+    
+    // Scheune
+    'barn': [
+      { type: 'box', position: [0, 2.5, 0], scale: [6.0, 5.0, 4.0], color: '#8b0000' }, // Hauptgebäude
+      { type: 'box', position: [0, 5.5, 0], scale: [6.4, 1.0, 4.4], color: '#654321' }, // Dach-Basis
+      { type: 'box', position: [0, 6.2, 0], scale: [6.0, 0.4, 4.0], color: '#2f4f2f' } // Dach-Giebel
+    ],
+    
+    // Brunnen
+    'well': [
+      { type: 'cylinder', position: [0, 0.5, 0], scale: [1.5, 1.0, 1.5], color: '#696969' }, // Brunnen-Basis
+      { type: 'cylinder', position: [0, 1.5, 0], scale: [1.2, 1.0, 1.2], color: '#2f4f2f' }, // Brunnen-Rand
+      { type: 'cylinder', position: [-1.0, 3.0, 0], scale: [0.15, 4.0, 0.15], color: '#8b4513' }, // Pfosten 1
+      { type: 'cylinder', position: [1.0, 3.0, 0], scale: [0.15, 4.0, 0.15], color: '#8b4513' }, // Pfosten 2
+      { type: 'cylinder', position: [0, 4.8, 0], scale: [1.2, 0.2, 0.2], color: '#8b4513' } // Querbalken
     ]
   };
 

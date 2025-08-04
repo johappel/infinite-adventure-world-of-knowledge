@@ -10,6 +10,10 @@ import { presetMushroomSmall } from './objects/mushroom_small.js';
 import { presetStoneCircleThin } from './objects/stone_circle_thin.js';
 import { presetCrystal } from './objects/crystal.js';
 import { presetBookshelf } from './objects/bookshelf.js';
+import { 
+  presetHouseSimple, presetHouseLarge, presetHutSmall, 
+  presetTowerWatch, presetWindmill, presetBarn, presetWell 
+} from './objects/village.js';
 import { presetNpcPlain } from './personas/npc_plain.js';
 import { presetNpcFairy } from './personas/npc_fairy.js';
 import { presetNpcScholar } from './personas/npc_scholar.js';
@@ -28,6 +32,14 @@ export const objectPresets = {
   stone_circle_thin: presetStoneCircleThin,
   crystal: presetCrystal,
   bookshelf: presetBookshelf,
+  // Village buildings
+  house_simple: presetHouseSimple,
+  house_large: presetHouseLarge,
+  hut_small: presetHutSmall,
+  tower_watch: presetTowerWatch,
+  windmill: presetWindmill,
+  barn: presetBarn,
+  well: presetWell,
 };
 
 export const personaPresets = {
@@ -89,10 +101,47 @@ export const objectCollections = {
   ],
   
   village: [
-    { type: "bookshelf", weight: 2 },
-    { type: "crystal", weight: 1 },
+    // Häuser (Hauptgebäude)
+    { type: "house_simple", weight: 3, variations: [
+      { scale: [0.8, 0.8, 0.8] },
+      { scale: [1.0, 1.0, 1.0] },
+      { scale: [1.2, 1.0, 1.2] }
+    ]},
+    { type: "house_large", weight: 2, variations: [
+      { scale: [0.9, 0.9, 0.9] },
+      { scale: [1.1, 1.1, 1.1] }
+    ]},
+    { type: "hut_small", weight: 2, variations: [
+      { scale: [0.7, 0.7, 0.7] },
+      { scale: [1.0, 1.0, 1.0] },
+      { scale: [1.3, 1.0, 1.3] }
+    ]},
+    
+    // Spezielle Gebäude (seltener)
+    { type: "tower_watch", weight: 1, variations: [
+      { scale: [0.8, 1.0, 0.8] },
+      { scale: [1.0, 1.2, 1.0] }
+    ]},
+    { type: "windmill", weight: 1 },
+    { type: "barn", weight: 1, variations: [
+      { scale: [0.8, 0.8, 0.8] },
+      { scale: [1.2, 1.0, 1.0] }
+    ]},
+    
+    // Dorf-Infrastruktur
+    { type: "well", weight: 2, variations: [
+      { scale: [0.8, 0.8, 0.8] },
+      { scale: [1.0, 1.0, 1.0] }
+    ]},
     { type: "circle_of_rocks", weight: 1, variations: [
-      { number: 4, radius: 1.5 } // Kleine Feuerstelle
+      { number: 4, radius: 1.5 }, // Kleine Feuerstelle
+      { number: 6, radius: 2.0 }  // Größerer Versammlungsplatz
+    ]},
+    
+    // Lagerobjekte
+    { type: "bookshelf", weight: 1 },
+    { type: "crystal", weight: 1, variations: [
+      { color: "#ffeeaa", scale: [0.6, 0.6, 0.6] } // Kleinere Dorf-Kristalle
     ]},
   ]
 };

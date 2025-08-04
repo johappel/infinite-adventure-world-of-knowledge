@@ -1,0 +1,117 @@
+name: "Kleines Dorf Demo"
+description: |
+  Demonstration der neuen Dorf-Gebäude mit der village Collection.
+  
+  Zeigt verschiedene Häuser, Hütten, Türme und Dorf-Infrastruktur!
+
+terrain:
+  preset: "grass_flat"
+  size: [60, 60]
+  paths:
+    - points:
+        - [-25, 0, 0]
+        - [-10, 0, 0] 
+        - [0, 0, 0]
+        - [10, 0, 0]
+        - [25, 0, 0]
+      smooth: true
+    - points:
+        - [0, 0, 0]
+        - [0, 0, -15]
+        - [0, 0, -25]
+      smooth: true
+    - points:
+        - [0, 0, 0]
+        - [0, 0, 15]
+        - [0, 0, 25]
+      smooth: true
+  path_options:
+    pathWidth: 14
+
+objects:
+  # Zentrales Dorf mit village Collection
+  - collections: ['village']
+    number: 15
+    seed: 12345
+    avoid_paths: true
+    min_path_distance: 6
+    
+  # Einzelne Showcase-Gebäude entlang der Hauptstraße
+  - type: "house_large"
+    position: [-8, 0, 5]
+    
+  - type: "windmill" 
+    position: [12, 0, -8]
+    scale: [0.8, 0.8, 0.8]
+    
+  - type: "tower_watch"
+    position: [0, 0, 18]
+    
+  - type: "well"
+    position: [0, 0, 0]  # Dorfzentrum
+    
+  - type: "barn"
+    position: [-15, 0, 12]
+    rotation: [0, 0.5, 0]
+    
+  # Kleine Hütten am Rand
+  - type: "hut_small"
+    position: [20, 0, 15]
+    scale: [0.7, 0.7, 0.7]
+    
+  - type: "hut_small" 
+    position: [-20, 0, -10]
+    scale: [0.9, 0.9, 0.9]
+    
+  # Einige Bäume für Atmosphäre
+  - collections: ['trees']
+    number: 8
+    seed: 54321
+    avoid_paths: true
+    min_path_distance: 8
+    
+  # Kleine mystische Elemente
+  - collections: ['mystical']
+    number: 3
+    seed: 98765
+    avoid_paths: true
+
+personas:
+  # Bürgermeister beim Brunnen
+  - preset: "npc_guardian"
+    name: "Bürgermeister Aldric"
+    position: [2, 0, 2]
+    dialogue:
+      opening: "Willkommen in unserem kleinen Dorf! Schau dir unsere neuen Gebäude an."
+      
+  # Müller bei der Windmühle
+  - preset: "npc_plain"
+    name: "Müller Hans"
+    position: [12, 0, -5]
+    dialogue:
+      opening: "Die Windmühle mahlt das beste Getreide weit und breit!"
+      
+  # Wächter am Turm
+  - preset: "npc_guardian"
+    name: "Wächter Grom" 
+    position: [2, 0, 18]
+    dialogue:
+      opening: "Vom Turm aus kann ich das ganze Tal überblicken."
+      
+  # Dorfbewohner
+  - preset: "npc_plain"
+    name: "Bäuerin Marta"
+    avoid_paths: true
+    min_path_distance: 10
+    dialogue:
+      opening: "Unser Dorf wächst und gedeiht! Bald haben wir noch mehr Häuser."
+
+portals:
+  - id: "village_exit"
+    position: [0, 1.6, -28]
+    size: [2.0, 4.0, 0.4]
+    color: "#ffaa66"
+
+camera:
+  position: [0, 15, 30]
+  target: [0, 0, 0]
