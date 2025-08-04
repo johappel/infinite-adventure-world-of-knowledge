@@ -1,0 +1,53 @@
+# Zone mit Collections und Kollisionserkennung Test
+name: "Kollisions-Test Zone"
+description: "Testet die Kollisionserkennung für Collections System"
+id: "collision-test"
+
+environment:
+  ambient_light: 0.6
+  sun_intensity: 0.8
+
+terrain:
+  preset: "grass_flat"
+  size: [40, 40]
+
+# NPCs werden zuerst platziert
+personas:
+  - preset: "npc_guardian"
+    name: "Dorfwächter"
+    position: [0, 0, 0]
+    
+  - preset: "npc_plain"
+    name: "Dorfbewohner"
+    position: [5, 0, 5]
+    
+  - preset: "npc_scholar"
+    name: "Gelehrter"
+    position: [-3, 0, 7]
+
+# Collections mit Kollisionserkennung
+objects:
+  # Village Collection mit hoher Anzahl für Kollisionstest
+  - collections: ["village"]
+    count: 15
+    seed: "village_collision_test"
+    enable_collision_detection: true
+    npc_buffer_distance: 4  # Größerer Abstand zu NPCs
+    object_buffer_distance: 2  # Abstand zwischen Objekten
+    
+  # Forest Objects mit Kollisionserkennung
+  - collections: ["forest_objects"]
+    count: 20
+    seed: "forest_collision_test"
+    enable_collision_detection: true
+    npc_buffer_distance: 2
+    object_buffer_distance: 1
+    
+  # Manuell platzierte Objekte (ignorieren Kollisionserkennung)
+  - preset: "crystal"
+    position: [10, 0, 10]
+    enable_collision_detection: false
+    
+  - preset: "well"
+    position: [-8, 0, -8]
+    enable_collision_detection: false

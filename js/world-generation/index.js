@@ -197,8 +197,27 @@ export function buildZoneFromSpec(worldData, options={}){
     }
   }
 
-  // Objects with path-aware placement and collections support
+  // Personas with path-aware placement (create first so Collections can avoid them)
+  const personas=[];
+  (spec.personas||[]).forEach((personaSpec, i) => {
+    const enhancedSpec = handlePathAwarePlacement(personaSpec, pathMask, terrainSize, terrainMesh, `${zoneSeed}_persona_${i}`);
+    const npc = buildPersona(enhancedSpec, i); 
+    if(npc){ 
+      group.add(npc); 
+      personas.push(npc);
+    }
+  });
+
+  // Objects with path-aware placement and collections support (with collision detection)
   const objects=[];
+  
+  // Prepare existing entities for collision detection
+  const existingEntities = personas.map(npc => ({
+    position: [npc.position.x, npc.position.y, npc.position.z],
+    name: npc.userData?.name || 'NPC',
+    type: 'npc'
+  }));
+  
   (spec.objects||[]).forEach((objSpec, i) => {
     // Handle collections
     if (objSpec.collections && Array.isArray(objSpec.collections)) {
@@ -212,7 +231,14 @@ export function buildZoneFromSpec(worldData, options={}){
           seed,
           pathMask, 
           terrainSize,
-          avoidPaths: objSpec.avoid_paths !== false
+          avoidPaths: objSpec.avoid_paths !== false,
+          existingEntities: [...existingEntities, ...objects.map(obj => ({
+            position: [obj.position.x, obj.position.y, obj.position.z],
+            type: obj.userData?.objectType || 'object'
+          }))],
+          enableCollisionDetection: objSpec.enable_collision_detection !== false,
+          npcBufferDistance: objSpec.npc_buffer_distance || 3,
+          objectBufferDistance: objSpec.object_buffer_distance || 1
         }
       );
       
@@ -221,6 +247,8 @@ export function buildZoneFromSpec(worldData, options={}){
         const enhancedSpec = handlePathAwarePlacement(genSpec, pathMask, terrainSize, terrainMesh, `${zoneSeed}_col_${i}_${genIndex}`);
         const mesh = buildObject(enhancedSpec, `${i}_col_${genIndex}`);
         if(mesh){ 
+          // Store object type for collision detection
+          mesh.userData.objectType = genSpec.type || genSpec.preset || 'object';
           group.add(mesh); 
           objects.push(mesh);
         }
@@ -230,6 +258,7 @@ export function buildZoneFromSpec(worldData, options={}){
       const enhancedSpec = handlePathAwarePlacement(objSpec, pathMask, terrainSize, terrainMesh, `${zoneSeed}_obj_${i}`);
       const mesh = buildObject(enhancedSpec, i); 
       if(mesh){ 
+        mesh.userData.objectType = objSpec.type || objSpec.preset || 'object';
         group.add(mesh); 
         objects.push(mesh);
       }
@@ -239,17 +268,6 @@ export function buildZoneFromSpec(worldData, options={}){
   // Portals
   const portals=[];
   (spec.portals||[]).forEach((p,i)=>{ const portal = buildPortal(p,i); if(portal){ group.add(portal); portals.push(portal);} });
-
-  // Personas with path-aware placement
-  const personas=[];
-  (spec.personas||[]).forEach((personaSpec, i) => {
-    const enhancedSpec = handlePathAwarePlacement(personaSpec, pathMask, terrainSize, terrainMesh, `${zoneSeed}_persona_${i}`);
-    const npc = buildPersona(enhancedSpec, i); 
-    if(npc){ 
-      group.add(npc); 
-      personas.push(npc);
-    }
-  });
 
   // Animations
   startZoneAnimations(group);

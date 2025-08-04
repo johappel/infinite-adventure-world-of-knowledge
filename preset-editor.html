@@ -187,6 +187,7 @@
                 <option value="simple_world">Einfache Welt</option>
                 <option value="forest">Wald-Zone</option>
                 <option value="library">Bibliothek</option>
+                <option value="collision_test">Kollisions-Test</option>
                 <option value="single_terrain">Nur Terrain</option>
                 <option value="single_object">Nur Objekt</option>
                 <option value="single_persona">Nur NPC</option>
@@ -346,6 +347,45 @@ personas:
   - preset: "npc_scholar"
     name: "Bibliothekar"
     position: [0, 0, 8]`,
+
+                    collision_test: `# Kollisions-Test Zone
+name: "Kollisions-Test"
+description: "Testet Collections mit Kollisionserkennung"
+id: "collision-test"
+
+environment:
+  ambient_light: 0.6
+  sun_intensity: 0.8
+
+terrain:
+  preset: "grass_flat"
+  size: [40, 40]
+
+# NPCs werden zuerst platziert
+personas:
+  - preset: "npc_guardian"
+    name: "Dorfwächter"
+    position: [0, 0, 0]
+    
+  - preset: "npc_plain"
+    name: "Dorfbewohner"
+    position: [8, 0, 8]
+
+# Collections mit Kollisionserkennung
+objects:
+  # Village Collection mit Kollisionserkennung
+  - collections: ["village"]
+    count: 12
+    enable_collision_detection: true
+    npc_buffer_distance: 4
+    object_buffer_distance: 2
+    
+  # Forest Objects
+  - collections: ["forest_objects"]
+    count: 8
+    enable_collision_detection: true
+    npc_buffer_distance: 2
+    object_buffer_distance: 1`,
 
                     single_terrain: `# Nur Terrain Test
 name: "Terrain Test"

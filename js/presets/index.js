@@ -18,6 +18,7 @@ import { presetNpcPlain } from './personas/npc_plain.js';
 import { presetNpcFairy } from './personas/npc_fairy.js';
 import { presetNpcScholar } from './personas/npc_scholar.js';
 import { presetNpcGuardian } from './personas/npc_guardian.js';
+import { applySafePlacement } from '../utils/collision-detection.js';
 
 export const terrainPresets = {
   forest_floor: forestFloorPreset,
@@ -178,14 +179,32 @@ export const objectCollections = {
 };
 
 /**
- * Generate objects from collections
+ * Generate objects from collections with collision detection
  * @param {string[]} collections - Array of collection names
  * @param {number} count - Total number of objects to generate  
- * @param {Object} options - { seed: number, pathMask?, terrainSize?, avoidPaths: true }
- * @returns {Object[]} Array of object specifications
+ * @param {Object} options - { 
+ *   seed: number, 
+ *   pathMask?, 
+ *   terrainSize?, 
+ *   avoidPaths: true, 
+ *   existingEntities: [], 
+ *   enableCollisionDetection: true, 
+ *   npcBufferDistance: 3, 
+ *   objectBufferDistance: 1 
+ * }
+ * @returns {Object[]} Array of object specifications with safe positions
  */
 export function generateFromCollections(collections, count, options = {}) {
-  const { seed: providedSeed, pathMask, terrainSize, avoidPaths = true } = options;
+  const { 
+    seed: providedSeed, 
+    pathMask, 
+    terrainSize, 
+    avoidPaths = true,
+    existingEntities = [],
+    enableCollisionDetection = true,
+    npcBufferDistance = 3,
+    objectBufferDistance = 1
+  } = options;
   
   // Seed-Quelle bestimmen: 1) explizit übergeben 2) zone_id aus globalem Kontext 3) echter Zufall
   let effectiveSeed = providedSeed;
@@ -247,6 +266,7 @@ export function generateFromCollections(collections, count, options = {}) {
       ...(objDef.type ? { type: objDef.type } : {}),
       ...(objDef.color ? { color: objDef.color } : {}),
       ...(objDef.scale ? { scale: objDef.scale } : {}),
+      position: [0, 0, 0], // Will be updated by collision detection
     };
     
     // Apply random variation if available
@@ -272,6 +292,23 @@ export function generateFromCollections(collections, count, options = {}) {
     }
     
     results.push(spec);
+  }
+  
+  // Apply collision detection and safe placement if enabled
+  if (enableCollisionDetection) {
+    const placementOptions = {
+      terrainSize: terrainSize || [50, 50],
+      pathMask,
+      avoidPaths,
+      npcBufferDistance,
+      objectBufferDistance,
+      seed: effectiveSeed + '_placement',
+      allowUnsafeFallback: false // Strict placement - no unsafe fallbacks
+    };
+    
+    const safelyPlacedObjects = applySafePlacement(results, existingEntities, placementOptions);
+    console.log(`Collections placement: Generated ${results.length} objects, safely placed ${safelyPlacedObjects.length}`);
+    return safelyPlacedObjects;
   }
   
   return results;
