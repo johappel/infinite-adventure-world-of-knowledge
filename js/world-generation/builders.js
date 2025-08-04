@@ -499,8 +499,8 @@ export function buildObject(cfg, index){
     
     // Kleine Hütte
     'hut_small': [
-      { type: 'cylinder', position: [0, 1.2, 0], scale: [2.0, 2.4, 2.0], color: '#8b6914' }, // Runde Basis
-      { type: 'cone', position: [0, 3.0, 0], scale: [2.4, 2.0, 2.4], color: '#228b22' } // Stroh-Dach
+      { type: 'cylinder', position: [0, .5, 0], scale: [1.8, 1.3, 1.8] }, // Runde Basis
+      { type: 'truncated_cone', position: [0, 2.0, 0], scale: [2.4, 0.4, 2.4],  color: '#8b6914' } // Stroh-Dach
     ],
     
     // Wachturm
@@ -530,8 +530,8 @@ export function buildObject(cfg, index){
     
     // Scheune mit Satteldach
     'barn': [
-      { type: 'box', position: [0, 2.5, 0], scale: [6.0, 5.0, 4.0], color: '#8b0000' }, // Hauptgebäude
-      { type: 'roof', position: [0, 5.5, 0], scale: [6.4, 1.8, 4.4], color: '#654321' } // Satteldach
+      { type: 'box', position: [0 ,1.8,0], scale: [8,3,4], color: '#8b0000' }, // Hauptgebäude
+      { type: 'roof', position: [0 ,3,0], rotation: [0, 1.57, 0], scale: [2.5,2,4.5], color: '#654321' } // Satteldach
     ],
     
     // Brunnen
@@ -628,20 +628,20 @@ export function buildObject(cfg, index){
       geometry.computeVertexNormals();
       break;
     case 'roof':
-      // Satteldach - Dreiecksprisma
+      // Satteldach - vollständig geschlossenes Dreiecksprisma
       geometry = new THREE.BufferGeometry();
       const roofVertices = new Float32Array([
-        // Vorderseite (Dreieck)
+        // Vorderseite (Giebel vorne) - counter-clockwise
         -1, 0, 1,   1, 0, 1,   0, 1, 1,
-        // Rückseite (Dreieck)  
+        // Rückseite (Giebel hinten) - counter-clockwise von hinten gesehen
         -1, 0, -1,  0, 1, -1,  1, 0, -1,
-        // Unterseite (Rechteck)
+        // Unterseite - counter-clockwise von unten gesehen
         -1, 0, -1,  -1, 0, 1,  1, 0, 1,
         -1, 0, -1,  1, 0, 1,   1, 0, -1,
-        // Linke Dachfläche
+        // Linke Dachfläche - counter-clockwise
         -1, 0, -1,  0, 1, -1,  0, 1, 1,
         -1, 0, -1,  0, 1, 1,   -1, 0, 1,
-        // Rechte Dachfläche
+        // Rechte Dachfläche - counter-clockwise
         1, 0, -1,   1, 0, 1,   0, 1, 1,
         1, 0, -1,   0, 1, 1,   0, 1, -1
       ]);
@@ -708,6 +708,7 @@ export function buildObject(cfg, index){
       break;
     case 'mushroom': geometry = new THREE.CylinderGeometry(0.5,0.2,1,12); break;
     case 'cylinder': geometry = new THREE.CylinderGeometry(1,1,2,16); break;
+    case 'truncated_cone': geometry = new THREE.CylinderGeometry(0.5,1,2,16); break; // Kegelstumpf: oben schmaler, unten breiter
     case 'stone_circle': geometry = new THREE.TorusGeometry(2,0.2,12,24); break;
     case 'crystal': geometry = new THREE.OctahedronGeometry(1,0); break;
     case 'ball': case 'sphere': geometry = new THREE.SphereGeometry(1, 16, 12); break;
@@ -715,7 +716,12 @@ export function buildObject(cfg, index){
     case 'bookshelf': geometry = new THREE.BoxGeometry(2,4,0.5); break;
     default: geometry = new THREE.BoxGeometry(1,1,1);
   }
-  const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(cfg.color||'#8b4513'), roughness:0.75, metalness:0.08 });
+  const material = new THREE.MeshStandardMaterial({ 
+    color: new THREE.Color(cfg.color||'#8b4513'), 
+    roughness:0.75, 
+    metalness:0.08,
+    side: type === 'roof' ? THREE.DoubleSide : THREE.FrontSide // Doppelseitig für Dächer
+  });
   const mesh = new THREE.Mesh(geometry, material);
   if(cfg.position) mesh.position.set(...cfg.position);
   if(cfg.scale) mesh.scale.set(...cfg.scale);

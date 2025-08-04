@@ -11,7 +11,9 @@ export const objectPresets = {
   crystal:     { type: 'crystal', color: '#00ffff', scale: [1,1,1] },
   mushroom_small: { type: 'mushroom', color: '#8b4513', scale: [0.5,0.8,0.5] },
   stone_circle_thin: { type: 'stone_circle', color: '#696969', scale: [2,2,2] },
-  bookshelf:   { type: 'bookshelf', color: '#8b6d5c', scale: [1,1,1] }
+  bookshelf:   { type: 'bookshelf', color: '#8b6d5c', scale: [1,1,1] },
+  truncated_cone: { type: 'truncated_cone', color: '#8b4513', scale: [1,1,1] },
+  sphere:      { type: 'sphere', color: '#ff6b6b', scale: [1,1,1] }
 };
 
 export const personaPresets = {
@@ -23,7 +25,7 @@ export const personaPresets = {
 
 export const defaults = {
   terrain: { type: 'flat', color: '#4a7c1e', size: [50,50], amplitude: 2.5, flat_radius: null, blend_radius: null, outer_gain: 1.0, y: 0 },
-  object:  { type: 'box', color: '#8b4513', position: [0,0,0], scale: [1,1,1], interactive: false },
+  object:  { type: 'box', color: '#8b4513', position: [0,0,0], scale: [1,1,1], rotation: [0,0,0], interactive: false },
   persona: { role: 'NPC', appearance: { color: '#ff6b6b', height: 1.6 }, position: [0,0,0] },
   portal:  { size: [1.8,3.2,0.2], color: '#4169e1', position: [0,0,0] },
   environment: { skybox: 'clear_day', time_of_day: 0.5, ambient_light: 0.7, sun_intensity: 0.9, fog_distance: null, skybox_mode: 'cube' }
