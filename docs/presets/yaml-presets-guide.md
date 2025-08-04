@@ -153,10 +153,15 @@ Globale Einstellungen für alle Pfade:
 terrain:
   paths: [...]
   path_options:
-    pathWidth: 12      # Pfadbreite in Pixeln (default: 8)
+    pathWidth: 18         # Pfadbreite in Pixeln (default: 16)
     pathColor: "#654321"  # Pfadfarbe (default: "#8b7355")
     bgColor: "transparent"  # Hintergrund (default: transparent)
 ```
+
+**pathWidth Richtwerte:**
+- Schmale Pfade: 8-12 (für Fußwege)
+- Standard Pfade: 16-20 (für Hauptwege)  
+- Breite Straßen: 24-32 (für Verkehrswege)
 
 ### Automatische Objekt-Platzierung
 Objekte und NPCs werden automatisch **außerhalb** der Pfade platziert:

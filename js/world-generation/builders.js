@@ -111,16 +111,20 @@ function makePathTexture(paths=[], terrainSize=[50, 50], options={}){
     return smooth;
   };
   
-  // Draw paths
+  // Draw paths with anti-aliasing
   ctx.strokeStyle = pathColor;
   ctx.lineWidth = pathWidth;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  ctx.imageSmoothingEnabled = true; // Enable anti-aliasing
+  ctx.imageSmoothingQuality = 'high';
   
   maskCtx.strokeStyle = '#ffffff';
   maskCtx.lineWidth = pathWidth;
   maskCtx.lineCap = 'round';
   maskCtx.lineJoin = 'round';
+  maskCtx.imageSmoothingEnabled = true;
+  maskCtx.imageSmoothingQuality = 'high';
   
   paths.forEach(path => {
     if(!path.points || path.points.length < 2) return;
@@ -133,7 +137,7 @@ function makePathTexture(paths=[], terrainSize=[50, 50], options={}){
     ctx.beginPath();
     maskCtx.beginPath();
     
-    if(smoothed.length === texPoints.length){
+    if(path.smooth === false || smoothed.length === texPoints.length){
       // Simple path
       ctx.moveTo(smoothed[0][0], smoothed[0][1]);
       maskCtx.moveTo(smoothed[0][0], smoothed[0][1]);
@@ -142,21 +146,23 @@ function makePathTexture(paths=[], terrainSize=[50, 50], options={}){
         maskCtx.lineTo(smoothed[i][0], smoothed[i][1]);
       }
     } else {
-      // Bezier path
+      // Smooth Bezier path with more segments
       ctx.moveTo(smoothed[0][0], smoothed[0][1]);
       maskCtx.moveTo(smoothed[0][0], smoothed[0][1]);
-      for(let i = 1; i < smoothed.length; i += 3){
-        if(i + 2 < smoothed.length){
-          ctx.bezierCurveTo(
-            smoothed[i][0], smoothed[i][1],
-            smoothed[i+1][0], smoothed[i+1][1], 
-            smoothed[i+2][0], smoothed[i+2][1]
-          );
-          maskCtx.bezierCurveTo(
-            smoothed[i][0], smoothed[i][1],
-            smoothed[i+1][0], smoothed[i+1][1],
-            smoothed[i+2][0], smoothed[i+2][1]
-          );
+      
+      for(let i = 1; i < smoothed.length; i += 4){
+        if(i + 3 < smoothed.length){
+          // Quadratic Bezier for smoother curves
+          const p1 = smoothed[i];
+          const cp = smoothed[i+1];
+          const p2 = smoothed[i+3];
+          
+          ctx.quadraticCurveTo(cp[0], cp[1], p2[0], p2[1]);
+          maskCtx.quadraticCurveTo(cp[0], cp[1], p2[0], p2[1]);
+        } else if(i < smoothed.length) {
+          // Fallback to line for remaining points
+          ctx.lineTo(smoothed[i][0], smoothed[i][1]);
+          maskCtx.lineTo(smoothed[i][0], smoothed[i][1]);
         }
       }
     }

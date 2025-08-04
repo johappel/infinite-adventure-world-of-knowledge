@@ -46,7 +46,7 @@ terrain:
       smooth: false
   
   path_options:
-    pathWidth: 10
+    pathWidth: 18          # Breitere Pfade für bessere Sichtbarkeit
     pathColor: "#8b7355"
 
 objects:
