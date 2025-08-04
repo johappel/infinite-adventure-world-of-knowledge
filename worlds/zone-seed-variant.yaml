@@ -13,12 +13,12 @@ terrain:
   flat_radius: 10
   blend_radius: 15
 
-# Identische Pfade
-paths:
-  - points: [[0, -20], [0, -10], [0, 0], [0, 10], [0, 20]]
-    smooth: true
-  - points: [[-20, 0], [-10, 0], [0, 0], [10, 0], [20, 0]]
-    smooth: true
+  # Identische Pfade
+  paths:
+    - points: [[0, -20], [0, -10], [0, 0], [0, 10], [0, 20]]
+      smooth: true
+    - points: [[-20, 0], [-10, 0], [0, 0], [10, 0], [20, 0]]
+      smooth: true
 
 # Identische Objekt-Konfiguration
 objects:
@@ -31,10 +31,12 @@ objects:
   # Collections - andere automatische Platzierung durch anderen zone_id
   - collections: ["village"]
     count: 8
+    seed: "seed_demo_variant_A_objects_0"  # explizit fixierter Seed für deterministische Auswahl
     # Automatischer Seed: "seed_demo_variant_A_objects_0" (anders als Original)
     
   - collections: ["trees", "rocks"]
     count: 15
+    seed: "seed_demo_variant_A_objects_1"  # explizit fixierter Seed
     # Automatischer Seed: "seed_demo_variant_A_objects_1" (anders als Original)
     
   - type: well
