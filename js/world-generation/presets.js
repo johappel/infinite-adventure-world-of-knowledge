@@ -1,8 +1,8 @@
 // Zentrale Presets & Defaults
 export const terrainPresets = {
   forest_floor: { type: 'hills', texture: 'forest_floor', color: '#4a7c1e', amplitude: 2.5, size: [50,50] },
-  grass_flat:   { type: 'flat', color: '#4a7c1e', size: [50,50] },
-  marble_flat:  { type: 'flat', color: '#d6d6d6', size: [50,50] }
+  grass_flat:   { type: 'flat', texture: 'grass_texture', color: '#4a7c1e', size: [50,50] },
+  marble_flat:  { type: 'flat', texture: 'marble_texture', color: '#d6d6d6', size: [50,50] }
 };
 
 export const objectPresets = {

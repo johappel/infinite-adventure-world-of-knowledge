@@ -10,6 +10,130 @@ function makeForestFloorTexture(){
   const tex = new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(4,4); if(THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding; return tex;
 }
 
+// NEU: einfache prozedurale Texturen, ähnlich zum forest floor
+function makeGrassTexture(){
+  const c = document.createElement('canvas'); c.width=512; c.height=512; const ctx=c.getContext('2d');
+  ctx.fillStyle = '#2e5d2e'; ctx.fillRect(0,0,512,512);
+  for(let i=0;i<1200;i++){ const x=Math.random()*512, y=Math.random()*512, len=4+Math.random()*10, w=1+Math.random()*2; ctx.strokeStyle=`rgba(180,220,160,${0.06+Math.random()*0.12})`; ctx.lineWidth=w; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.random()*2-1, y-len); ctx.stroke(); }
+  const tex = new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(6,6); if(THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding; return tex;
+}
+function makeMarbleTexture(){
+  const c=document.createElement('canvas'); c.width=512; c.height=512; const ctx=c.getContext('2d');
+  ctx.fillStyle='#dcdcdc'; ctx.fillRect(0,0,512,512);
+  ctx.globalAlpha=0.25; ctx.strokeStyle='#aaa';
+  for(let i=0;i<60;i++){ ctx.beginPath(); const y= Math.random()*512; for(let x=0;x<=512;x+=8){ const off = Math.sin((x*0.02)+(i*0.5))*6; ctx.lineTo(x, y+off); } ctx.stroke(); }
+  ctx.globalAlpha=1;
+  const tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(2,2); if(THREE.sRGBEncoding) tex.encoding=THREE.sRGBEncoding; return tex;
+}
+function makeStoneTexture(){
+  const c=document.createElement('canvas'); c.width=512; c.height=512; const ctx=c.getContext('2d');
+  ctx.fillStyle='#5c5c5c'; ctx.fillRect(0,0,512,512);
+  for(let i=0;i<800;i++){ const x=Math.random()*512, y=Math.random()*512, r=1+Math.random()*3; ctx.fillStyle=`rgba(255,255,255,${0.05+Math.random()*0.05})`; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+  for(let i=0;i<400;i++){ const x=Math.random()*512, y=Math.random()*512, w=2+Math.random()*6, h=1+Math.random()*3; ctx.fillStyle=`rgba(0,0,0,${0.05+Math.random()*0.05})`; ctx.fillRect(x,y,w,h); }
+  const tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(4,4); if(THREE.sRGBEncoding) tex.encoding=THREE.sRGBEncoding; return tex;
+}
+function makeFloorTexture(){
+  const c=document.createElement('canvas'); c.width=512; c.height=512; const ctx=c.getContext('2d');
+  ctx.fillStyle='#999'; ctx.fillRect(0,0,512,512);
+  ctx.strokeStyle='#7a7a7a'; ctx.lineWidth=2;
+  for(let i=0;i<=8;i++){ const t=i/8*512; ctx.beginPath(); ctx.moveTo(t,0); ctx.lineTo(t,512); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,t); ctx.lineTo(512,t); ctx.stroke(); }
+  const tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(2,2); if(THREE.sRGBEncoding) tex.encoding=THREE.sRGBEncoding; return tex;
+}
+function makeWaterTexture(){
+  const c=document.createElement('canvas'); c.width=512; c.height=512; const ctx=c.getContext('2d');
+  const grad=ctx.createLinearGradient(0,0,512,512); grad.addColorStop(0,'#5cc9ff'); grad.addColorStop(1,'#0e89c0'); ctx.fillStyle=grad; ctx.fillRect(0,0,512,512);
+  ctx.globalAlpha=0.25; ctx.strokeStyle='#ffffff';
+  for(let i=0;i<40;i++){ ctx.beginPath(); const y=Math.random()*512; for(let x=0;x<=512;x+=6){ const off = Math.sin((x*0.04)+(i*0.4))*5; ctx.lineTo(x, y+off); } ctx.stroke(); }
+  ctx.globalAlpha=1;
+  const tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(2,2); if(THREE.sRGBEncoding) tex.encoding=THREE.sRGBEncoding; return tex;
+}
+
+// --- Noise util (simple value noise) ---
+function makeNoise(width=256, height=256, scale=32){
+  const c=document.createElement('canvas'); c.width=width; c.height=height; const ctx=c.getContext('2d');
+  const img=ctx.createImageData(width,height);
+  for(let y=0;y<height;y++){
+    for(let x=0;x<width;x++){
+      const nx = x/scale, ny=y/scale;
+      const v = (Math.sin(nx)+Math.sin(ny*1.3)+Math.sin((nx+ny)*0.7))*0.3335; // [-1,1]
+      const g = Math.floor((v*0.5+0.5)*255);
+      const i=(y*width+x)*4; img.data[i]=g; img.data[i+1]=g; img.data[i+2]=g; img.data[i+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0); return c;
+}
+
+// --- Compositor API ---
+// composeTexture(layers, opts)
+// layers: [{ fn: 'grass'|'stone'|'marble'|'floor'|'water'|'forest', alpha: 1, mask: 'noise'|'none', maskScale: 32, blend: 'normal'|'multiply'|'screen' }]
+function getGeneratorByName(name){
+  switch(name){
+    case 'grass': return makeGrassTexture;
+    case 'stone': return makeStoneTexture;
+    case 'marble': return makeMarbleTexture;
+    case 'floor': return makeFloorTexture;
+    case 'water': return makeWaterTexture;
+    case 'forest': return makeForestFloorTexture;
+    default: return null;
+  }
+}
+
+function composeTexture(layers=[], opts={}){
+  const w = opts.width || 512, h = opts.height || 512;
+  const out=document.createElement('canvas'); out.width=w; out.height=h; const octx=out.getContext('2d');
+  octx.clearRect(0,0,w,h);
+
+  layers.forEach(layer=>{
+    const gen = typeof layer.fn==='function' ? layer.fn : getGeneratorByName(layer.fn);
+    if(!gen) return;
+    // Generator liefert THREE.CanvasTexture; wir brauchen das Source-Canvas
+    const tex = gen();
+    const src = tex.image || tex.source?.data; // Canvas
+    if(!src) return;
+
+    // Maske
+    let mask=null; let maskData=null;
+    if(layer.mask === 'noise'){
+      mask = makeNoise(w,h, layer.maskScale||32);
+      const mctx = mask.getContext('2d');
+      maskData = mctx.getImageData(0,0,w,h).data;
+    }
+
+    // Ziel vorbereiten mit globalCompositeOperation
+    const blend = layer.blend || 'source-over';
+    const alpha = Math.max(0, Math.min(1, layer.alpha==null?1:layer.alpha));
+
+    if(!mask){
+      octx.globalAlpha = alpha;
+      octx.globalCompositeOperation = blend;
+      octx.drawImage(src, 0,0, w,h);
+    } else {
+      // Pixelweise mischen via ImageData mit Maske
+      const sctx = src.getContext('2d');
+      const sData = sctx.getImageData(0,0,w,h);
+      const dData = octx.getImageData(0,0,w,h);
+      const S = sData.data; const D = dData.data;
+      for(let i=0;i<w*h;i++){
+        const mi = i*4, aMask = (maskData[mi]/255) * alpha; // nur R-Kanal
+        const sr=S[mi], sg=S[mi+1], sb=S[mi+2];
+        const dr=D[mi], dg=D[mi+1], db=D[mi+2];
+        // simple alpha blend (normal)
+        const outA = aMask + (1-aMask)*1; // Ziel hat volle Deckkraft
+        D[mi]   = sr*aMask + dr*(1-aMask);
+        D[mi+1] = sg*aMask + dg*(1-aMask);
+        D[mi+2] = sb*aMask + db*(1-aMask);
+        D[mi+3] = 255;
+      }
+      octx.putImageData(dData,0,0);
+    }
+  });
+
+  const tex = new THREE.CanvasTexture(out);
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(4,4);
+  if(THREE.sRGBEncoding) tex.encoding=THREE.sRGBEncoding;
+  return tex;
+}
+
 export function buildTerrain(cfg){
   const size = cfg.size || [50,50];
   const width=size[0], height=size[1];
@@ -37,8 +161,22 @@ export function buildTerrain(cfg){
     }
     pos.needsUpdate=true; geometry.computeVertexNormals();
   }
-  if(cfg.texture==='forest_floor'){
+  // Texturwahl inkl. Compositing
+  if (Array.isArray(cfg.texture_layers)){
+    const tex = composeTexture(cfg.texture_layers, { width:512, height:512 });
+    material.map = tex; material.color = new THREE.Color('#ffffff'); material.needsUpdate=true;
+  } else if(cfg.texture==='forest_floor'){
     const tex = makeForestFloorTexture(); material.map = tex; material.color = new THREE.Color('#ffffff'); material.needsUpdate=true;
+  } else if (cfg.texture==='grass_texture'){
+    const tex = makeGrassTexture(); material.map = tex; material.color = new THREE.Color('#ffffff'); material.needsUpdate=true;
+  } else if (cfg.texture==='marble_texture'){
+    const tex = makeMarbleTexture(); material.map = tex; material.color = new THREE.Color('#ffffff'); material.needsUpdate=true;
+  } else if (cfg.texture==='stone_texture'){
+    const tex = makeStoneTexture(); material.map = tex; material.color = new THREE.Color('#ffffff'); material.needsUpdate=true;
+  } else if (cfg.texture==='floor_texture'){
+    const tex = makeFloorTexture(); material.map = tex; material.color = new THREE.Color('#ffffff'); material.needsUpdate=true;
+  } else if (cfg.texture==='water_texture'){
+    const tex = makeWaterTexture(); material.map = tex; material.color = new THREE.Color('#a0d8ef'); material.roughness = 0.2; material.metalness = 0.1; material.needsUpdate=true;
   }
   const mesh = new THREE.Mesh(geometry, material); mesh.rotation.x = -Math.PI/2; mesh.position.y = cfg.y ?? 0.01; mesh.name = 'terrain'; mesh.renderOrder=-10; return mesh;
 }
