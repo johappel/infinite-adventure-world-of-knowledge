@@ -52,7 +52,7 @@ function makeWaterTexture(){
 function makePathTexture(paths=[], terrainSize=[50, 50], options={}){
   const w = options.width || 512;
   const h = options.height || 512;
-  const pathWidth = options.pathWidth || 8; // pixels
+  const pathWidth = options.pathWidth || 16; // pixels - increased default width
   const pathColor = options.pathColor || '#8b7355'; // brown path
   
   const c = document.createElement('canvas');
@@ -74,21 +74,40 @@ function makePathTexture(paths=[], terrainSize=[50, 50], options={}){
     return [texX, texZ];
   };
   
-  // Bezier smoothing helper
+  // Bezier smoothing helper - improved for smoother transitions
   const smoothPath = (points) => {
     if(points.length < 3) return points;
     const smooth = [points[0]];
+    
     for(let i = 1; i < points.length - 1; i++){
       const prev = points[i-1];
       const curr = points[i];  
       const next = points[i+1];
+      
+      // Calculate tangent vector for smoother curves
+      const tangentX = (next[0] - prev[0]) * 0.25; // reduced tension for smoother curves
+      const tangentY = (next[1] - prev[1]) * 0.25;
+      
       // Control points for Bezier curve
-      const cp1x = curr[0] - (next[0] - prev[0]) * 0.15;
-      const cp1y = curr[1] - (next[1] - prev[1]) * 0.15;
-      const cp2x = curr[0] + (next[0] - prev[0]) * 0.15;
-      const cp2y = curr[1] + (next[1] - prev[1]) * 0.15;
-      smooth.push([cp1x, cp1y], [cp2x, cp2y], next);
+      const cp1x = curr[0] - tangentX;
+      const cp1y = curr[1] - tangentY;
+      const cp2x = curr[0] + tangentX;
+      const cp2y = curr[1] + tangentY;
+      
+      // Add intermediate point for smoother transition
+      const midX = (prev[0] + curr[0]) * 0.5;
+      const midY = (prev[1] + curr[1]) * 0.5;
+      smooth.push([midX, midY], [cp1x, cp1y], [cp2x, cp2y], curr);
     }
+    
+    // Add final point
+    const lastIdx = points.length - 1;
+    if(lastIdx > 0) {
+      const midX = (points[lastIdx-1][0] + points[lastIdx][0]) * 0.5;
+      const midY = (points[lastIdx-1][1] + points[lastIdx][1]) * 0.5;
+      smooth.push([midX, midY], points[lastIdx]);
+    }
+    
     return smooth;
   };
   
