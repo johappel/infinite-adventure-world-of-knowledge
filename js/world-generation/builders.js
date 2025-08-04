@@ -399,19 +399,63 @@ export function buildObject(cfg, index){
     
     // === DORF-GEBÄUDE ===
     
-    // Einfaches Haus: Basis + Dach
+    // Einfaches Haus mit Satteldach
     'house_simple': [
       { type: 'box', position: [0, 1.5, 0], scale: [3.0, 3.0, 3.0], color: '#8b7355' }, // Wände
-      { type: 'box', position: [0, 3.2, 0], scale: [3.4, 0.4, 3.4], color: '#654321' }, // Dach-Basis
-      { type: 'cone', position: [0, 4.0, 0], scale: [2.4, 1.6, 2.4], color: '#8b0000' } // Dach-Spitze
+      { type: 'roof', position: [0, 3.2, 0], scale: [3.2, 1.2, 3.4], color: '#8b0000' } // Satteldach
     ],
     
-    // Größeres Haus mit Schornstein
+    // Größeres Haus mit Satteldach und Schornstein
     'house_large': [
       { type: 'box', position: [0, 2.0, 0], scale: [4.0, 4.0, 4.0], color: '#d2b48c' }, // Haupthaus
-      { type: 'box', position: [0, 4.4, 0], scale: [4.4, 0.6, 4.4], color: '#654321' }, // Dach-Basis  
-      { type: 'cone', position: [0, 5.5, 0], scale: [3.2, 2.2, 3.2], color: '#8b0000' }, // Dach
-      { type: 'cylinder', position: [1.5, 6.5, 1.5], scale: [0.3, 2.0, 0.3], color: '#696969' } // Schornstein
+      { type: 'roof', position: [0, 4.5, 0], scale: [4.4, 1.5, 4.6], color: '#8b0000' }, // Satteldach
+      { type: 'cylinder', position: [1.5, 6.0, 1.5], scale: [0.3, 2.0, 0.3], color: '#696969' } // Schornstein
+    ],
+    
+    // Schloss-Turm mit spitzem Dach
+    'castle_tower': [
+      { type: 'cylinder', position: [0, 4.0, 0], scale: [2.5, 8.0, 2.5], color: '#696969' }, // Turm
+      { type: 'cone', position: [0, 9.0, 0], scale: [2.8, 3.0, 2.8], color: '#4a4a4a' }, // Spitzdach
+      { type: 'cylinder', position: [0, 8.5, 0], scale: [2.7, 0.5, 2.7], color: '#8b7355' } // Zinnen-Ring
+    ],
+    
+    // Schloss mit begehbarem Torbogen
+    'castle_gate': [
+      { type: 'box', position: [-3.0, 3.0, 0], scale: [2.0, 6.0, 2.0], color: '#696969' }, // Linke Mauer
+      { type: 'box', position: [3.0, 3.0, 0], scale: [2.0, 6.0, 2.0], color: '#696969' }, // Rechte Mauer
+      { type: 'box', position: [0, 5.5, 0], scale: [2.0, 1.0, 2.0], color: '#696969' }, // Oberer Querbalken
+      { type: 'arch', position: [0, 2.5, 0], scale: [1.8, 2.0, 2.2], color: '#4a4a4a' }, // Torbogen (nur visuell)
+      { type: 'cylinder', position: [-3.0, 7.0, 0], scale: [1.0, 2.0, 1.0], color: '#696969' }, // Linker Turm
+      { type: 'cylinder', position: [3.0, 7.0, 0], scale: [1.0, 2.0, 1.0], color: '#696969' }, // Rechter Turm
+      { type: 'cone', position: [-3.0, 8.5, 0], scale: [1.2, 1.5, 1.2], color: '#4a4a4a' }, // Linkes Dach
+      { type: 'cone', position: [3.0, 8.5, 0], scale: [1.2, 1.5, 1.2], color: '#4a4a4a' } // Rechtes Dach
+    ],
+    
+    // Einfacher begehbarer Torbogen (standalone)
+    'gate_arch': [
+      { type: 'box', position: [-1.5, 2.0, 0], scale: [0.8, 4.0, 1.0], color: '#696969' }, // Linker Pfeiler
+      { type: 'box', position: [1.5, 2.0, 0], scale: [0.8, 4.0, 1.0], color: '#696969' }, // Rechter Pfeiler
+      { type: 'arch', position: [0, 2.5, 0], scale: [1.5, 1.8, 1.2], color: '#696969' } // Torbogen (nur visuell)
+    ],
+    
+    // Begehbare Brücke mit seitlichen Torbögen
+    'bridge_arch': [
+      { type: 'box', position: [0, 0.5, 0], scale: [8.0, 1.0, 2.0], color: '#696969' }, // Brücken-Deck
+      { type: 'box', position: [-3.0, 1.5, -1.2], scale: [0.6, 2.0, 0.6], color: '#8b7355' }, // Linker Pfeiler hinten
+      { type: 'box', position: [3.0, 1.5, -1.2], scale: [0.6, 2.0, 0.6], color: '#8b7355' }, // Rechter Pfeiler hinten  
+      { type: 'box', position: [-3.0, 1.5, 1.2], scale: [0.6, 2.0, 0.6], color: '#8b7355' }, // Linker Pfeiler vorne
+      { type: 'box', position: [3.0, 1.5, 1.2], scale: [0.6, 2.0, 0.6], color: '#8b7355' }, // Rechter Pfeiler vorne
+      { type: 'arch', position: [-3.0, 1.8, 0], scale: [0.8, 1.2, 1.8], color: '#8b7355' }, // Linker Bogen (seitlich)
+      { type: 'arch', position: [3.0, 1.8, 0], scale: [0.8, 1.2, 1.8], color: '#8b7355' } // Rechter Bogen (seitlich)
+    ],
+    
+    // Einfache begehbare Brücke
+    'bridge_simple': [
+      { type: 'box', position: [0, 0.3, 0], scale: [8.0, 0.6, 2.0], color: '#8b7355' }, // Brücken-Deck
+      { type: 'box', position: [-3.5, 0.8, -0.8], scale: [0.4, 1.0, 0.4], color: '#654321' }, // Geländer-Pfosten
+      { type: 'box', position: [3.5, 0.8, -0.8], scale: [0.4, 1.0, 0.4], color: '#654321' }, // Geländer-Pfosten
+      { type: 'box', position: [-3.5, 0.8, 0.8], scale: [0.4, 1.0, 0.4], color: '#654321' }, // Geländer-Pfosten
+      { type: 'box', position: [3.5, 0.8, 0.8], scale: [0.4, 1.0, 0.4], color: '#654321' } // Geländer-Pfosten
     ],
     
     // Kleine Hütte
@@ -427,6 +471,14 @@ export function buildObject(cfg, index){
       { type: 'cone', position: [0, 7.5, 0], scale: [1.8, 2.0, 1.8], color: '#8b0000' } // Spitzdach
     ],
     
+    // Kirche mit Satteldach
+    'church': [
+      { type: 'box', position: [0, 3.0, 0], scale: [5.0, 6.0, 8.0], color: '#f5deb3' }, // Hauptschiff
+      { type: 'roof', position: [0, 6.5, 0], scale: [5.4, 2.0, 8.4], color: '#8b0000' }, // Hauptdach
+      { type: 'cylinder', position: [0, 8.0, -3.0], scale: [1.0, 6.0, 1.0], color: '#f5deb3' }, // Turm
+      { type: 'roof', position: [0, 11.5, -3.0], scale: [1.4, 1.5, 1.4], color: '#8b0000' } // Turmdach
+    ],
+    
     // Windmühle
     'windmill': [
       { type: 'cylinder', position: [0, 4.0, 0], scale: [2.0, 8.0, 2.0], color: '#f5deb3' }, // Mühlen-Turm
@@ -437,11 +489,10 @@ export function buildObject(cfg, index){
       { type: 'box', position: [0, 6.0, -2.5], scale: [0.8, 4.0, 0.2], color: '#654321' } // Flügel 4
     ],
     
-    // Scheune
+    // Scheune mit Satteldach
     'barn': [
       { type: 'box', position: [0, 2.5, 0], scale: [6.0, 5.0, 4.0], color: '#8b0000' }, // Hauptgebäude
-      { type: 'box', position: [0, 5.5, 0], scale: [6.4, 1.0, 4.4], color: '#654321' }, // Dach-Basis
-      { type: 'box', position: [0, 6.2, 0], scale: [6.0, 0.4, 4.0], color: '#2f4f2f' } // Dach-Giebel
+      { type: 'roof', position: [0, 5.5, 0], scale: [6.4, 1.8, 4.4], color: '#654321' } // Satteldach
     ],
     
     // Brunnen
@@ -535,6 +586,85 @@ export function buildObject(cfg, index){
         positions.setXYZ(i, x * scale, y * scale, z * scale);
       }
       positions.needsUpdate = true;
+      geometry.computeVertexNormals();
+      break;
+    case 'roof':
+      // Satteldach - Dreiecksprisma
+      geometry = new THREE.BufferGeometry();
+      const roofVertices = new Float32Array([
+        // Vorderseite (Dreieck)
+        -1, 0, 1,   1, 0, 1,   0, 1, 1,
+        // Rückseite (Dreieck)  
+        -1, 0, -1,  0, 1, -1,  1, 0, -1,
+        // Unterseite (Rechteck)
+        -1, 0, -1,  -1, 0, 1,  1, 0, 1,
+        -1, 0, -1,  1, 0, 1,   1, 0, -1,
+        // Linke Dachfläche
+        -1, 0, -1,  0, 1, -1,  0, 1, 1,
+        -1, 0, -1,  0, 1, 1,   -1, 0, 1,
+        // Rechte Dachfläche
+        1, 0, -1,   1, 0, 1,   0, 1, 1,
+        1, 0, -1,   0, 1, 1,   0, 1, -1
+      ]);
+      geometry.setAttribute('position', new THREE.BufferAttribute(roofVertices, 3));
+      geometry.computeVertexNormals();
+      break;
+    case 'arch':
+      // Torbogen - Ring mit rechteckigem Querschnitt
+      const archRadius = 1.0;
+      const archThickness = 0.3;
+      const archHeight = 0.5;
+      const archSegments = 16;
+      
+      geometry = new THREE.BufferGeometry();
+      const archVertices = [];
+      const archIndices = [];
+      
+      // Generiere Vertices für den Bogen (nur obere Hälfte)
+      for(let i = 0; i <= archSegments; i++){
+        const theta = (i / archSegments) * Math.PI; // 0 to PI (halber Kreis)
+        
+        // Äußerer Ring
+        const outerX = Math.cos(theta) * (archRadius + archThickness);
+        const outerY = Math.sin(theta) * (archRadius + archThickness);
+        
+        // Innerer Ring
+        const innerX = Math.cos(theta) * archRadius;
+        const innerY = Math.sin(theta) * archRadius;
+        
+        // Vordere Vertices
+        archVertices.push(outerX, outerY, archHeight);  // Äußerer vorne
+        archVertices.push(innerX, innerY, archHeight);  // Innerer vorne
+        
+        // Hintere Vertices
+        archVertices.push(outerX, outerY, -archHeight); // Äußerer hinten
+        archVertices.push(innerX, innerY, -archHeight); // Innerer hinten
+      }
+      
+      // Generiere Indices für Faces
+      for(let i = 0; i < archSegments; i++){
+        const base = i * 4;
+        const next = (i + 1) * 4;
+        
+        // Vordere Fläche
+        archIndices.push(base, base + 1, next + 1);
+        archIndices.push(base, next + 1, next);
+        
+        // Hintere Fläche  
+        archIndices.push(base + 2, next + 2, next + 3);
+        archIndices.push(base + 2, next + 3, base + 3);
+        
+        // Äußere Fläche
+        archIndices.push(base, next, next + 2);
+        archIndices.push(base, next + 2, base + 2);
+        
+        // Innere Fläche
+        archIndices.push(base + 1, base + 3, next + 3);
+        archIndices.push(base + 1, next + 3, next + 1);
+      }
+      
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(archVertices, 3));
+      geometry.setIndex(archIndices);
       geometry.computeVertexNormals();
       break;
     case 'mushroom': geometry = new THREE.CylinderGeometry(0.5,0.2,1,12); break;

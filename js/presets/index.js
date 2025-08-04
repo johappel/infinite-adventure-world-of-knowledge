@@ -143,6 +143,29 @@ export const objectCollections = {
     { type: "crystal", weight: 1, variations: [
       { color: "#ffeeaa", scale: [0.6, 0.6, 0.6] } // Kleinere Dorf-Kristalle
     ]},
+  ],
+  
+  castle: [
+    { type: "castle_tower", weight: 3, variations: [
+      { scale: [1.0, 1.0, 1.0] },
+      { scale: [1.2, 1.3, 1.2] },
+      { scale: [0.8, 0.9, 0.8] }
+    ]},
+    { type: "castle_gate", weight: 2 },
+    { type: "gate_arch", weight: 2 }, // Einfachere begehbare Torbögen
+    { type: "tower_watch", weight: 2, variations: [
+      { scale: [1.0, 1.2, 1.0] },
+      { scale: [1.3, 1.0, 1.3] }
+    ]},
+    { type: "bridge_arch", weight: 1, variations: [
+      { scale: [1.0, 1.0, 1.0] },
+      { scale: [1.5, 1.0, 1.0] } // Längere Brücke
+    ]},
+    { type: "bridge_simple", weight: 1 }, // Einfache begehbare Brücken
+    { type: "well", weight: 1 }, // Brunnen im Burghof
+    { type: "circle_of_rocks", weight: 1, variations: [
+      { number: 8, radius: 3.0 } // Burgwall-Verstärkung
+    ]}
   ]
 };
 

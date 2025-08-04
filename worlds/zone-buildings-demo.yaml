@@ -1,0 +1,87 @@
+name: "Village & Castle Demo"
+description: "Demonstriert neue Gebäude-Typen mit roof und arch Objekten"
+
+terrain:
+  type: "hills"
+  preset: "grass_flat"
+  amplitude: 1.5
+  
+paths:
+  - points: [[-10, -15], [0, -10], [10, -5], [15, 5], [5, 15]]
+    smooth: true
+  - points: [[-15, 0], [-5, 0], [5, 0], [15, 0]]
+    smooth: true
+
+objects:
+  # === EINZELNE GEBÄUDE-TESTS ===
+  
+  # Häuser mit Satteldächern
+  - type: "house_simple"
+    position: [-8, 0, -12]
+    
+  - type: "house_large"
+    position: [-4, 0, -12]
+    
+  # Schloss-Komponenten (verbessert begehbar)
+  - type: "castle_tower"
+    position: [8, 0, -12]
+    
+  - type: "castle_gate"
+    position: [12, 0, -8]
+    
+  # Begehbare Torbögen
+  - type: "gate_arch"
+    position: [16, 0, -8]
+    
+  # Begehbare Brücken
+  - type: "bridge_simple"
+    position: [0, 0, -5]
+    rotation: [0, 1.57, 0]  # 90 Grad gedreht
+    
+  - type: "bridge_arch"
+    position: [4, 0, -5]
+    rotation: [0, 1.57, 0]  # 90 Grad gedreht
+    
+  # Kirche
+  - type: "church"
+    position: [-12, 0, 0]
+    
+  # === PRIMITIVE OBJEKT-TESTS ===
+  
+  # Einzelne Roof und Arch Objekte
+  - type: "roof"
+    position: [18, 0, -8]
+    scale: [2, 1, 3]
+    color: "#8b0000"
+    
+  - type: "arch"
+    position: [18, 0, -4]
+    scale: [2, 2, 1]
+    color: "#696969"
+    
+  # === COLLECTIONS ===
+  
+  # Kleines Dorf
+  - collections: ['village']
+    number: 12
+    seed: 12345
+    avoid_paths: true
+    min_path_distance: 6
+    
+  # Schloss-Komplex
+  - collections: ['castle']
+    number: 8
+    seed: 54321
+    avoid_paths: true
+    min_path_distance: 8
+    
+  # Einzelne Häuser verstreut
+  - collections: ['village']
+    number: 6
+    seed: 99999
+    avoid_paths: true
+    min_path_distance: 5
+
+camera:
+  position: [20, 15, 20]
+  target: [0, 0, 0]
