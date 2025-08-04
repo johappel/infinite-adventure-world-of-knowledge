@@ -389,8 +389,12 @@ export function buildObject(cfg, index){
     ],
     // Kiefernartiger Baum: hoher Stamm + konische Krone
     'conifer_tree': [
-      { type: 'cylinder', position: [0, 2.0, 0], scale: [0.35, 4.0, 0.35], color: '#8b5a2b' },
-      { type: 'cone',     position: [0, 4.5, 0], scale: [1.6, 3.2, 1.6],  color: '#1f6f3d' }
+      { type: 'cylinder', position: [0, 1, 0], scale: [0.5,1,0.5], color: '#311b07' },
+      { type: 'cone',     position: [0, 7, 0], scale: [1.2,1.7,1.2],  color: '#105532' }
+    ],
+    'mushroom_group': [
+      { type: 'mushroom', position: [0, 0, 0], color: '#f1e7dd' },
+      { type: 'ball',   position: [0, 1, 0], scale: [.8,.5,.8], color: '#a3140a' }
     ]
   };
 
@@ -456,8 +460,27 @@ export function buildObject(cfg, index){
   // Primitive/Synonyme unterstützen
   let geometry; const type = cfg.type;
   switch(type){
-    case 'tree': case 'cone': geometry = new THREE.ConeGeometry(1,3,12); break;
-    case 'rock': geometry = new THREE.IcosahedronGeometry(0.8); break;
+    case 'tree': case 'cone': geometry = new THREE.ConeGeometry(2,6,12); break;
+    case 'rock': 
+      // Verwende IcosahedronGeometry als Basis - das ist bereits unregelmäßig
+      geometry = new THREE.IcosahedronGeometry(0.8, 1); // subdivision level 1 für natürlichere Form
+      
+      // Leichte Verformung für mehr Variation
+      const positions = geometry.attributes.position;
+      for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i);
+        const y = positions.getY(i);
+        const z = positions.getZ(i);
+        
+        // Sanfte Deformation basierend auf Position
+        const noise = Math.sin(x * 3.7) * Math.cos(y * 4.1) * Math.sin(z * 3.3) * 0.15;
+        const scale = 1 + noise;
+        
+        positions.setXYZ(i, x * scale, y * scale, z * scale);
+      }
+      positions.needsUpdate = true;
+      geometry.computeVertexNormals();
+      break;
     case 'mushroom': geometry = new THREE.CylinderGeometry(0.5,0.2,1,12); break;
     case 'cylinder': geometry = new THREE.CylinderGeometry(1,1,2,16); break;
     case 'stone_circle': geometry = new THREE.TorusGeometry(2,0.2,12,24); break;

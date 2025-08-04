@@ -1,0 +1,96 @@
+name: "Collections Demo"
+description: |
+  Demonstration des neuen Collections-Systems für schnelle Landschafts-Generierung.
+  
+  Mit Collections kannst du mit wenigen Zeilen komplexe, abwechslungsreiche Landschaften erstellen!
+
+terrain:
+  preset: "forest_floor"
+  size: [80, 80]
+  amplitude: 3.0
+  paths:
+    - points:
+        - [-30, 0, -25]
+        - [-10, 0, -5]
+        - [0, 0, 0]
+        - [15, 0, 12]
+        - [30, 0, 25]
+      smooth: true
+    - points:
+        - [0, 0, 0]
+        - [-15, 0, 20]
+        - [-25, 0, 35]
+      smooth: true
+  path_options:
+    pathWidth: 16
+
+objects:
+  # Großer Wald mit 30 verschiedenen Bäumen
+  - collections: ['trees']
+    number: 30
+    seed: 12345
+    avoid_paths: true
+    min_path_distance: 4
+    
+  # Felsen und Steine für Realismus  
+  - collections: ['rocks']
+    number: 15
+    seed: 54321
+    avoid_paths: true
+    min_path_distance: 2
+    
+  # Gemischte Waldlandschaft
+  - collections: ['forest_objects']
+    number: 25
+    seed: 98765
+    avoid_paths: true
+    
+  # Mystische Elemente entlang der Pfade
+  - collections: ['mystical']
+    number: 8
+    seed: 11111
+    avoid_paths: false  # Erlaubt Platzierung nahe Pfaden
+    
+  # Kleine Siedlung am Pfad-Ende
+  - collections: ['village']
+    number: 6
+    seed: 22222
+    avoid_paths: false
+    
+  # Kombiniere mehrere Collections für maximale Vielfalt
+  - collections: ['trees', 'rocks', 'mystical']
+    number: 20
+    seed: 33333
+    avoid_paths: true
+    min_path_distance: 5
+
+personas:
+  # Wächter am Hauptweg
+  - preset: "npc_guardian"
+    name: "Wald-Hüter Thorin"
+    position: [0, 0, 0]
+    avoid_paths: false
+    dialogue:
+      opening: "Willkommen in diesem von Collections erschaffenen Wald!"
+      
+  # Mystiker bei den Kristallen
+  - preset: "npc_scholar"
+    name: "Kristall-Forscher Luna"
+    avoid_paths: true
+    min_path_distance: 15
+    dialogue:
+      opening: "Die magischen Steine hier wurden durch Collections verteilt..."
+      
+  # Sammler im Wald
+  - preset: "npc_plain"
+    name: "Sammler Finn"
+    avoid_paths: true
+    min_path_distance: 10
+    dialogue:
+      opening: "So viele verschiedene Bäume und Felsen! Collections macht's möglich."
+
+portals:
+  - id: "exit"
+    position: [0, 1.6, -35]
+    size: [1.5, 4.0, 0.3]
+    color: "#66ffee"

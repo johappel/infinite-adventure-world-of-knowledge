@@ -3,7 +3,7 @@ import { applyEnvironment } from './environment.js';
 import { buildTerrain, buildObject, buildPersona, buildPortal, buildSkyboxCube } from './builders.js';
 import { resolveWorldSpec } from './resolve.js';
 import { startZoneAnimations } from './animation.js';
-import { findFreePos, isOnPath } from '../presets/index.js';
+import { findFreePos, isOnPath, generateFromCollections } from '../presets/index.js';
 
 // Handle automatic path-aware placement for objects and personas
 function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh) {
@@ -167,14 +167,42 @@ export function buildZoneFromSpec(worldData, options={}){
     }
   }
 
-  // Objects with path-aware placement
+  // Objects with path-aware placement and collections support
   const objects=[];
   (spec.objects||[]).forEach((objSpec, i) => {
-    const enhancedSpec = handlePathAwarePlacement(objSpec, pathMask, terrainSize, terrainMesh);
-    const mesh = buildObject(enhancedSpec, i); 
-    if(mesh){ 
-      group.add(mesh); 
-      objects.push(mesh);
+    // Handle collections
+    if (objSpec.collections && Array.isArray(objSpec.collections)) {
+      const count = objSpec.number || objSpec.count || 10;
+      const seed = objSpec.seed || Math.floor(Math.random() * 10000);
+      
+      const generatedObjects = generateFromCollections(
+        objSpec.collections, 
+        count, 
+        { 
+          seed,
+          pathMask, 
+          terrainSize,
+          avoidPaths: objSpec.avoid_paths !== false
+        }
+      );
+      
+      // Process each generated object
+      generatedObjects.forEach((genSpec, genIndex) => {
+        const enhancedSpec = handlePathAwarePlacement(genSpec, pathMask, terrainSize, terrainMesh);
+        const mesh = buildObject(enhancedSpec, `${i}_col_${genIndex}`);
+        if(mesh){ 
+          group.add(mesh); 
+          objects.push(mesh);
+        }
+      });
+    } else {
+      // Regular single object
+      const enhancedSpec = handlePathAwarePlacement(objSpec, pathMask, terrainSize, terrainMesh);
+      const mesh = buildObject(enhancedSpec, i); 
+      if(mesh){ 
+        group.add(mesh); 
+        objects.push(mesh);
+      }
     }
   });
 

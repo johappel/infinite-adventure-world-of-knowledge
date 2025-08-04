@@ -197,6 +197,93 @@ objects:
 - ✅ **Texture-Integration**: Pfade werden in Terrain-Textur eingebrannt
 - ✅ **Intelligente Fallbacks**: Auch ohne Pfade funktioniert alles
 
+## Collections (Sammlungen)
+
+Das Collections-System ermöglicht es, sehr schnell große Mengen abwechslungsreicher Objekte zu generieren. Perfekt für natürliche Landschaften!
+
+### Collections-Syntax
+```yaml
+objects:
+  - collections: ['trees', 'rocks']
+    number: 25           # Anzahl generierter Objekte
+    seed: 12345          # Seed für reproduzierbare Ergebnisse
+    avoid_paths: true    # Pfad-Vermeidung aktivieren
+    min_path_distance: 4 # Mindestabstand zu Pfaden
+```
+
+### Verfügbare Collections
+
+**trees** - Verschiedene Baumtypen:
+- tree_simple (verschiedene Größen)
+- deciduous_tree (Laubbäume)
+- conifer_tree (Nadelbäume)
+
+**rocks** - Felsen und Steine:
+- rock_small (verschiedene Größen und Farben)
+
+**forest_objects** - Gemischte Waldlandschaft:
+- Bäume (gewichtet 70%)
+- Felsen und Pilze (gewichtet 30%)
+
+**mystical** - Magische Elemente:
+- crystal (verschiedene Farben)
+- circle_of_rocks (verschiedene Größen)
+
+**village** - Siedlungs-Objekte:
+- bookshelf, crystal, kleine Steinkreise
+
+### Erweiterte Collections-Features
+
+**Mehrere Collections kombinieren:**
+```yaml
+objects:
+  - collections: ['trees', 'rocks', 'mystical']
+    number: 40
+    seed: 98765
+```
+
+**Gewichtete Verteilung:**
+Collections haben interne Gewichtungen für realistische Verteilungen:
+```yaml
+# forest_objects Collection:
+# - Bäume: 70% (weight: 3+2+2)
+# - Felsen: 15% (weight: 1)  
+# - Pilze: 15% (weight: 1)
+```
+
+**Automatische Variationen:**
+- Zufällige Skalierungen (±20%)
+- Verschiedene Farben und Größen
+- Unterschiedliche Pfad-Abstände
+
+### Collections vs. Einzelobjekte
+
+```yaml
+# Traditionell (viel Arbeit):
+objects:
+  - preset: "tree_simple"
+    position: [5, 0, 3]
+    scale: [1.2, 1.2, 1.2]
+  - type: "deciduous_tree"  
+    position: [8, 0, -2]
+    scale: [0.9, 0.9, 0.9]
+  - preset: "rock_small"
+    position: [-3, 0, 7]
+  # ... weitere 20+ Objekte ...
+
+# Mit Collections (eine Zeile):
+objects:
+  - collections: ['trees', 'rocks']
+    number: 25
+```
+
+### Tipps für Collections
+
+- **seed**: Gleicher Seed = identische Verteilung
+- **number**: 10-50 für kleine Bereiche, 50+ für große Landschaften
+- **avoid_paths**: true für natürliche Verteilung
+- **Kombinationen**: Mehrere Collection-Einträge für verschiedene Bereiche
+
 ## Vorteile
 - ✅ Kürzere YAML-Dateien
 - ✅ Einheitliches Design

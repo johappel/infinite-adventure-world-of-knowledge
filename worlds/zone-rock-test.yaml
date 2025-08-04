@@ -1,0 +1,43 @@
+name: "Rock Test Zone"
+description: "Test verschiedener Felsen-Typen"
+
+terrain:
+  preset: "grass_flat"
+
+objects:
+  # Einzelne Felsen zum Vergleich
+  - type: "rock"
+    position: [0, 0, 0]
+    scale: [1, 1, 1]
+    
+  - type: "rock"
+    position: [3, 0, 0]
+    scale: [1.5, 0.8, 1.2]
+    color: "#5a4a3a"
+    
+  - type: "rock"
+    position: [6, 0, 0]
+    scale: [0.7, 1.3, 0.9]
+    color: "#7a6b5f"
+    
+  - type: "rock"
+    position: [9, 0, 0]
+    scale: [2, 1, 1.5]
+    color: "#4a3d33"
+    
+  # Preset-Felsen
+  - preset: "rock_small"
+    position: [0, 0, 3]
+    
+  - preset: "rock_small"
+    position: [3, 0, 3]
+    scale: [1.5, 1.5, 1.5]
+    
+  # Collections zum Vergleich
+  - collections: ['rocks']
+    number: 8
+    seed: 12345
+
+camera:
+  position: [5, 4, 8]
+  target: [4.5, 0, 1.5]

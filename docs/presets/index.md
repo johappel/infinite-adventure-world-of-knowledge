@@ -5,6 +5,7 @@ Ziel: Fehlerarmes YAML-Autorieren mit vordefinierten, getesteten Bausteinen. Pre
 Inhalte
 - Terrain-Presets
 - Objekt-Presets
+- Collections-System
 - Persona-Presets
 - Defaults & Sanitizer
 - Beispiele
@@ -38,6 +39,33 @@ objects:
   - preset: stone_circle_thin
     position: [0,0,0]
 ```
+
+## Collections-System
+
+Das neue Collections-System ermöglicht es, sehr schnell große Mengen abwechslungsreicher Objekte zu generieren – perfekt für natürliche Landschaften!
+
+### Verfügbare Collections
+- **trees**: Verschiedene Baumtypen mit Variationen
+- **rocks**: Felsen und Steine unterschiedlicher Größen  
+- **forest_objects**: Gemischte Waldlandschaft (70% Bäume, 30% andere)
+- **mystical**: Magische Elemente (Kristalle, Steinkreise)
+- **village**: Siedlungs-Objekte (Bücherregale, etc.)
+
+YAML:
+```yaml
+objects:
+  - collections: ['trees', 'rocks']
+    number: 30            # Anzahl zu generierender Objekte
+    seed: 12345          # Für reproduzierbare Ergebnisse
+    avoid_paths: true    # Automatische Pfad-Vermeidung
+    min_path_distance: 4 # Mindestabstand zu Pfaden
+```
+
+### Vorteile von Collections
+- **Schnell**: Statt 30+ einzelne Objekte = eine YAML-Zeile
+- **Abwechslungsreich**: Automatische Variationen in Größe und Farbe
+- **Intelligent**: Automatische Pfad-Vermeidung und Terrain-Anpassung
+- **Reproduzierbar**: Gleicher Seed = identische Verteilung
 
 ## Persona-Presets
 - npc_plain: Neutraler NPC

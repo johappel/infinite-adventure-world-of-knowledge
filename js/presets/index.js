@@ -39,6 +39,139 @@ export const personaPresets = {
 
 export const textures = { makeForestFloorTexture };
 
+// --- Collections System für schnelle Landschafts-Generierung ---
+
+export const objectCollections = {
+  trees: [
+    { preset: "tree_simple", position:[0,2,0], variations: [
+      { type: "tree", scale: [1.0, 1.0, 1.0], position:[0,2,0], color: "#084b5c" },
+      { type: "tree", scale: [1.3, 1.5, 1.3], position:[0,2,0], color: "#1a4a1a"  },
+      { type: "tree", scale: [0.8, 1.2, 0.8], position:[0,2,0], color: "#0e500e"  },
+      { type: "deciduous_tree", scale: [1.0, 1.0, 1.0] },
+      { type: "conifer_tree", scale: [1.2, 1.2, 1.2] }
+    ]},
+  ],
+  
+  rocks: [
+    { type: "rock", variations: [
+      { scale: [1.0, 1.0, 1.0], color: "#6b5b4f" },
+      { scale: [1.5, 0.8, 1.2], color: "#8b7a5e" },
+      { scale: [0.7, 1.3, 0.9], color: "#5a4a3a" },
+      { scale: [1.2, 0.9, 1.1], color: "#7a6b5f" },
+      { scale: [0.8, 1.2, 0.8], color: "#4a3d33" }
+    ]},
+  ],
+  
+  forest_objects: [
+    { type: "tree", weight: 3, position: [0, 2, 0] , color: "#084b5c" },
+    { type: "deciduous_tree", weight: 2 },
+    { type: "conifer_tree", weight: 2 },
+    { type: "rock", weight: 1, color: "#6b5b4f" },
+    { type: "mushroom_group", weight: 5 , variations: [
+      { scale: [0.5, 0.8, 0.5], color: "#8b4513" },
+      { scale: [0.6, 1.0, 0.6], color: "#a0522d" },
+      { scale: [0.4, 0.7, 0.4], color: "#cd853f" }
+    ]},
+  ],
+  
+  mystical: [
+    { type: "crystal", variations: [
+      { color: "#66ffee" },
+      { color: "#ff6b9d" },
+      { color: "#9d6bff" },
+      { scale: [1.5, 1.5, 1.5] }
+    ]},
+    { type: "circle_of_rocks", variations: [
+      { number: 6, radius: 2.5 },
+      { number: 8, radius: 3.5 },
+      { number: 10, radius: 4.0 }
+    ]},
+  ],
+  
+  village: [
+    { type: "bookshelf", weight: 2 },
+    { type: "crystal", weight: 1 },
+    { type: "circle_of_rocks", weight: 1, variations: [
+      { number: 4, radius: 1.5 } // Kleine Feuerstelle
+    ]},
+  ]
+};
+
+/**
+ * Generate objects from collections
+ * @param {string[]} collections - Array of collection names
+ * @param {number} count - Total number of objects to generate  
+ * @param {Object} options - { seed: number, pathMask?, terrainSize?, avoidPaths: true }
+ * @returns {Object[]} Array of object specifications
+ */
+export function generateFromCollections(collections, count, options = {}) {
+  const { seed = 0, pathMask, terrainSize, avoidPaths = true } = options;
+  
+  // Simple deterministic random based on seed
+  let rngState = seed;
+  const rng = () => {
+    rngState = (rngState * 1664525 + 1013904223) % 4294967296;
+    return rngState / 4294967296;
+  };
+  
+  // Gather all objects from specified collections
+  const allObjects = [];
+  collections.forEach(collectionName => {
+    const collection = objectCollections[collectionName];
+    if (collection) {
+      collection.forEach(objDef => {
+        const weight = objDef.weight || 1;
+        // Add object multiple times based on weight
+        for (let i = 0; i < weight; i++) {
+          allObjects.push(objDef);
+        }
+      });
+    }
+  });
+  
+  if (allObjects.length === 0) {
+    console.warn('No objects found in collections:', collections);
+    return [];
+  }
+  
+  const results = [];
+  
+  for (let i = 0; i < count; i++) {
+    // Pick random object from weighted collection
+    const objDef = allObjects[Math.floor(rng() * allObjects.length)];
+    
+    // Create base object spec
+    const spec = {
+      ...(objDef.preset ? { preset: objDef.preset } : {}),
+      ...(objDef.type ? { type: objDef.type } : {}),
+      ...(objDef.color ? { color: objDef.color } : {}),
+      ...(objDef.scale ? { scale: objDef.scale } : {}),
+    };
+    
+    // Apply random variation if available
+    if (objDef.variations && objDef.variations.length > 0) {
+      const variation = objDef.variations[Math.floor(rng() * objDef.variations.length)];
+      Object.assign(spec, variation);
+    }
+    
+    // Random scale variation (±20%)
+    if (spec.scale) {
+      const scaleVar = 0.8 + rng() * 0.4; // 0.8 to 1.2
+      spec.scale = spec.scale.map(s => s * scaleVar);
+    }
+    
+    // Set path avoidance
+    if (avoidPaths && pathMask) {
+      spec.avoid_paths = true;
+      spec.min_path_distance = 1 + rng() * 3; // 1-4 units
+    }
+    
+    results.push(spec);
+  }
+  
+  return results;
+}
+
 // Utility: tiefe, einfache Merge-Strategie (Arrays werden ersetzt)
 export function deepMerge(base, override){
   if(Array.isArray(base) || Array.isArray(override)) return override ?? base;
