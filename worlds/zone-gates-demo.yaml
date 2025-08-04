@@ -1,0 +1,74 @@
+# Demonstration: Torbögen und Pfade
+# Diese Demo zeigt, wie Torbögen und Brücken automatisch auf Pfaden platziert werden
+
+zone_id: "gates_demo"
+description: "Demo-Zone für Torbogen-Pfad-Integration"
+
+# Gelände mit Pfaden
+terrain:
+  type: hills
+  size: [40, 40]
+  texture: grass_texture
+  amplitude: 1.5
+  flat_radius: 8
+  blend_radius: 12
+  
+# Pfadnetzwerk mit mehreren Wegen
+paths:
+  - points: [[0, -15], [0, -5], [0, 5], [0, 15]]
+    smooth: true
+  - points: [[-15, 0], [-5, 0], [5, 0], [15, 0]]
+    smooth: true
+  - points: [[-10, -10], [-5, -5], [0, 0], [5, 5], [10, 10]]
+    smooth: true
+
+# Torbögen sollen automatisch auf Pfaden platziert werden
+objects:
+  # Explizite Platzierung auf bekannten Pfadpunkten
+  - type: castle_gate
+    position: [0, 0, 0]  # Kreuzung der Hauptpfade
+    avoid_paths: false   # Explizit auf Pfad platzieren
+    
+  # Automatische Pfad-Suche für weitere Torbögen
+  - type: gate_arch
+    # Keine Position angegeben - wird automatisch auf Pfad platziert
+    
+  - type: gate_arch
+    # Noch ein Torbogen - wird auf anderem Pfadpunkt platziert
+    
+  - type: bridge_arch
+    # Brücken sollen auch auf Pfaden stehen
+    
+  # Normale Objekte sollen Pfade meiden (Standard-Verhalten)
+  - type: house_simple
+    position: [8, 0, 8]
+    
+  - type: tree_simple
+    position: [12, 0, 12]
+    
+  - type: rock_small
+    position: [-8, 0, -8]
+
+# Collections-Demo: Castle-Collection mit automatischer Pfad-Präferenz
+collections:
+  - name: "castle"
+    count: 3  # Weitere Burg-Objekte mit automatischer Platzierung
+
+environment:
+  lighting:
+    type: ambient_directional
+    ambient_intensity: 0.4
+    directional_intensity: 0.8
+    shadow_enabled: true
+  
+  skybox:
+    type: gradient
+    colors: ["#87CEEB", "#98D8E8", "#B0E0E6"]
+
+personas:
+  - name: "Torwächter"
+    position: [1, 0, 1] # Nahe dem Haupttor
+    role: "guard"
+    behavior:
+      greeting: "Halt! Wer will das Tor passieren?"
+      patrol_area: [[0, 0], [2, 2]]

@@ -3,10 +3,14 @@ import { applyEnvironment } from './environment.js';
 import { buildTerrain, buildObject, buildPersona, buildPortal, buildSkyboxCube } from './builders.js';
 import { resolveWorldSpec } from './resolve.js';
 import { startZoneAnimations } from './animation.js';
-import { findFreePos, isOnPath, generateFromCollections } from '../presets/index.js';
+import { findFreePos, isOnPath, findPathPosition, generateFromCollections } from '../presets/index.js';
 
 // Handle automatic path-aware placement for objects and personas
 function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh) {
+  // Special handling for gate and bridge objects - they should prefer paths
+  const pathPreferringTypes = ['gate_arch', 'castle_gate', 'bridge_arch', 'bridge_simple'];
+  const shouldPreferPaths = pathPreferringTypes.includes(spec.type);
+  
   // If position is already specified and avoid_paths is explicitly false, don't modify
   if (spec.position && spec.avoid_paths === false) {
     return adjustToTerrainHeight(spec, terrainMesh);
@@ -15,6 +19,23 @@ function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh) {
   // If no paths exist, still adjust to terrain height
   if (!pathMask) {
     return adjustToTerrainHeight(spec, terrainMesh);
+  }
+  
+  // For path-preferring objects, try to place them ON paths
+  if (shouldPreferPaths && (!spec.position || spec.avoid_paths !== false)) {
+    const pathPos = findPathPosition(pathMask, terrainSize, {
+      maxAttempts: 50,
+      margin: 5
+    });
+    
+    if (pathPos) {
+      // Create new spec with found path position
+      const newSpec = {
+        ...spec,
+        position: [pathPos[0], spec.position?.[1] || 0, pathPos[1]]
+      };
+      return adjustToTerrainHeight(newSpec, terrainMesh);
+    }
   }
   
   // If position is not specified or avoid_paths is true (default), find free position

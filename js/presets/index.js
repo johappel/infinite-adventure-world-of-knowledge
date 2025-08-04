@@ -151,17 +151,17 @@ export const objectCollections = {
       { scale: [1.2, 1.3, 1.2] },
       { scale: [0.8, 0.9, 0.8] }
     ]},
-    { type: "castle_gate", weight: 2 },
-    { type: "gate_arch", weight: 2 }, // Einfachere begehbare Torbögen
+    { type: "castle_gate", weight: 2, avoid_paths: false }, // Torbögen sollen Pfade bevorzugen
+    { type: "gate_arch", weight: 2, avoid_paths: false }, // Einfachere begehbare Torbögen
     { type: "tower_watch", weight: 2, variations: [
       { scale: [1.0, 1.2, 1.0] },
       { scale: [1.3, 1.0, 1.3] }
     ]},
-    { type: "bridge_arch", weight: 1, variations: [
+    { type: "bridge_arch", weight: 1, avoid_paths: false, variations: [
       { scale: [1.0, 1.0, 1.0] },
       { scale: [1.5, 1.0, 1.0] } // Längere Brücke
     ]},
-    { type: "bridge_simple", weight: 1 }, // Einfache begehbare Brücken
+    { type: "bridge_simple", weight: 1, avoid_paths: false }, // Einfache begehbare Brücken
     { type: "well", weight: 1 }, // Brunnen im Burghof
     { type: "circle_of_rocks", weight: 1, variations: [
       { number: 8, radius: 3.0 } // Burgwall-Verstärkung
@@ -234,8 +234,12 @@ export function generateFromCollections(collections, count, options = {}) {
     
     // Set path avoidance
     if (avoidPaths && pathMask) {
-      spec.avoid_paths = true;
-      spec.min_path_distance = 1 + rng() * 3; // 1-4 units
+      // Don't set avoid_paths for objects that explicitly prefer paths
+      const pathPreferringTypes = ['gate_arch', 'castle_gate', 'bridge_arch', 'bridge_simple'];
+      if (!pathPreferringTypes.includes(spec.type)) {
+        spec.avoid_paths = true;
+        spec.min_path_distance = 1 + rng() * 3; // 1-4 units
+      }
     }
     
     results.push(spec);
@@ -360,5 +364,41 @@ export function findFreePos(pathMask, terrainSize, options = {}){
   }
   
   // If no free position found, return null
+  return null;
+}
+
+/**
+ * Find a random position ON a path (for gates, bridges, etc.)
+ * @param {HTMLCanvasElement} pathMask - Canvas with path data
+ * @param {number[]} terrainSize - [width, height] of terrain
+ * @param {Object} options - { maxAttempts: 50, margin: 5 }
+ * @returns {number[]|null} [x, z] world coordinates or null if no position found
+ */
+export function findPathPosition(pathMask, terrainSize, options = {}){
+  const opts = {
+    maxAttempts: 50,
+    margin: 5,      // margin from terrain edges
+    ...options
+  };
+  
+  if(!pathMask || !terrainSize) {
+    // Fallback: random position with margin
+    const x = (Math.random() - 0.5) * (terrainSize[0] - opts.margin * 2);
+    const z = (Math.random() - 0.5) * (terrainSize[1] - opts.margin * 2);
+    return [x, z];
+  }
+  
+  for(let attempt = 0; attempt < opts.maxAttempts; attempt++){
+    // Random position within terrain bounds, respecting margin
+    const x = (Math.random() - 0.5) * (terrainSize[0] - opts.margin * 2);
+    const z = (Math.random() - 0.5) * (terrainSize[1] - opts.margin * 2);
+    
+    // Check if position is ON a path
+    if(isOnPath(x, z, pathMask, terrainSize, 128)){
+      return [x, z];
+    }
+  }
+  
+  // If no path position found, return null
   return null;
 }
