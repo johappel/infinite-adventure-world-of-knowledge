@@ -319,7 +319,7 @@ export function buildTerrain(cfg){
     pathMask = pathResult.pathMask;
     
     // Create separate path mesh (slightly above terrain)
-    const pathGeometry = new THREE.PlaneGeometry(width, height, 2, 2);
+    const pathGeometry = new THREE.PlaneGeometry(width, height, seg, seg); // Same segments as terrain for hills
     const pathMaterial = new THREE.MeshStandardMaterial({
       map: pathResult.texture,
       transparent: true,
@@ -330,9 +330,25 @@ export function buildTerrain(cfg){
     
     pathMesh = new THREE.Mesh(pathGeometry, pathMaterial);
     pathMesh.rotation.x = -Math.PI/2;
-    pathMesh.position.y = (cfg.y ?? 0.01) + 0.005; // Slightly above terrain
+    pathMesh.position.y = (cfg.y ?? 0.01) + 0.01; // Slightly higher offset for hills
     pathMesh.name = 'paths';
     pathMesh.renderOrder = -9; // Render after terrain but before objects
+    
+    // For hills terrain, copy the height data from terrain geometry
+    if(isHills && geometry.attributes.position){
+      const terrainPos = geometry.attributes.position;
+      const pathPos = pathGeometry.attributes.position;
+      
+      // Copy height values from terrain to path mesh
+      for(let i = 0; i < pathPos.count; i++){
+        if(i < terrainPos.count){
+          const terrainHeight = terrainPos.getZ(i);
+          pathPos.setZ(i, terrainHeight + 0.02); // Small offset above terrain
+        }
+      }
+      pathPos.needsUpdate = true;
+      pathGeometry.computeVertexNormals();
+    }
   }
   
   const mesh = new THREE.Mesh(geometry, material); 

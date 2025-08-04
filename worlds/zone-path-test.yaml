@@ -1,0 +1,64 @@
+name: "Path Avoidance Test"
+description: "Test der avoid_paths Funktionalität"
+
+terrain:
+  preset: "forest_floor"
+  size: [40, 40]
+  paths:
+    - points:
+        - [-15, 0, -10]
+        - [0, 0, 0]
+        - [15, 0, 10]
+      smooth: true
+  path_options:
+    pathWidth: 20
+
+objects:
+  # Diese Objekte sollen pfad-frei platziert werden
+  - preset: "tree_simple"
+    scale: [1.5, 1.5, 1.5]
+    avoid_paths: true
+    min_path_distance: 5
+    
+  - preset: "tree_simple"
+    scale: [1.2, 1.2, 1.2]
+    avoid_paths: true
+    min_path_distance: 8
+    
+  - type: "circle_of_rocks"
+    number: 6
+    radius: 2.5
+    avoid_paths: true
+    min_path_distance: 10
+    
+  # Dieses Objekt soll bewusst auf dem Pfad platziert werden
+  - preset: "crystal"
+    position: [0, 0, 0]
+    avoid_paths: false
+    color: "#ff6b9d"
+    
+  # Normale Objekte (Standard-Pfad-Vermeidung)
+  - preset: "rock_small"
+  - preset: "mushroom_small"
+
+personas:
+  # NPC mit großem Pfad-Abstand
+  - preset: "npc_guardian"
+    name: "Pfad-Wächter"
+    avoid_paths: true
+    min_path_distance: 15
+    dialogue:
+      opening: "Ich halte Abstand zu den Wegen!"
+      
+  # NPC direkt auf dem Pfad
+  - preset: "npc_plain"
+    name: "Weg-Wanderer"
+    position: [8, 0, 5]
+    avoid_paths: false
+    dialogue:
+      opening: "Ich wandle auf den Pfaden!"
+
+portals:
+  - id: "exit"
+    position: [0, 1.6, -18]
+    size: [1.2, 3.5, 0.3]
