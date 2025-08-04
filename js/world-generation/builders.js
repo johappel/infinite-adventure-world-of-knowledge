@@ -59,6 +59,42 @@ export function buildObject(cfg, index){
     ]
   };
 
+  // Kreis aus Felsen
+  if (cfg.type === 'circle_of_rocks') {
+    const count = Math.max(3, Number(cfg.number) || 8);
+    const radius = Number(cfg.radius) || 3.5;
+    const heightJitter = Number(cfg.heightJitter) || 0.4; // leichte Variationen
+
+    const group = new THREE.Group();
+    group.name = `circle_of_rocks_${index}`;
+
+    for (let i = 0; i < count; i++) {
+      const t = (i / count) * Math.PI * 2;
+      const x = Math.cos(t) * radius;
+      const z = Math.sin(t) * radius;
+
+      // Einzelner Fels (Icosahedron) mit kleiner Zufalls-Skalierung
+      const rock = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.8, 0),
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(cfg.color || '#8b7a5e'), roughness: 0.9, metalness: 0.05 })
+      );
+      const s = 0.8 + (cfg.randomScale ? Math.random() * 0.6 : 0);
+      rock.scale.set(s, s * (1 + Math.random() * 0.5), s);
+      rock.position.set(x, (cfg.y || 0) + (Math.random() - 0.5) * heightJitter, z);
+      rock.castShadow = rock.receiveShadow = true;
+      group.add(rock);
+    }
+
+    // Basistransform (optional) anwenden
+    if (cfg.position) group.position.set(...cfg.position);
+    if (cfg.rotation) group.rotation.set(...cfg.rotation);
+    if (cfg.scale)    group.scale.set(...cfg.scale);
+
+    group.userData.type = 'circle_of_rocks';
+    if (cfg.interactive) group.userData.interactive = true;
+    return group;
+  }
+
   // Wenn eine Composite-Definition gewünscht ist
   if (Array.isArray(cfg.composite) || compositeAliases[cfg.type]) {
     const parts = Array.isArray(cfg.composite) ? cfg.composite : compositeAliases[cfg.type];
