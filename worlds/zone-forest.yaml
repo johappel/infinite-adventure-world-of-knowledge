@@ -1,47 +1,32 @@
 # Mystischer Wald - Eine geheimnisvolle Zone
 name: "Mystischer Wald"
-description: "Ein dichter Wald voller Geheimnisse und magischer Kreaturen"
+description: "Ein sanfter Hain mit Hügeln und Pilzen."
 id: "zone-forest"
 
 environment:
-  skybox: "skyline"
-  time_of_day: 0.1           # Dämmerstunde
-  ambient_light: 0.3         # Gedämpftes Licht
-  sun_intensity: -0.3        # Schwaches Sonnenlicht durch Bäume
-  fog_distance: 20          # Dichterer Nebel
-  ambient_sound: "forest"
+  skybox: "clear_day"
+  time_of_day: 0.35
+  ambient_light: 0.6
+  sun_intensity: 0.8
+  skybox_mode: "cube"
 
 terrain:
   preset: "forest_floor"
+  amplitude: 2.6
+  size: [60, 60]
 
 objects:
   - preset: "tree_simple"
-    position: [3, 0, 5]
-    
-  - preset: "tree_simple"
-    position: [-5, 0, 3]
-    scale: [1.8, 2.2, 1.8]
-    
-  - preset: "tree_simple"
-    position: [8, 0, -2]
-    scale: [2.2, 3, 2.2]
-    
-  - preset: "tree_simple"
-    position: [-8, 0, -5]
-    scale: [1.5, 2, 1.5]
+    position: [8, 0, 6]
     
   - preset: "mushroom_small"
-    position: [2, 0, -3]
-    scale: [0.5, 0.8, 0.5]
-    color: "#8b4513"
+    position: [3, 0, -2]
     interactive: true
     script: |
       this.userData.glowIntensity = Math.sin(Date.now() * 0.003) * 0.5 + 0.5;
       
   - preset: "stone_circle_thin"
     position: [0, 0, 0]
-    scale: [0.7, 0.7 ,4]
-    color: "#696969"
     interactive: true
 
 portals:
@@ -61,8 +46,11 @@ portals:
 
 personas:
   - preset: "npc_guardian"
-    name: "Waldwächter Theron"
+    name: "Waldwächter"
     position: [-3, 0, 8]
+    appearance:
+      color: "#8fbc8f"
+      height: 1.9
     dialogue:
       opening: "Ich bin Theron, Hüter dieses alten Waldes. Was führt euch hierher?"
       topics:
@@ -74,8 +62,8 @@ personas:
           answer: "Tiefer in das Herz des Waldes, wo wenige sich hintrauen. Seid ihr bereit?"
 
   - preset: "npc_fairy"
-    name: "Waldfee Aria"
-    position: [5, 0, -8]
+    name: "Waldfee"
+    position: [4, 0, -5]
     appearance:
       color: "#ffd700"
       height: 1.2
@@ -94,4 +82,4 @@ extensions:
   weather: "misty"
   season: "autumn"
   scripts_enabled: true
-  ambient_particles: "fireflies"  # Glühwürmchen für Atmosphäre
+  ambient_particles: "fireflies"

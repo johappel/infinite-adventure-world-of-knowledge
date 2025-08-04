@@ -1,4 +1,4 @@
-# Lokales Setup
+# Lokales Setup (aktualisiert)
 
 Ziel: Das Projekt lokal öffnen, die HTML über einen lokalen Server ausliefern, [es-module-shims.importMap](../features/module-shims.md) korrekt laden und typische Setup-Probleme lösen.
 
@@ -23,3 +23,8 @@ Ziel: Das Projekt lokal öffnen, die HTML über einen lokalen Server ausliefern,
 - Lies [ui-overview.md](../ui-overview.md).
 - Füge ein Objekt hinzu über [add-3d-object.md](./add-3d-object.md).
 - Erzeuge ein UI-Panel über [add-ui-panel.md](./add-ui-panel.md).
+
+- Öffne `index.html` im Browser oder per Static Server.
+- Beispielwelten liegen unter `worlds/`. Diese nutzen die gemeinsame Pipeline (siehe `js/world-generation/*`).
+- In YAML kannst du `environment.skybox_mode: cube` setzen, um die prozedurale Skybox zu aktivieren.
+- Für konsistentes Licht: `ambient_light: 0.7`, `sun_intensity: 0.9` (anpassbar pro Welt).

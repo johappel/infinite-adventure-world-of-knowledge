@@ -227,21 +227,14 @@ personas:
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        // Vereinfachte YAML-Visualisierung ohne Module-Dependencies
-
+    <script type="module">
+        import { buildZoneFromSpec } from './js/world-generation/index.js';
+        import { resolveWorldSpec } from './js/world-generation/resolve.js';
+        
         class PresetEditor {
             constructor() {
-                this.scene = null;
-                this.camera = null;
-                this.renderer = null;
-                this.currentZone = null;
-                this.animationId = null;
-
-                this.initializeElements();
-                this.initializePresetTemplates();
-                this.setupEventListeners();
-                this.initThreeJS();
+                this.scene = null; this.camera=null; this.renderer=null; this.currentZone=null; this.animationId=null;
+                this.initializeElements(); this.initializePresetTemplates(); this.setupEventListeners(); this.initThreeJS();
             }
 
             initializeElements() {
@@ -536,398 +529,25 @@ personas:
             }
 
             async renderYAML() {
-                const yamlText = this.yamlEditor.value.trim();
-                if (!yamlText) {
-                    this.updateStatus('Kein YAML-Code vorhanden');
-                    return;
-                }
-
+                const yamlText = this.yamlEditor.value.trim(); if (!yamlText) { this.updateStatus('Kein YAML-Code vorhanden'); return; }
                 try {
-                    this.updateStatus('Visualisiere YAML...');
-                    
-                    // Clear previous scene
-                    this.resetScene(false);
-
-                    // Parse YAML
+                    this.updateStatus('Visualisiere YAML...'); this.resetScene(false);
                     const worldData = jsyaml.load(yamlText);
-                    
-                    // Create simple visualization instead of full world loading
-                    this.createSimpleVisualization(worldData);
-
+                    const spec = resolveWorldSpec(worldData);
+                    const rng = Math.random;
+                    const zoneInfo = buildZoneFromSpec(spec, { rng });
+                    // camera reference for billboarding
+                    this.scene.userData.__camera = this.camera;
+                    this.scene.add(zoneInfo.group);
+                    this.currentZone = zoneInfo;
+                    const count = (zoneInfo.objects?.length||0) + (zoneInfo.personas?.length||0) + (zoneInfo.portals?.length||0) + 1;
+                    this.updateObjectCount(count);
                     this.updateStatus('✅ YAML erfolgreich visualisiert');
-
                 } catch (error) {
                     console.error('YAML Visualisierung Error:', error);
-                    
-                    // Nur echte Fehler anzeigen, nicht Tipp-Fehler
-                    if (error.name === 'YAMLException' && error.message.includes('colon is missed')) {
-                        this.updateStatus('⚠️ YAML wird getippt... (Doppelpunkt fehlt)');
-                    } else {
-                        this.showError('YAML Fehler: ' + error.message);
-                        this.updateStatus('❌ YAML Visualisierung fehlgeschlagen');
-                    }
+                    if (error.name === 'YAMLException' && error.message.includes('colon is missed')) this.updateStatus('⚠️ YAML wird getippt... (Doppelpunkt fehlt)');
+                    else { this.showError('YAML Fehler: ' + error.message); this.updateStatus('❌ YAML Visualisierung fehlgeschlagen'); }
                 }
-            }
-
-            createSimpleVisualization(worldData) {
-                const group = new THREE.Group();
-                let objectCount = 0;
-
-                // Environment anwenden wie im YAMLWorldLoader
-                if (worldData.environment) {
-                    const env = worldData.environment;
-                    // Hintergrundfarbe (Skybox-Simulation)
-                    const tod = typeof env.time_of_day === 'number' ? Math.max(0, Math.min(1, env.time_of_day)) : 0.5;
-                    const sky = env.skybox || 'clear_day';
-                    const skyColor = this._getSkyColor(sky, tod);
-                    this.scene.background = new THREE.Color(skyColor);
-
-                    // Nebel (vereinfachte Simulation: linearer Nebel)
-                    if (env.fog_distance) {
-                        this.scene.fog = new THREE.Fog(new THREE.Color(skyColor), 10, env.fog_distance);
-                    } else {
-                        this.scene.fog = null;
-                    }
-
-                    // Entferne bestehende Lichter im Scene-Root, um Doppelungen zu vermeiden
-                    const lightsToRemove = [];
-                    this.scene.traverse((obj) => {
-                        if (obj.isLight) lightsToRemove.push(obj);
-                    });
-                    lightsToRemove.forEach(l => this.scene.remove(l));
-
-                    // Ambient Light
-                    const ambientIntensity = env.ambient_light ?? 0.6;
-                    const ambientLight = new THREE.AmbientLight(0x404040, ambientIntensity);
-                    this.scene.add(ambientLight);
-
-                    // Sonnenlicht nach time_of_day
-                    const sunIntensity = env.sun_intensity ?? 0.8;
-                    const dir = new THREE.DirectionalLight(0xffffff, sunIntensity);
-                    const angle = (tod * Math.PI * 2);
-                    const sunY = Math.max(0.15, Math.sin(angle));
-                    const radius = 30;
-                    dir.position.set(Math.cos(angle) * radius, sunY * radius, Math.sin(angle) * radius);
-                    dir.castShadow = false;
-                    this.scene.add(dir);
-
-                    // Hemisphere Fill
-                    const fill = new THREE.HemisphereLight(0xaaccff, 0x223344, 0.15);
-                    this.scene.add(fill);
-
-                    if (env.ambient_sound) {
-                        group.userData.ambient_sound = env.ambient_sound; // Marker
-                    }
-                }
-
-                // Terrain visualization mit Preset-Support
-                if (worldData.terrain) {
-                    let terrainConfig = worldData.terrain;
-                    
-                    // Preset auflösen
-                    if (terrainConfig.preset) {
-                        const presetDefaults = {
-                            'forest_floor': {
-                                type: 'hills',
-                                texture: 'forest_floor',
-                                color: '#4a7c1e',
-                                amplitude: 2.5,
-                                size: [50, 50]
-                            },
-                            'grass_flat': {
-                                type: 'flat',
-                                color: '#4a7c1e',
-                                size: [50, 50]
-                            }
-                        };
-                        
-                        const preset = presetDefaults[terrainConfig.preset];
-                        if (preset) {
-                            terrainConfig = { ...preset, ...terrainConfig };
-                        }
-                    }
-                    
-                    const terrain = this.createSimpleTerrain(terrainConfig);
-                    group.add(terrain);
-                    objectCount++;
-                }
-
-                // Objects visualization mit Preset-Support
-                if (worldData.objects && Array.isArray(worldData.objects)) {
-                    worldData.objects.forEach((obj, index) => {
-                        let objConfig = obj;
-                        
-                        // Preset auflösen
-                        if (obj.preset) {
-                            const objectPresets = {
-                                'tree_simple': { type: 'tree', color: '#1a4a1a', scale: [1, 1, 1] },
-                                'rock_small': { type: 'rock', color: '#8b7355', scale: [0.8, 0.8, 0.8] },
-                                'crystal': { type: 'crystal', color: '#00ffff', scale: [1, 1, 1] },
-                                'mushroom_small': { type: 'mushroom', color: '#8b4513', scale: [0.5, 0.8, 0.5] },
-                                'stone_circle_thin': { type: 'stone_circle', color: '#696969', scale: [4, 4, 4] }
-                            };
-                            
-                            const preset = objectPresets[obj.preset];
-                            if (preset) {
-                                objConfig = { ...preset, ...obj };
-                            }
-                        }
-                        
-                        const mesh = this.createSimpleObject(objConfig, index);
-                        if (mesh) {
-                            group.add(mesh);
-                            objectCount++;
-                        }
-                    });
-                }
-
-                // Personas visualization mit Preset-Support
-                if (worldData.personas && Array.isArray(worldData.personas)) {
-                    worldData.personas.forEach((persona, index) => {
-                        let personaConfig = persona;
-                        
-                        // Preset auflösen
-                        if (persona.preset) {
-                            const personaPresets = {
-                                'npc_plain': { role: 'NPC', appearance: { color: '#ff6b6b', height: 1.6 } },
-                                'npc_guardian': { role: 'Guardian', appearance: { color: '#4169e1', height: 1.8 } }
-                            };
-                            
-                            const preset = personaPresets[persona.preset];
-                            if (preset) {
-                                personaConfig = { ...preset, ...persona };
-                                // Merge nested appearance object
-                                if (preset.appearance && persona.appearance) {
-                                    personaConfig.appearance = { ...preset.appearance, ...persona.appearance };
-                                }
-                            }
-                        }
-                        
-                        const mesh = this.createSimplePersona(personaConfig, index);
-                        if (mesh) {
-                            group.add(mesh);
-                            objectCount++;
-                        }
-                    });
-                }
-
-                this.scene.add(group);
-                this.currentZone = { group };
-                this.updateObjectCount(objectCount);
-            }
-
-            // Hilfsfunktion: gleich wie im Loader
-            _getSkyColor(skyPreset, t) {
-                const lerpHex = (a, b, t) => {
-                    const ca = new THREE.Color(a);
-                    const cb = new THREE.Color(b);
-                    return new THREE.Color(ca.r + (cb.r - ca.r) * t, ca.g + (cb.g - ca.g) * t, ca.b + (cb.b - ca.b) * t).getHex();
-                };
-                switch (skyPreset) {
-                    case 'sunset':
-                        if (t < 0.25) return lerpHex(0x0b0d26, 0xff7e5f, t / 0.25);
-                        if (t < 0.5) return lerpHex(0xff7e5f, 0x87ceeb, (t - 0.25) / 0.25);
-                        if (t < 0.75) return lerpHex(0x87ceeb, 0xff9966, (t - 0.5) / 0.25);
-                        return lerpHex(0xff9966, 0x0b0d26, (t - 0.75) / 0.25);
-                    case 'night':
-                        return 0x0b0d26;
-                    case 'storm':
-                        return 0x3b3f47;
-                    case 'mystery_dark':
-                        return 0x1a1a1a;
-                    case 'skyline':
-                        return 0x334455;
-                    case 'ocean':
-                        return 0x2e6f95;
-                    case 'bay':
-                        return 0x5fa3c8;
-                    case 'clear_day':
-                    default:
-                        if (t < 0.25) return lerpHex(0x0b0d26, 0x87ceeb, t / 0.25);
-                        if (t < 0.75) return 0x87ceeb;
-                        return lerpHex(0x87ceeb, 0x0b0d26, (t - 0.75) / 0.25);
-                }
-            }
-
-            createSimpleTerrain(terrainConfig) {
-                const size = terrainConfig.size || [50, 50];
-                const width = size[0];
-                const height = size[1];
-                const isHills = terrainConfig.type === 'hills' || terrainConfig.preset === 'forest_floor';
-                const seg = isHills ? 96 : 2;
-                const geometry = new THREE.PlaneGeometry(width, height, seg, seg);
-                
-                const material = new THREE.MeshStandardMaterial({ 
-                    color: new THREE.Color(terrainConfig.color || '#4a7c1e'),
-                    side: THREE.FrontSide,
-                    roughness: 0.75,
-                    metalness: 0.05
-                });
-
-                if (isHills) {
-                    const pos = geometry.attributes.position;
-                    const v = new THREE.Vector3();
-                    const amplitude = (typeof terrainConfig.amplitude === 'number') ? terrainConfig.amplitude : 2.5;
-
-                    // Parameter identisch zu YAMLWorldLoader
-                    const flatRadius = (typeof terrainConfig.flat_radius === 'number') ? terrainConfig.flat_radius : Math.min(width, height) * 0.15;
-                    const blendRadius = (typeof terrainConfig.blend_radius === 'number') ? terrainConfig.blend_radius : Math.min(width, height) * 0.25;
-                    const outerGain = (typeof terrainConfig.outer_gain === 'number') ? terrainConfig.outer_gain : 1.0;
-
-                    const centerX = 0, centerY = 0;
-                    const maxR = Math.hypot(width * 0.5, height * 0.5);
-
-                    for (let i = 0; i < pos.count; i++) {
-                        v.fromBufferAttribute(pos, i);
-                        const x = v.x, y = v.y;
-
-                        const wave1 = Math.sin(x * 0.08) * Math.cos(y * 0.08) * 0.9;
-                        const wave2 = Math.sin(x * 0.18 + 1.2) * Math.cos(y * 0.14 + 0.7) * 0.6;
-                        const wave3 = Math.sin(x * 0.3 + 2.4) * Math.cos(y * 0.22 + 1.7) * 0.3;
-                        const baseElevation = (wave1 + wave2 + wave3) * amplitude;
-
-                        const r = Math.hypot(x - centerX, y - centerY);
-                        let blend;
-                        if (r <= flatRadius) blend = 0; else if (r >= flatRadius + blendRadius) blend = 1; else {
-                            const t = (r - flatRadius) / Math.max(1e-6, blendRadius);
-                            blend = t * t * (3 - 2 * t);
-                        }
-                        const radialFactor = outerGain === 1.0 ? 1.0 : (1 + (outerGain - 1) * (r / maxR));
-
-                        const elevation = baseElevation * blend * radialFactor;
-                        pos.setZ(i, elevation);
-                    }
-                    pos.needsUpdate = true;
-                    geometry.computeVertexNormals();
-                }
-
-                if (terrainConfig.texture === 'forest_floor' || terrainConfig.preset === 'forest_floor') {
-                    const c = document.createElement('canvas');
-                    c.width = 512; c.height = 512;
-                    const ctx = c.getContext('2d');
-                    const grad = ctx.createLinearGradient(0,0,512,512);
-                    grad.addColorStop(0, '#2a3f20');
-                    grad.addColorStop(1, '#20351a');
-                    ctx.fillStyle = grad; ctx.fillRect(0,0,512,512);
-                    for(let i=0;i<400;i++){
-                        const x = Math.random()*512, y = Math.random()*512, r = 2+Math.random()*6;
-                        ctx.fillStyle = `rgba(80,120,70,${0.08+Math.random()*0.12})`;
-                        ctx.beginPath(); ctx.ellipse(x,y,r*1.2,r,Math.random()*Math.PI,0,Math.PI*2); ctx.fill();
-                    }
-                    const tex = new THREE.CanvasTexture(c);
-                    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                    tex.repeat.set(4,4);
-                    if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-                    material.map = tex;
-                    material.color = new THREE.Color('#ffffff');
-                    material.needsUpdate = true;
-                }
-
-                const mesh = new THREE.Mesh(geometry, material);
-                mesh.rotation.x = -Math.PI / 2;
-                mesh.position.y = (typeof terrainConfig.y === 'number') ? terrainConfig.y : 0.01;
-                mesh.name = 'terrain';
-                mesh.renderOrder = -10;
-                material.transparent = false;
-                material.depthWrite = true;
-                material.depthTest = true;
-                return mesh;
-            }
-
-            createSimpleObject(objConfig, index) {
-                let geometry;
-                let color = objConfig.color || '#8b4513';
-
-                // Preset colors
-                if (objConfig.preset === 'tree_simple') color = '#1a4a1a';
-                else if (objConfig.preset === 'crystal') color = '#00ffff';
-                else if (objConfig.preset === 'mushroom_small') color = '#8b4513';
-
-                switch (objConfig.preset || objConfig.type) {
-                    case 'tree_simple':
-                    case 'tree':
-                        geometry = new THREE.ConeGeometry(1, 3, 8);
-                        break;
-                    case 'rock_small':
-                    case 'rock':
-                        geometry = new THREE.DodecahedronGeometry(0.8);
-                        break;
-                    case 'mushroom_small':
-                    case 'mushroom':
-                        geometry = new THREE.CylinderGeometry(0.5, 0.2, 1, 12);
-                        break;
-                    case 'stone_circle_thin':
-                    case 'stone_circle':
-                        geometry = new THREE.TorusGeometry(2, 0.2, 8, 16);
-                        break;
-                    case 'crystal':
-                        geometry = new THREE.OctahedronGeometry(1);
-                        break;
-                    case 'bookshelf':
-                        geometry = new THREE.BoxGeometry(2, 4, 0.5);
-                        break;
-                    default:
-                        geometry = new THREE.BoxGeometry(1, 1, 1);
-                }
-
-                const material = new THREE.MeshLambertMaterial({ color: color });
-                const mesh = new THREE.Mesh(geometry, material);
-                
-                if (objConfig.position) {
-                    mesh.position.set(...objConfig.position);
-                }
-                if (objConfig.scale) {
-                    mesh.scale.set(...objConfig.scale);
-                }
-                
-                // Spezifische Ausrichtung für Stone Circle (flach auf den Boden)
-                if (objConfig.preset === 'stone_circle_thin' || objConfig.type === 'stone_circle') {
-                    mesh.rotation.x = Math.PI / 2; // 90 Grad um X-Achse = flach auf Boden
-                    mesh.position.y = Math.max(mesh.position.y || 0, 0.02); // Leicht über Boden gegen Z-Fighting
-                }
-                
-                mesh.name = `${objConfig.preset || objConfig.type}_${index}`;
-                return mesh;
-            }
-
-            createSimplePersona(personaConfig, index) {
-                // Ersatz für CapsuleGeometry (nicht in allen Three Versionen vorhanden)
-                const group = new THREE.Group();
-
-                const height = (personaConfig.appearance?.height || 1.4);
-                const bodyHeight = Math.max(0.8, height); // Körperzylinder
-                const radius = 0.5; // Breite
-
-                const cylGeom = new THREE.CylinderGeometry(radius, radius, bodyHeight, 12);
-                const sphereGeom = new THREE.SphereGeometry(radius, 12, 12);
-
-                let color = '#ff6b6b';
-                if (personaConfig.preset === 'npc_fairy') color = '#ffd700';
-                else if (personaConfig.preset === 'npc_scholar') color = '#2f4f4f';
-                else if (personaConfig.preset === 'npc_guardian') color = '#8fbc8f';
-                else if (personaConfig.appearance?.color) color = personaConfig.appearance.color;
-
-                const material = new THREE.MeshLambertMaterial({ color });
-
-                const body = new THREE.Mesh(cylGeom, material);
-                body.position.y = 0; // Mittelpunkt am Ursprung
-                group.add(body);
-
-                const headTop = new THREE.Mesh(sphereGeom, material);
-                headTop.position.y = bodyHeight/2;
-                group.add(headTop);
-
-                const headBottom = new THREE.Mesh(sphereGeom, material);
-                headBottom.position.y = -bodyHeight/2;
-                group.add(headBottom);
-
-                if (personaConfig.position) {
-                    group.position.set(...personaConfig.position);
-                    group.position.y += 1; // etwas über Boden
-                }
-
-                group.name = personaConfig.name || `persona_${index}`;
-                return group;
             }
 
             resetScene(updateStatus = true) {
@@ -1003,9 +623,7 @@ personas:
         }
 
         // Initialize when page loads
-        window.addEventListener('load', () => {
-            new PresetEditor();
-        });
+        window.addEventListener('load', () => { new PresetEditor(); });
     </script>
 </body>
 </html>

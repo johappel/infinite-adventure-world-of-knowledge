@@ -1,129 +1,29 @@
-# Großes Archiv - Bibliothek des Wissens
-name: "Großes Archiv"
-description: "Eine majestätische Bibliothek mit unendlichen Büchern und Wissensspeichern"
-id: "zone-archive"
+# Bibliothek – aktualisiert
+id: zone-archive
+name: Archiv der Weisheit
+description: Eine Bibliothek mit Kristallen und Wissen.
 
 environment:
-  skybox: "interior"         # Innenraum-Himmel
-  time_of_day: 0.5           # Gleichmäßiges Licht
-  ambient_light: 0.8         # Helles Bibliothekslicht
-  sun_intensity: 0.0         # Keine direkte Sonne
-  fog_distance: 200          # Weite Sicht in der großen Halle
-  ambient_sound: "library"   # Leises Geraschel von Papier
+  skybox: clear_day
+  time_of_day: 0.1
+  ambient_light: 0.8
+  sun_intensity: 0.3
+  skybox_mode: cube
 
 terrain:
-  preset: "marble_flat"
+  preset: marble_flat
+  size: [50, 50]
 
 objects:
-  - preset: "bookshelf"
-    position: [10, 0, 10]
-    script: |
-      // Zufälliges Buch beim Interagieren
-      const books = ["Magie der Elemente", "Geschichte der Welten", "Geheimnisse der Zeit"];
-      const randomBook = books[Math.floor(Math.random() * books.length)];
-      console.log(`Du findest das Buch: ${randomBook}`);
-      
-  - preset: "bookshelf"
-    position: [-10, 0, 10]
-    
-  - preset: "bookshelf"
-    position: [10, 0, -10]
-    
-  - preset: "bookshelf"
-    position: [-10, 0, -10]
-    
-  - type: "reading_table"
-    position: [0, 0, 5]
-    scale: [2, 1, 1]
-    color: "#deb887"
-    interactive: true
-    
-  - type: "globe"
-    position: [0, 1, 0]       # Auf dem Tisch
-    scale: [0.5, 0.5, 0.5]
-    color: "#4169e1"
-    interactive: true
-    script: |
-      this.rotation.y += 0.01; // Langsam drehender Globus
-      
-  - type: "crystal_knowledge"
-    position: [0, 0, -15]
-    scale: [1.5, 2, 1.5]
-    color: "#9370db"
-    interactive: true
-    script: |
-      // Pulsierendes Wissenszentrum
-      const time = Date.now() * 0.002;
-      this.material.emissiveIntensity = Math.sin(time) * 0.3 + 0.7;
-
-portals:
-  - id: "back-to-start"
-    name: "Zurück zur Startwiese"
-    position: [20, 1, 0]
-    size: [2, 3, 0.5]
-    destination: "zone-start"
-    color: "#32cd32"
-    
-  - id: "to-study-hall"
-    name: "Zu den Studienräumen"
-    position: [-20, 1, 0]
-    size: [2, 3, 0.5]
-    destination: "zone-study-hall"
-    color: "#4b0082"
+  - preset: bookshelf
+    position: [5, 0, 5]
+  - preset: bookshelf
+    position: [-5, 0, 5]
+  - type: crystal
+    color: '#00ffff'
+    position: [0, 0, 0]
 
 personas:
-  - preset: "npc_scholar"
-    name: "Bibliothekar Magnus"
-    position: [0, 0, 12]
-    behavior:
-      greeting: "Willkommen im Großen Archiv! Hier ist alles Wissen der Welten gesammelt."
-    dialogue:
-      opening: "Ich bin Magnus, Hüter dieses Archivs. Welches Wissen sucht ihr?"
-      topics:
-        - question: "Wie funktioniert dieses Archiv?"
-          answer: "Jedes Buch, jede Schriftrolle enthält Weisheiten aus allen bekannten Welten. Berührt die Regale!"
-        - question: "Was ist der Wissenskristall?"
-          answer: "Das Herzstück unseres Archivs. Er speichert die Essenz aller Erkenntnisse."
-        - question: "Kann ich hier lernen?"
-          answer: "Natürlich! Setzt euch an den Lesetisch und studiert. Der Globus zeigt alle bekannten Welten."
-
-  - name: "Schreiber Luna"
-    position: [-5, 0, 8]
-    appearance:
-      color: "#dda0dd"
-      height: 1.6
-      type: "scribe"
-    behavior:
-      greeting: "Ich dokumentiere alle neuen Entdeckungen für zukünftige Generationen."
-      idle_animation: "write"
-    dialogue:
-      opening: "Ich bin Luna, Chronistin der Welten. Habt ihr neue Geschichten zu erzählen?"
-      topics:
-        - question: "Was schreibt ihr?"
-          answer: "Ich halte alle Abenteuer und Entdeckungen fest. Eure Reise wird auch Teil der Geschichte!"
-        - question: "Wie kann ich helfen?"
-          answer: "Erzählt mir von euren Erlebnissen! Jede Geschichte bereichert unser Archiv."
-
-  - name: "Wissenswächter Orion"
-    position: [8, 0, -8]
-    appearance:
-      color: "#4682b4"
-      height: 2.1
-      type: "guardian"
-    behavior:
-      greeting: "Ich schütze die wertvollsten Bücher vor denen, die Wissen missbrauchen würden."
-      idle_animation: "patrol"
-    dialogue:
-      opening: "Ich bin Orion. Zeigt mir, dass ihr würdig seid, die tieferen Geheimnisse zu erfahren."
-      topics:
-        - question: "Welche Geheimnisse?"
-          answer: "Macht und Verantwortung gehen Hand in Hand. Erst wenn ihr beides versteht, öffnen sich die verborgenen Kammern."
-        - question: "Wie beweise ich meine Würdigkeit?"
-          answer: "Durch eure Taten in allen Welten. Helft anderen, teilt Wissen, handelt weise."
-
-extensions:
-  weather: "indoor"
-  season: "eternal"
-  scripts_enabled: true
-  ambient_particles: "dust_motes"  # Staubpartikel im Licht
-  special_lighting: "warm_library"
+  - preset: npc_scholar
+    name: "Bibliothekarin"
+    position: [0, 0, 6]

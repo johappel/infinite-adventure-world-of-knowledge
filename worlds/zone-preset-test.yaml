@@ -4,12 +4,15 @@ description: "Eine kleine Zone zum Testen der neuen Presets"
 id: "zone-preset-test"
 
 environment:
-  ambient_light: 0.6
-  sun_intensity: 0.8
+  skybox: "clear_day"
+  skybox_mode: "cube"
+  time_of_day: 0.5
+  ambient_light: 0.7
+  sun_intensity: 0.9
 
 terrain:
   preset: "grass_flat"
-  size: [30, 30]  # Überschreibt Preset-Größe
+  size: [30, 30]
 
 objects:
   - preset: "tree_simple"
@@ -25,5 +28,8 @@ personas:
   - preset: "npc_plain"
     name: "Test NPC"
     position: [3, 0, 3]
+    appearance:
+      height: 1.6
+      color: "#ff6b6b"
     behavior:
       greeting: "Hallo! Ich teste die neuen Presets!"
