@@ -95,18 +95,36 @@ function makePersonaBillboardTexture(name, role, baseColor){
 export function buildPersona(cfg, index){
   const baseColor = cfg.appearance?.color || '#ff6b6b';
   const tex = makePersonaBillboardTexture(cfg.name, cfg.role, baseColor);
-  const height = (cfg.appearance?.height || 1.4) * 2.8;
-  const geometry = new THREE.PlaneGeometry(height, height);
-  const material = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, emissive: new THREE.Color(baseColor), emissiveIntensity: 0.1, roughness: 0.1, metalness: 0.2, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geometry, material);
-  if(cfg.position){ mesh.position.set(...cfg.position); mesh.position.y += 2; }
-  mesh.userData = { type:'persona', name: cfg.name, role: cfg.role||'NPC', id: `persona_${index}` };
-  mesh.castShadow = mesh.receiveShadow = true;
-  // Aura
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.02, 8, 64), new THREE.MeshStandardMaterial({ color: 0x8bffb0, emissive: 0x1a6032, emissiveIntensity: 0.6 }));
-  ring.position.set(0,-1.8,0); ring.rotation.x = Math.PI/2; ring.userData = { type:'personaAura', target: mesh };
-  mesh.add(ring);
-  return mesh;
+  // Kleinere Größe
+  const height = (cfg.appearance?.height || 1.4) * 1.8; // vorher *2.8
+  const width = height * 0.75;
+  const geometry = new THREE.PlaneGeometry(width, height);
+
+  // Material nur einseitig, wir erstellen eine Vorder- und eine Rückseite mit spiegelverkehrter UV, damit Text beidseitig lesbar ist
+  const frontMat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, emissive: new THREE.Color(baseColor), emissiveIntensity: 0.1, roughness: 0.1, metalness: 0.2, side: THREE.FrontSide });
+  const backMat  = new THREE.MeshStandardMaterial({ map: tex.clone(), transparent: true, alphaTest: 0.1, emissive: new THREE.Color(baseColor), emissiveIntensity: 0.08, roughness: 0.1, metalness: 0.2, side: THREE.FrontSide });
+
+  const group = new THREE.Group();
+  const front = new THREE.Mesh(geometry, frontMat);
+  const back  = new THREE.Mesh(geometry.clone(), backMat);
+  back.rotation.y = Math.PI; // umdrehen
+  back.position.z = -0.001; // Z-fighting vermeiden
+
+  group.add(front);
+  group.add(back);
+
+  if(cfg.position){ group.position.set(...cfg.position); group.position.y += 1.4; }
+  group.userData = { type:'persona', name: cfg.name, role: cfg.role||'NPC', id: `persona_${index}` };
+  group.traverse(m=>{ if(m.isMesh){ m.castShadow = m.receiveShadow = true; }});
+
+  // Aura-Ring unter der Gruppe
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.02, 8, 48), new THREE.MeshStandardMaterial({ color: 0x8bffb0, emissive: 0x1a6032, emissiveIntensity:0.6 }));
+  ring.position.set(0, -height*0.55, 0);
+  ring.rotation.x = Math.PI/2;
+  ring.userData = { type:'personaAura', target: group };
+  group.add(ring);
+
+  return group;
 }
 
 export function buildPortal(cfg, index){
