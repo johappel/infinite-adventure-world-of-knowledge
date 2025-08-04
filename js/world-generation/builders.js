@@ -74,54 +74,104 @@ function parseCssColor(color){
 }
 
 function makePersonaBillboardTexture(name, role, baseColor){
-  const canvas = document.createElement('canvas'); canvas.width=512; canvas.height=512; const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#000'; ctx.fillRect(0,0,512,512);
+  const canvas = document.createElement('canvas'); 
+  canvas.width = 256; 
+  canvas.height = 256; 
+  const ctx = canvas.getContext('2d');
+  
+  // Parse color
   const { r, g, b } = parseCssColor(baseColor);
-  const gradient = ctx.createRadialGradient(256,256,0,256,256,256);
-  gradient.addColorStop(0, `rgba(${r},${g},${b},1)`);
-  gradient.addColorStop(0.1, `rgba(${r},${g},${b},0.67)`);
-  gradient.addColorStop(1,'rgba(0,0,0,1)');
-  ctx.fillStyle = gradient; ctx.fillRect(20,20,472,472);
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 8; ctx.strokeRect(20,20,472,472);
-  ctx.beginPath(); ctx.arc(256,180,80,0,Math.PI*2); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=6; ctx.stroke();
-  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(230,160,15,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(282,160,15,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(230,160,8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(282,160,8,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(256,180,50,0.2*Math.PI,0.8*Math.PI); ctx.strokeStyle='#fff'; ctx.lineWidth=4; ctx.stroke();
-  ctx.fillStyle='#000'; ctx.font='bold 36px Arial'; ctx.textAlign='center'; ctx.fillText(name||'NPC',258,320); ctx.fillText(`(${role||'NPC'})`,258,360);
-  ctx.fillStyle='#fff'; ctx.fillText(name||'NPC',256,318); ctx.fillText(`(${role||'NPC'})`,256,358);
-  const tex = new THREE.CanvasTexture(canvas); return tex;
+  const hue = Math.round(Math.atan2(Math.sqrt(3) * (g - b), 2 * r - g - b) * 180 / Math.PI);
+  
+  // Background gradient wie in der ursprünglichen Version
+  const grad = ctx.createLinearGradient(0,0,256,256);
+  grad.addColorStop(0, `hsl(${hue} 60% 18%)`);
+  grad.addColorStop(1, `hsl(${(hue+60)%360} 60% 10%)`);
+  ctx.fillStyle = grad; 
+  ctx.fillRect(0,0,256,256);
+
+  // Simple avatar circle
+  ctx.beginPath(); 
+  ctx.arc(128,100,60,0,Math.PI*2);
+  ctx.fillStyle = `hsl(${(hue+180)%360} 70% 60%)`; 
+  ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = '#0b0f14';
+  ctx.beginPath(); ctx.arc(108,90,8,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(148,90,8,0,Math.PI*2); ctx.fill();
+
+  // Name
+  ctx.fillStyle = '#d8e7ff';
+  ctx.font = '700 20px system-ui, sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText(name||'NPC', 128, 190);
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.fillStyle = '#a9bfdc';
+  ctx.fillText(`(${role||'NPC'})`, 128, 210);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  return tex;
 }
 
 export function buildPersona(cfg, index){
   const baseColor = cfg.appearance?.color || '#ff6b6b';
   const tex = makePersonaBillboardTexture(cfg.name, cfg.role, baseColor);
-  // Kleinere Größe
-  const height = (cfg.appearance?.height || 1.4) * 1.8; // vorher *2.8
-  const width = height * 0.75;
+  const height = cfg.appearance?.height || 1.6; // Ursprüngliche Größe
+  const width = height; // Quadratisch
+  
+  // Einfache Plane wie im Original
   const geometry = new THREE.PlaneGeometry(width, height);
+  const material = new THREE.MeshStandardMaterial({ 
+    map: tex, 
+    transparent: true, 
+    side: THREE.DoubleSide, // Wichtig für die Lesbarkeit
+    metalness: 0.1, 
+    roughness: 0.9,
+    alphaTest: 0.1
+  });
 
-  // Material nur einseitig, wir erstellen eine Vorder- und eine Rückseite mit spiegelverkehrter UV, damit Text beidseitig lesbar ist
-  const frontMat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, emissive: new THREE.Color(baseColor), emissiveIntensity: 0.1, roughness: 0.1, metalness: 0.2, side: THREE.FrontSide });
-  const backMat  = new THREE.MeshStandardMaterial({ map: tex.clone(), transparent: true, alphaTest: 0.1, emissive: new THREE.Color(baseColor), emissiveIntensity: 0.08, roughness: 0.1, metalness: 0.2, side: THREE.FrontSide });
+  const plane = new THREE.Mesh(geometry, material);
+  
+  // Position direkt auf dem Plane setzen
+  if(cfg.position){ 
+    plane.position.set(...cfg.position); 
+    plane.position.y += 1.0; // Feste Höhe
+  }
+  
+  // Vollständiges userData für Interaktionssystem - direkt auf Plane
+  plane.userData = { 
+    type:'persona', 
+    interactive: true,
+    name: cfg.name || `persona_${index}`, 
+    role: cfg.role||'NPC', 
+    id: `persona_${index}`, 
+    zoneId: cfg.zoneId,
+    dialogue: cfg.dialogue,
+    behavior: cfg.behavior,
+    greeting: cfg.behavior?.greeting || cfg.dialogue?.opening || 'Hallo!'
+  };
+  plane.name = cfg.name || `persona_${index}`;
+  
+  // Shadows
+  plane.castShadow = plane.receiveShadow = true;
 
+  // Group nur für Aura + Plane zusammen
   const group = new THREE.Group();
-  const front = new THREE.Mesh(geometry, frontMat);
-  const back  = new THREE.Mesh(geometry.clone(), backMat);
-  back.rotation.y = Math.PI; // umdrehen
-  back.position.z = -0.001; // Z-fighting vermeiden
+  group.add(plane);
 
-  group.add(front);
-  group.add(back);
-
-  if(cfg.position){ group.position.set(...cfg.position); group.position.y += 1.4; }
-  group.userData = { type:'persona', name: cfg.name, role: cfg.role||'NPC', id: `persona_${index}` };
-  group.traverse(m=>{ if(m.isMesh){ m.castShadow = m.receiveShadow = true; }});
-
-  // Aura-Ring unter der Gruppe
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.02, 8, 48), new THREE.MeshStandardMaterial({ color: 0x8bffb0, emissive: 0x1a6032, emissiveIntensity:0.6 }));
-  ring.position.set(0, -height*0.55, 0);
+  // Sichtbare Aura: Ring wie im Original
+  const ringGeom = new THREE.TorusGeometry(0.9, 0.02, 8, 64);
+  const ringMat = new THREE.MeshStandardMaterial({ 
+    color: 0x8bffb0, 
+    emissive: 0x1a6032, 
+    emissiveIntensity: 0.6
+  });
+  const ring = new THREE.Mesh(ringGeom, ringMat);
+  ring.position.copy(plane.position).add(new THREE.Vector3(0, 0.05, 0));
   ring.rotation.x = Math.PI/2;
-  ring.userData = { type:'personaAura', target: group };
+  ring.userData = { type:'personaAura', target: plane };
   group.add(ring);
 
   return group;

@@ -5,6 +5,14 @@ export class Player {
     this.pos = new THREE.Vector3(0,0,0);
     this.speed = 6;
     this.worldRoot = worldRoot;
+    
+    // Stelle sicher, dass der Player erkennbar ist für Animationen
+    if(this.worldRoot) {
+      this.worldRoot.name = this.worldRoot.name || 'LocationMarker';
+      this.worldRoot.userData = this.worldRoot.userData || {};
+      this.worldRoot.userData.type = 'player';
+      this.worldRoot.userData.isPlayer = true;
+    }
   }
 
   // Prüfen ob gerade im Chat-Input getippt wird

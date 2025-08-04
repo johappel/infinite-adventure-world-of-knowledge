@@ -100,10 +100,19 @@ export class InteractionSystem {
   }
 
   handleInteraction(obj) {
-    // persona
+    // persona - sowohl Group als auch Child-Meshes berücksichtigen
+    let personaTarget = obj;
     if(obj.userData?.type==='persona'){
+      // Direkt getroffen
+      personaTarget = obj;
+    } else if(obj.userData?.parent && obj.userData?.parent.userData?.type==='persona') {
+      // Child-Mesh getroffen, verwende Parent-Group
+      personaTarget = obj.userData.parent;
+    }
+    
+    if(personaTarget.userData?.type==='persona'){
       if(this.onPersonaInteract) {
-        this.onPersonaInteract(obj);
+        this.onPersonaInteract(personaTarget);
       }
       return;
     }
