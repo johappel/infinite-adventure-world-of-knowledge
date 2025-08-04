@@ -1,0 +1,152 @@
+terrain:
+  type: hills
+  size: [80, 80]
+  amplitude: 1.5
+  color: "#4a7c1e"
+  texture: grass_texture
+  paths:
+    # Zentraler Dorfkreis
+    - points:
+        # Vollständiger Kreis mit 24 Punkten für glatte Rundung
+        - [0, 8]      # Norden
+        - [2.1, 7.7]  # NNO
+        - [4, 6.9]    # NO
+        - [5.7, 5.7]  # ONO
+        - [6.9, 4]    # O
+        - [7.7, 2.1]  # OSO
+        - [8, 0]      # Süden
+        - [7.7, -2.1] # SSO
+        - [6.9, -4]   # SO
+        - [5.7, -5.7] # SSO
+        - [4, -6.9]   # S
+        - [2.1, -7.7] # SSW
+        - [0, -8]     # Süden
+        - [-2.1, -7.7] # SSW
+        - [-4, -6.9]  # SW
+        - [-5.7, -5.7] # WSW
+        - [-6.9, -4]  # W
+        - [-7.7, -2.1] # WNW
+        - [-8, 0]     # Westen
+        - [-7.7, 2.1] # WNW
+        - [-6.9, 4]   # NW
+        - [-5.7, 5.7] # NNW
+        - [-4, 6.9]   # N
+        - [-2.1, 7.7] # NNO
+        - [0, 8]      # Zurück zum Start für geschlossenen Kreis
+      smooth: true
+      
+    # Weg 1: Von Norden zum Dorfkreis
+    - points:
+        - [0, 35]     # Startpunkt weit im Norden
+        - [0, 25]     # Zwischenpunkt
+        - [0, 15]     # Annäherung
+        - [0, 8]      # Anschluss an Dorfkreis
+      smooth: true
+      
+    # Weg 2: Von Nordosten zum Dorfkreis  
+    - points:
+        - [25, 25]    # Startpunkt Nordost
+        - [18, 18]    # Zwischenpunkt
+        - [12, 12]    # Annäherung
+        - [5.7, 5.7]  # Anschluss an Dorfkreis
+      smooth: true
+      
+    # Weg 3: Von Osten zum Dorfkreis
+    - points:
+        - [35, 0]     # Startpunkt Osten
+        - [25, 0]     # Zwischenpunkt
+        - [15, 0]     # Annäherung
+        - [6.9, 0]    # Anschluss an Dorfkreis (leicht angepasst)
+      smooth: true
+      
+    # Weg 4: Von Südwesten zum Dorfkreis
+    - points:
+        - [-20, -20]  # Startpunkt Südwest
+        - [-15, -15]  # Zwischenpunkt
+        - [-10, -10]  # Annäherung
+        - [-5.7, -5.7] # Anschluss an Dorfkreis
+      smooth: true
+      
+    # Weg 5: Von Westen zum Dorfkreis
+    - points:
+        - [-30, 5]    # Startpunkt Westen (leicht versetzt)
+        - [-22, 3]    # Zwischenpunkt
+        - [-15, 2]    # Annäherung
+        - [-7.7, 1]   # Anschluss an Dorfkreis
+      smooth: true
+      
+  path_options:
+    pathWidth: 18
+    pathColor: "#8b7355"
+
+objects:
+  # Dorfgebäude um den Kreis herum
+  - type: house_simple
+    position: [3, 0, 10]
+    rotation: [0, 0.5, 0]
+    
+  - type: house_large  
+    position: [-5, 0, 9]
+    rotation: [0, -0.3, 0]
+    
+  - type: barn
+    position: [8, 0, 3]
+    rotation: [0, 1.2, 0]
+    
+  - type: well
+    position: [0, 0, 0]  # Brunnen in der Dorfmitte
+    
+  - type: church
+    position: [-2, 0, -8]
+    rotation: [0, 3.14, 0]
+    
+  - type: windmill
+    position: [12, 0, -2]
+    rotation: [0, 0.8, 0]
+    
+  # Wegweiser an den Eingängen
+  - type: box
+    position: [0, 1, 30]
+    scale: [0.3, 2, 0.3]
+    color: "#654321"
+    
+  - type: box  
+    position: [20, 1, 20]
+    scale: [0.3, 2, 0.3]
+    color: "#654321"
+    
+  - type: box
+    position: [30, 1, 0] 
+    scale: [0.3, 2, 0.3]
+    color: "#654321"
+    
+  - type: box
+    position: [-15, 1, -15]
+    scale: [0.3, 2, 0.3] 
+    color: "#654321"
+    
+  - type: box
+    position: [-25, 1, 5]
+    scale: [0.3, 2, 0.3]
+    color: "#654321"
+
+personas:
+  - name: "Dorfältester"
+    role: "Village Elder"
+    position: [1, 0, 1]
+    appearance:
+      color: "#2f4f4f"
+      height: 1.7
+      
+  - name: "Schmied"
+    role: "Blacksmith" 
+    position: [6, 0, 6]
+    appearance:
+      color: "#8b4513"
+      height: 1.8
+
+environment:
+  skybox: clear_day
+  ambient_light: 0.8
+  sun_intensity: 1.0
+  time_of_day: 0.6
