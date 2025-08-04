@@ -1,0 +1,132 @@
+name: "Pfad-Demo Zone"
+description: |
+  Eine Demonstration des neuen Pfad-Systems mit automatischer Objekt-Platzierung.
+  
+  Diese Zone zeigt:
+  - Bezier-geglättete Hauptwege
+  - Verzweigte Pfade
+  - Automatische pfad-freie Objekt-Platzierung
+  - Verschiedene Composite-Objekte entlang der Wege
+
+environment:
+  skybox: 'clear_day'
+  time_of_day: 0.6
+  ambient_light: 0.8
+  sun_intensity: 1.0
+
+terrain:
+  type: hills
+  texture_layers:
+    - { fn: "grass", alpha: 1.0 }
+    - { fn: "stone", alpha: 0.15, mask: "noise", maskScale: 64 }
+  size: [60, 60]
+  amplitude: 1.8
+  paths:
+    # Hauptweg durch die Zone
+    - points:
+        - [-25, 0, -20] 
+        - [-15, 0, -8]
+        - [0, 0, 0]
+        - [12, 0, 8]
+        - [25, 0, 18]
+      smooth: true
+    
+    # Abzweigender Pfad zum Kristall-Garten
+    - points:
+        - [0, 0, 0]
+        - [-8, 0, 12]
+        - [-18, 0, 22]
+      smooth: true
+      
+    # Kurzer Pfad zur Bibliothek
+    - points:
+        - [12, 0, 8]
+        - [18, 0, -5]
+        - [22, 0, -15]
+      smooth: false
+  
+  path_options:
+    pathWidth: 10
+    pathColor: "#8b7355"
+
+objects:
+  # Bäume werden automatisch pfad-frei platziert
+  - type: "deciduous_tree"
+    scale: [1.2, 1.2, 1.2]
+  - type: "deciduous_tree"
+    scale: [0.8, 0.8, 0.8]
+  - type: "conifer_tree"
+    scale: [1.5, 1.5, 1.5]
+  - type: "conifer_tree"
+
+  # Steinkreise als Wegmarker
+  - type: "circle_of_rocks"
+    position: [-15, 0, -8]  # Nahe beim Pfad, aber nicht darauf
+    number: 6
+    radius: 3
+    avoid_paths: false      # Bewusst nahe dem Pfad
+    
+  - type: "circle_of_rocks"
+    position: [18, 0, -5]
+    number: 8
+    radius: 4
+    randomScale: true
+
+  # Kristall-Garten am Ende des Abzweigs
+  - preset: "crystal"
+    position: [-18, 0, 22]
+    scale: [1.5, 1.5, 1.5]
+    avoid_paths: false
+    
+  - preset: "crystal"
+    position: [-20, 0, 24]
+    color: "#ff6b9d"
+    
+  - preset: "crystal"
+    position: [-16, 0, 20]
+    color: "#6bcbff"
+
+  # Automatisch verteilte Objekte (vermeiden Pfade)
+  - preset: "tree_simple"
+  - preset: "tree_simple"
+  - preset: "rock_small"
+  - preset: "rock_small"  
+  - preset: "mushroom_small"
+  - preset: "mushroom_small"
+
+personas:
+  # Wächter am Pfad-Kreuzung
+  - preset: "npc_guardian"
+    name: "Pfadwächter Theron"
+    position: [0, 0, 0]
+    avoid_paths: false
+    dialogue:
+      opening: "Willkommen an der Wegkreuzung, Wanderer. Diese Pfade führen zu besonderen Orten..."
+      
+  # Gelehrte in der Bibliothek
+  - preset: "npc_scholar"
+    name: "Bibliothekarin Mira"
+    position: [22, 0, -15]
+    avoid_paths: false
+    dialogue:
+      opening: "Die Pfade hierher sind lang, aber das Wissen wartet geduldig."
+
+  # Fee im Kristall-Garten
+  - preset: "npc_fairy"
+    name: "Kristall-Fee Luna"
+    position: [-18, 0, 22]
+    avoid_paths: false
+    dialogue:
+      opening: "Die Kristalle singen von den Wegen, die hierher führen..."
+
+  # Automatisch platzierte NPCs (vermeiden Pfade)
+  - preset: "npc_plain"
+    name: "Wanderer Kai"
+    dialogue:
+      opening: "Ich rastе abseits der Wege. Manchmal findet man Ruhe im Verborgenen."
+
+portals:
+  - id: "exit"
+    position: [0, 1.6, -28]
+    size: [1.2, 3.5, 0.3]
+    color: "#66ffee"

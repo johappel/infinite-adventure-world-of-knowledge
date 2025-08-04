@@ -123,6 +123,75 @@ personas:
 - `npc_scholar`: Gelehrter für Bibliotheken
 - `npc_guardian`: Großer Wächter für Wälder
 
+## Pfade (Wege)
+
+Das System unterstützt Pfade, die automatisch als begehbare Wege auf dem Terrain gerendert werden und intelligent bei der Objekt-Platzierung berücksichtigt werden.
+
+### Pfad-Definition
+```yaml
+terrain:
+  type: hills
+  texture: grass_texture
+  paths:
+    - points:
+        - [-20, 0, -15]  # Startpunkt [x, y, z]
+        - [-5, 0, -2]    # Wegpunkt
+        - [0, 0, 0]      # Zentrum
+        - [8, 0, 12]     # Wegpunkt  
+        - [20, 0, 18]    # Endpunkt
+      smooth: true       # Bezier-Glättung aktivieren
+    - points:            # Zweiter Pfad (Verzweigung)
+        - [0, 0, 0]
+        - [-10, 0, 15]
+        - [-18, 0, 22]
+      smooth: false      # Gerader Pfad ohne Glättung
+```
+
+### Pfad-Optionen
+Globale Einstellungen für alle Pfade:
+```yaml
+terrain:
+  paths: [...]
+  path_options:
+    pathWidth: 12      # Pfadbreite in Pixeln (default: 8)
+    pathColor: "#654321"  # Pfadfarbe (default: "#8b7355")
+    bgColor: "transparent"  # Hintergrund (default: transparent)
+```
+
+### Automatische Objekt-Platzierung
+Objekte und NPCs werden automatisch **außerhalb** der Pfade platziert:
+
+```yaml
+# Normale Definition - System vermeidet Pfade automatisch
+objects:
+  - preset: "tree_simple"
+    # position wird automatisch pfad-frei gewählt
+  
+  - type: "circle_of_rocks"
+    number: 8
+    # Auch Composite-Objekte respektieren Pfade
+```
+
+### Manuelle Pfad-Kontrolle
+Für präzise Kontrolle:
+```yaml
+objects:
+  - preset: "crystal"
+    position: [0, 0, 0]     # Direkt auf Pfad platzieren
+    avoid_paths: false      # Pfad-Vermeidung deaktivieren
+  
+  - preset: "bookshelf"
+    avoid_paths: true       # Explizit pfad-frei platzieren
+    min_path_distance: 3    # Mindestabstand zu Pfaden
+```
+
+### Pfad-Features
+- ✅ **Bezier-Glättung**: Natürlich geschwungene Wege
+- ✅ **Automatische Vermeidung**: Objekte werden pfad-frei platziert
+- ✅ **Mehrere Pfade**: Verzweigungen und separate Wege
+- ✅ **Texture-Integration**: Pfade werden in Terrain-Textur eingebrannt
+- ✅ **Intelligente Fallbacks**: Auch ohne Pfade funktioniert alles
+
 ## Vorteile
 - ✅ Kürzere YAML-Dateien
 - ✅ Einheitliches Design

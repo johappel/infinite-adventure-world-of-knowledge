@@ -4,6 +4,8 @@ import { worldStore, createEvent, EVENT_KINDS } from './event-store.js';
 import { WorldLoader } from './world-loader.js';
 import { YAMLWorldLoader } from './yaml-world-loader.js';
 import { buildZoneFromSpec } from '../world-generation/index.js';
+import { findFreePos } from '../presets/index.js';
+import { buildObject, buildPersona } from '../world-generation/builders.js';
 
 export class ZoneManager {
   constructor(worldRoot) {
@@ -25,20 +27,137 @@ export class ZoneManager {
       terrain: { type: 'hills', texture: 'forest_floor', color: '#4a7c1e', amplitude: 2.5, size: [50,50] },
       objects: [], personas: [], portals: [ { id: 'central', position: [0,1.6,-6], size: [0.9,3.2,0.2], color: '#66ffee' } ]
     };
+    
+    // Add some example paths for generated zones  
+    if(rng() < 0.6) { // 60% chance for paths
+      spec.terrain.paths = [
+        {
+          points: [
+            [-20, 0, -15],
+            [-10, 0, -5], 
+            [0, 0, 0],
+            [8, 0, 12],
+            [15, 0, 20]
+          ],
+          smooth: true
+        }
+      ];
+      
+      // Optional: Add branching path
+      if(rng() < 0.4) {
+        spec.terrain.paths.push({
+          points: [
+            [0, 0, 0],
+            [-8, 0, 10],
+            [-15, 0, 18]
+          ],
+          smooth: true
+        });
+      }
+    }
+    
+    // Build zone first to get path mask
+    const zoneInfo = buildZoneFromSpec(spec, { rng });
+    
+    // Get path mask from terrain for intelligent object placement
+    let pathMask = null;
+    let terrainSize = [50, 50];
+    const terrainMesh = zoneInfo.group.children.find(child => child.name === 'terrain');
+    if(terrainMesh && terrainMesh.userData.pathMask) {
+      pathMask = terrainMesh.userData.pathMask;
+      terrainSize = terrainMesh.userData.terrainSize || terrainSize;
+    }
+    
+    // Generate objects with path avoidance
     const propCount = 20 + Math.floor(rng()*20);
     for(let i=0;i<propCount;i++){
-      const r = 2 + rng()*15; const a = rng()*Math.PI*2; const x = Math.cos(a)*r; const z = Math.sin(a)*r;
-      spec.objects.push({ type: 'rock', color: `hsl(${Math.floor(rng()*360)} 20% 50%)`, position: [x, 0.2, z], scale: [1, 0.4 + rng()*2.0, 1] });
+      let x, z;
+      
+      if(pathMask) {
+        // Try to find position avoiding paths
+        const freePos = findFreePos(pathMask, terrainSize, { 
+          maxAttempts: 30,
+          minDistance: 1.5,
+          margin: 5 
+        });
+        
+        if(freePos) {
+          [x, z] = freePos;
+        } else {
+          // Fallback to random position
+          const r = 2 + rng()*15; 
+          const a = rng()*Math.PI*2; 
+          x = Math.cos(a)*r; 
+          z = Math.sin(a)*r;
+        }
+      } else {
+        // Original random placement
+        const r = 2 + rng()*15; 
+        const a = rng()*Math.PI*2; 
+        x = Math.cos(a)*r; 
+        z = Math.sin(a)*r;
+      }
+      
+      const objectSpec = { 
+        type: 'rock', 
+        color: `hsl(${Math.floor(rng()*360)} 20% 50%)`, 
+        position: [x, 0.2, z], 
+        scale: [1, 0.4 + rng()*2.0, 1] 
+      };
+      
+      // Add object to existing zone
+      const objMesh = buildObject(objectSpec, i);
+      if(objMesh) {
+        zoneInfo.group.add(objMesh);
+      }
     }
+    
+    // Generate personas with path avoidance
     const personaRoles = ['Forscher', 'Lehrer', 'Magier', 'Schüler'];
     const personaCount = 2 + Math.floor(rng()*2);
     for(let i=0;i<personaCount;i++){
       const role = personaHint || pick(rng, personaRoles);
       const name = role + ' ' + (['Ava','Noah','Mira','Liam','Yara','Odin','Sofi','Juno'][Math.floor(rng()*8)]);
-      const r = 3 + rng()*10; const a = rng()*Math.PI*2; const x = Math.cos(a)*r; const z = Math.sin(a)*r;
-      spec.personas.push({ name, role, position: [x,0,z], appearance: { color: `hsl(${Math.floor(rng()*360)} 60% 60%)`, height: 1.6 } });
+      
+      let x, z;
+      if(pathMask) {
+        const freePos = findFreePos(pathMask, terrainSize, { 
+          maxAttempts: 25,
+          minDistance: 2,
+          margin: 3 
+        });
+        
+        if(freePos) {
+          [x, z] = freePos;
+        } else {
+          const r = 3 + rng()*10; 
+          const a = rng()*Math.PI*2; 
+          x = Math.cos(a)*r; 
+          z = Math.sin(a)*r;
+        }
+      } else {
+        const r = 3 + rng()*10; 
+        const a = rng()*Math.PI*2; 
+        x = Math.cos(a)*r; 
+        z = Math.sin(a)*r;
+      }
+      
+      const personaSpec = { 
+        name, role, 
+        position: [x,0,z], 
+        appearance: { 
+          color: `hsl(${Math.floor(rng()*360)} 60% 60%)`, 
+          height: 1.6 
+        } 
+      };
+      
+      // Add persona to existing zone  
+      const personaMesh = buildPersona(personaSpec, i);
+      if(personaMesh) {
+        zoneInfo.group.add(personaMesh);
+      }
     }
-    const zoneInfo = buildZoneFromSpec(spec, { rng });
+    
     this.worldRoot.add(zoneInfo.group);
     this.zoneMeshes[zoneId] = zoneInfo;
     if(!worldStore.latestByTag(EVENT_KINDS.ZONE, 'zone', zoneId)){

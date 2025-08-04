@@ -73,3 +73,87 @@ function sanitizeVec3(v, fallback){
   return [num(v[0], fallback[0]), num(v[1], fallback[1]), num(v[2], fallback[2])];
 }
 function num(n, fb){ const f = Number(n); return Number.isFinite(f)? f : fb; }
+
+// --- Path System Utilities ---
+
+/**
+ * Check if a world position is on a path
+ * @param {number} worldX - X coordinate in world space  
+ * @param {number} worldZ - Z coordinate in world space
+ * @param {HTMLCanvasElement} pathMask - Canvas with white pixels marking paths
+ * @param {number[]} terrainSize - [width, height] of terrain
+ * @param {number} threshold - Alpha threshold (0-255) to consider as "on path"
+ * @returns {boolean} true if position is on a path
+ */
+export function isOnPath(worldX, worldZ, pathMask, terrainSize, threshold = 128){
+  if(!pathMask || !terrainSize) return false;
+  
+  const w = pathMask.width;
+  const h = pathMask.height;
+  
+  // Convert world coordinates to texture coordinates
+  const texX = Math.floor((worldX + terrainSize[0] * 0.5) / terrainSize[0] * w);
+  const texZ = Math.floor((worldZ + terrainSize[1] * 0.5) / terrainSize[1] * h);
+  
+  // Bounds check
+  if(texX < 0 || texX >= w || texZ < 0 || texZ >= h) return false;
+  
+  // Sample pixel
+  const ctx = pathMask.getContext('2d');
+  const imageData = ctx.getImageData(texX, texZ, 1, 1);
+  const alpha = imageData.data[3]; // Alpha channel
+  
+  return alpha >= threshold;
+}
+
+/**
+ * Find a random position that avoids paths
+ * @param {HTMLCanvasElement} pathMask - Canvas with path data
+ * @param {number[]} terrainSize - [width, height] of terrain  
+ * @param {Object} options - { maxAttempts: 50, minDistance: 2, margin: 5 }
+ * @returns {number[]|null} [x, z] world coordinates or null if no position found
+ */
+export function findFreePos(pathMask, terrainSize, options = {}){
+  const opts = {
+    maxAttempts: 50,
+    minDistance: 2, // minimum distance from paths
+    margin: 5,      // margin from terrain edges
+    ...options
+  };
+  
+  if(!pathMask || !terrainSize) {
+    // Fallback: random position with margin
+    const x = (Math.random() - 0.5) * (terrainSize[0] - opts.margin * 2);
+    const z = (Math.random() - 0.5) * (terrainSize[1] - opts.margin * 2);
+    return [x, z];
+  }
+  
+  for(let attempt = 0; attempt < opts.maxAttempts; attempt++){
+    // Random position within terrain bounds, respecting margin
+    const x = (Math.random() - 0.5) * (terrainSize[0] - opts.margin * 2);
+    const z = (Math.random() - 0.5) * (terrainSize[1] - opts.margin * 2);
+    
+    // Check if position and surrounding area is free of paths
+    let isFree = true;
+    const checkRadius = opts.minDistance;
+    const steps = 8; // Check 8 points around the position
+    
+    for(let i = 0; i < steps && isFree; i++){
+      const angle = (i / steps) * Math.PI * 2;
+      const checkX = x + Math.cos(angle) * checkRadius;
+      const checkZ = z + Math.sin(angle) * checkRadius;
+      
+      if(isOnPath(checkX, checkZ, pathMask, terrainSize, 64)){
+        isFree = false;
+      }
+    }
+    
+    // Also check center position
+    if(isFree && !isOnPath(x, z, pathMask, terrainSize, 64)){
+      return [x, z];
+    }
+  }
+  
+  // If no free position found, return null
+  return null;
+}

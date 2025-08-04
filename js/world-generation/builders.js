@@ -48,6 +48,112 @@ function makeWaterTexture(){
   const tex=new THREE.CanvasTexture(c); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(2,2); if(THREE.sRGBEncoding) tex.encoding=THREE.sRGBEncoding; return tex;
 }
 
+// --- Path texture generator with Bezier smoothing ---
+function makePathTexture(paths=[], terrainSize=[50, 50], options={}){
+  const w = options.width || 512;
+  const h = options.height || 512;
+  const pathWidth = options.pathWidth || 8; // pixels
+  const pathColor = options.pathColor || '#8b7355'; // brown path
+  
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  
+  // Transparent background for overlay
+  ctx.clearRect(0, 0, w, h);
+  
+  // Pfadmaske für group.userData
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = w; maskCanvas.height = h;
+  const maskCtx = maskCanvas.getContext('2d');
+  
+  // Convert world coordinates to texture coordinates
+  const worldToTex = (worldX, worldZ) => {
+    const texX = (worldX + terrainSize[0] * 0.5) / terrainSize[0] * w;
+    const texZ = (worldZ + terrainSize[1] * 0.5) / terrainSize[1] * h;
+    return [texX, texZ];
+  };
+  
+  // Bezier smoothing helper
+  const smoothPath = (points) => {
+    if(points.length < 3) return points;
+    const smooth = [points[0]];
+    for(let i = 1; i < points.length - 1; i++){
+      const prev = points[i-1];
+      const curr = points[i];  
+      const next = points[i+1];
+      // Control points for Bezier curve
+      const cp1x = curr[0] - (next[0] - prev[0]) * 0.15;
+      const cp1y = curr[1] - (next[1] - prev[1]) * 0.15;
+      const cp2x = curr[0] + (next[0] - prev[0]) * 0.15;
+      const cp2y = curr[1] + (next[1] - prev[1]) * 0.15;
+      smooth.push([cp1x, cp1y], [cp2x, cp2y], next);
+    }
+    return smooth;
+  };
+  
+  // Draw paths
+  ctx.strokeStyle = pathColor;
+  ctx.lineWidth = pathWidth;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  maskCtx.strokeStyle = '#ffffff';
+  maskCtx.lineWidth = pathWidth;
+  maskCtx.lineCap = 'round';
+  maskCtx.lineJoin = 'round';
+  
+  paths.forEach(path => {
+    if(!path.points || path.points.length < 2) return;
+    
+    // Convert to texture coordinates
+    const texPoints = path.points.map(p => worldToTex(p[0], p[2] || p[1]));
+    const smoothed = path.smooth !== false ? smoothPath(texPoints) : texPoints;
+    
+    // Draw main path
+    ctx.beginPath();
+    maskCtx.beginPath();
+    
+    if(smoothed.length === texPoints.length){
+      // Simple path
+      ctx.moveTo(smoothed[0][0], smoothed[0][1]);
+      maskCtx.moveTo(smoothed[0][0], smoothed[0][1]);
+      for(let i = 1; i < smoothed.length; i++){
+        ctx.lineTo(smoothed[i][0], smoothed[i][1]);
+        maskCtx.lineTo(smoothed[i][0], smoothed[i][1]);
+      }
+    } else {
+      // Bezier path
+      ctx.moveTo(smoothed[0][0], smoothed[0][1]);
+      maskCtx.moveTo(smoothed[0][0], smoothed[0][1]);
+      for(let i = 1; i < smoothed.length; i += 3){
+        if(i + 2 < smoothed.length){
+          ctx.bezierCurveTo(
+            smoothed[i][0], smoothed[i][1],
+            smoothed[i+1][0], smoothed[i+1][1], 
+            smoothed[i+2][0], smoothed[i+2][1]
+          );
+          maskCtx.bezierCurveTo(
+            smoothed[i][0], smoothed[i][1],
+            smoothed[i+1][0], smoothed[i+1][1],
+            smoothed[i+2][0], smoothed[i+2][1]
+          );
+        }
+      }
+    }
+    
+    ctx.stroke();
+    maskCtx.stroke();
+  });
+  
+  // Return texture and mask
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping; // No repeat for path overlay
+  if(THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+  
+  return { texture: tex, pathMask: maskCanvas };
+}
+
 // --- Noise util (simple value noise) ---
 function makeNoise(width=256, height=256, scale=32){
   const c=document.createElement('canvas'); c.width=width; c.height=height; const ctx=c.getContext('2d');
@@ -178,7 +284,54 @@ export function buildTerrain(cfg){
   } else if (cfg.texture==='water_texture'){
     const tex = makeWaterTexture(); material.map = tex; material.color = new THREE.Color('#a0d8ef'); material.roughness = 0.2; material.metalness = 0.1; material.needsUpdate=true;
   }
-  const mesh = new THREE.Mesh(geometry, material); mesh.rotation.x = -Math.PI/2; mesh.position.y = cfg.y ?? 0.01; mesh.name = 'terrain'; mesh.renderOrder=-10; return mesh;
+  
+  // Path system integration - create separate path mesh
+  let pathMask = null;
+  let pathMesh = null;
+  
+  if(cfg.paths && cfg.paths.length > 0){
+    const pathResult = makePathTexture(cfg.paths, size, cfg.path_options);
+    pathMask = pathResult.pathMask;
+    
+    // Create separate path mesh (slightly above terrain)
+    const pathGeometry = new THREE.PlaneGeometry(width, height, 2, 2);
+    const pathMaterial = new THREE.MeshStandardMaterial({
+      map: pathResult.texture,
+      transparent: true,
+      alphaTest: 0.1, // Only render non-transparent pixels
+      roughness: 0.8,
+      metalness: 0.0
+    });
+    
+    pathMesh = new THREE.Mesh(pathGeometry, pathMaterial);
+    pathMesh.rotation.x = -Math.PI/2;
+    pathMesh.position.y = (cfg.y ?? 0.01) + 0.005; // Slightly above terrain
+    pathMesh.name = 'paths';
+    pathMesh.renderOrder = -9; // Render after terrain but before objects
+  }
+  
+  const mesh = new THREE.Mesh(geometry, material); 
+  mesh.rotation.x = -Math.PI/2; 
+  mesh.position.y = cfg.y ?? 0.01; 
+  mesh.name = 'terrain'; 
+  mesh.renderOrder = -10; 
+  
+  // Store path mask in userData for object placement logic
+  if(pathMask){
+    mesh.userData.pathMask = pathMask;
+    mesh.userData.terrainSize = size;
+  }
+  
+  // Return both terrain and path mesh if paths exist
+  if(pathMesh){
+    const group = new THREE.Group();
+    group.add(mesh);
+    group.add(pathMesh);
+    group.userData = mesh.userData; // Forward path data
+    return group;
+  }
+  
+  return mesh;
 }
 
 export function buildObject(cfg, index){
