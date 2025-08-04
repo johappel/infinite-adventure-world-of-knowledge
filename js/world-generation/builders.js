@@ -44,15 +44,55 @@ export function buildTerrain(cfg){
 }
 
 export function buildObject(cfg, index){
+  // Unterstütze zusammengesetzte Presets unter cfg.composite oder speziellen type-Namen
+  // Beispiel: type: 'deciduous_tree' oder composite: [ {type:'cylinder', ...}, {type:'ball', ...} ]
+  const compositeAliases = {
+    // Laubbaum: Stamm (Zylinder) + Krone (Kugel)
+    'deciduous_tree': [
+      { type: 'cylinder', position: [0, 1.5, 0], scale: [0.4, 3.0, 0.4], color: '#8b5a2b' },
+      { type: 'ball',     position: [0, 4.5, 0], scale: [2.0, 2.0, 2.0], color: '#2e8b57' }
+    ],
+    // Kiefernartiger Baum: hoher Stamm + konische Krone
+    'conifer_tree': [
+      { type: 'cylinder', position: [0, 2.0, 0], scale: [0.35, 4.0, 0.35], color: '#8b5a2b' },
+      { type: 'cone',     position: [0, 4.5, 0], scale: [1.6, 3.2, 1.6],  color: '#1f6f3d' }
+    ]
+  };
+
+  // Wenn eine Composite-Definition gewünscht ist
+  if (Array.isArray(cfg.composite) || compositeAliases[cfg.type]) {
+    const parts = Array.isArray(cfg.composite) ? cfg.composite : compositeAliases[cfg.type];
+    const group = new THREE.Group();
+    group.name = `${cfg.type||'composite'}_${index}`;
+    // Basistransform auf der Gruppe anwenden
+    if(cfg.position) group.position.set(...cfg.position);
+    if(cfg.rotation) group.rotation.set(...cfg.rotation);
+    if(cfg.scale)    group.scale.set(...cfg.scale);
+
+    parts.forEach((part, i) => {
+      const child = buildObject({ ...part }, i);
+      if (!child) return;
+      group.add(child);
+    });
+
+    // Interaktivität auf Gruppe heben (Raycasting soll die Gruppe treffen)
+    group.traverse(o => { o.userData = o.userData || {}; });
+    if (cfg.interactive) group.userData.interactive = true;
+    group.userData.type = cfg.type || 'composite';
+    return group;
+  }
+
+  // Primitive/Synonyme unterstützen
   let geometry; const type = cfg.type;
   switch(type){
-    case 'tree': geometry = new THREE.ConeGeometry(1,3,12); break;
-    case 'rock': geometry = new THREE.IcosahedronGeometry(0.8); break; // Icosa statt Dodeca
+    case 'tree': case 'cone': geometry = new THREE.ConeGeometry(1,3,12); break;
+    case 'rock': geometry = new THREE.IcosahedronGeometry(0.8); break;
     case 'mushroom': geometry = new THREE.CylinderGeometry(0.5,0.2,1,12); break;
-    case 'cylinder': geometry = new THREE.CylinderGeometry(1,1,2); break;
+    case 'cylinder': geometry = new THREE.CylinderGeometry(1,1,2,16); break;
     case 'stone_circle': geometry = new THREE.TorusGeometry(2,0.2,12,24); break;
     case 'crystal': geometry = new THREE.OctahedronGeometry(1,0); break;
-    case 'ball': geometry = new THREE.OctahedronGeometry(1,10); break;
+    case 'ball': case 'sphere': geometry = new THREE.SphereGeometry(1, 16, 12); break;
+    case 'box': geometry = new THREE.BoxGeometry(1,1,1); break;
     case 'bookshelf': geometry = new THREE.BoxGeometry(2,4,0.5); break;
     default: geometry = new THREE.BoxGeometry(1,1,1);
   }
@@ -60,9 +100,10 @@ export function buildObject(cfg, index){
   const mesh = new THREE.Mesh(geometry, material);
   if(cfg.position) mesh.position.set(...cfg.position);
   if(cfg.scale) mesh.scale.set(...cfg.scale);
+  if(cfg.rotation) mesh.rotation.set(...cfg.rotation);
   if(type==='stone_circle'){ mesh.rotation.x = Math.PI/2; mesh.position.y = Math.max(mesh.position.y||0, 0.02); }
   mesh.castShadow = mesh.receiveShadow = true;
-  mesh.name = `${type}_${index}`;
+  mesh.name = `${type||'object'}_${index}`;
   if(cfg.interactive) mesh.userData.interactive = true;
   return mesh;
 }
