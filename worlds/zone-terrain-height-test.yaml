@@ -1,20 +1,23 @@
 name: "Terrain Height Test"
-description: "Test der automatischen Terrain-Höhen-Anpassung"
+description: "Test der automatischen Terrain-Höhen-Anpassung mit Multi-Sampling"
 
 terrain:
+  type: "hills"  # Explizit hügeliges Terrain für Multi-Sampling
   preset: "forest_floor"
   size: [60, 60]
-  amplitude: 4.0  # Stärkere Hügel für besseren Test
-  flat_radius: 5
-  blend_radius: 8
+  amplitude: 5.0  # Noch stärkere Hügel für besseren Test  
+  flat_radius: 3
+  blend_radius: 12
   paths:
     - points:
-        - [-20, 0, -15]
+        - [-25, 0, -20]
+        - [-10, 0, -5]
         - [0, 0, 0]
-        - [20, 0, 15]
+        - [10, 0, 5]
+        - [25, 0, 20]
       smooth: true
   path_options:
-    pathWidth: 18
+    pathWidth: 12
 
 objects:
   # Diese Objekte sollen automatisch an Terrain-Höhe angepasst werden
@@ -37,43 +40,59 @@ objects:
     number: 8
     radius: 3
     
-  # Objekte mit Pfad-Vermeidung (werden auch höhen-angepasst)
-  - preset: "rock_small"
+  # Objekte mit kollektiver Generierung für besseren Test
+  - collections: ["forest_objects"]
+    number: 15
+    seed: "terrain_test_objects"
     avoid_paths: true
-    min_path_distance: 8
+    min_path_distance: 3
     
-  - preset: "mushroom_small"
-    avoid_paths: true
-    min_path_distance: 5
-    
+  # Zusätzliche manuelle Test-Objekte an extremen Positionen  
   - preset: "crystal"
     position: [0, 0, 0]      # Auf Pfad, wird an Terrain angepasst
     avoid_paths: false
     color: "#66ffee"
+    
+  - preset: "tree_simple"
+    position: [-18, 0, -15]  # Auf steilem Hügel
+    scale: [2.5, 2.5, 2.5]
+    
+  - preset: "rock_small"
+    position: [22, 0, 18]    # Auf anderem steilen Hügel
+    scale: [1.8, 1.8, 1.8]
 
 personas:
-  # NPCs sollen auch terrain-angepasst werden
+  # NPCs sollen auch terrain-angepasst werden mit Multi-Sampling
   - preset: "npc_guardian"
     name: "Hügel-Wächter"
-    position: [-10, 0, -5]   # Auf Hügel
+    position: [-15, 0, -10]   # Auf Hügel - wird mit Multi-Sampling platziert
     dialogue:
-      opening: "Von hier oben überblicke ich das ganze Tal!"
+      opening: "Von hier oben überblicke ich das ganze Tal! Das Multi-Sampling hält mich stabil auf dem Hügel."
       
   - preset: "npc_scholar"
     name: "Tal-Forscher"
-    position: [8, 0, 8]      # Im Tal
+    position: [12, 0, 12]      # Im Tal/auf anderem Hügel
     dialogue:
-      opening: "Hier unten sammle ich Kräuter und Steine."
+      opening: "Hier sammle ich Kräuter. Die Terrain-Anpassung funktioniert wunderbar!"
       
-  # NPC mit Pfad-Vermeidung
+  # NPC mit Pfad-Vermeidung und automatischer Platzierung
   - preset: "npc_fairy"
     name: "Wald-Fee"
     avoid_paths: true
-    min_path_distance: 12
+    min_path_distance: 8
     dialogue:
-      opening: "Ich tanze zwischen den Bäumen, fern der Wege!"
+      opening: "Ich tanze zwischen den Bäumen, fern der Wege! Multi-Sampling macht mich stabil."
 
 portals:
   - id: "exit"
-    position: [0, 1.6, -25]  # Portal wird auch angepasst
+    position: [0, 2.0, -28]  # Portal wird auch terrain-angepasst
     size: [1.2, 3.5, 0.3]
+    
+environment:
+  ambient_light: "#ffffff"
+  ambient_intensity: 0.6
+  fog:
+    enabled: true
+    color: "#c8d5e8"
+    near: 20
+    far: 80

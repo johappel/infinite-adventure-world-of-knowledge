@@ -5,6 +5,119 @@ import { resolveWorldSpec } from './resolve.js';
 import { startZoneAnimations } from './animation.js';
 import { findFreePos, isOnPath, findPathPosition, generateFromCollections } from '../presets/index.js';
 
+// Enhanced terrain height sampling with multi-point support
+export function getTerrainHeightAtPosition(terrainMesh, worldX, worldZ, options = {}) {
+  const { useSampling = false, sampleRadius = 0.3 } = options;
+  
+  if (!terrainMesh || !terrainMesh.geometry) {
+    return 0;
+  }
+  
+  // Handle terrain groups (with paths)
+  let actualTerrain = terrainMesh;
+  if (terrainMesh.type === 'Group') {
+    actualTerrain = terrainMesh.children.find(child => child.name === 'terrain');
+    if (!actualTerrain) return 0;
+  }
+  
+  // For hills terrain with geometry data
+  if (actualTerrain.geometry.attributes.position) {
+    const geometry = actualTerrain.geometry;
+    const position = geometry.attributes.position;
+    
+    // Get terrain dimensions
+    const terrainSize = actualTerrain.userData.terrainSize || [50, 50];
+    const [width, height] = terrainSize;
+    const baseY = actualTerrain.position?.y || 0;
+    
+    // Multi-sampling for better accuracy in hilly terrain
+    if (useSampling) {
+      const samples = [
+        [worldX, worldZ],                                    // Center
+        [worldX + sampleRadius, worldZ],                     // Right
+        [worldX - sampleRadius, worldZ],                     // Left  
+        [worldX, worldZ + sampleRadius],                     // Forward
+        [worldX, worldZ - sampleRadius],                     // Back
+        [worldX + sampleRadius*0.7, worldZ + sampleRadius*0.7], // Diagonal samples
+        [worldX - sampleRadius*0.7, worldZ - sampleRadius*0.7],
+        [worldX + sampleRadius*0.7, worldZ - sampleRadius*0.7],
+        [worldX - sampleRadius*0.7, worldZ + sampleRadius*0.7]
+      ];
+      
+      let validHeights = [];
+      let totalWeight = 0;
+      let weightedSum = 0;
+      
+      samples.forEach(([sx, sz], index) => {
+        const height = sampleSinglePoint(sx, sz, width, height, baseY, position);
+        if (height !== null) {
+          // Weight: center has highest weight, corners lowest
+          const weight = index === 0 ? 4.0 : (index < 5 ? 2.0 : 1.0);
+          validHeights.push(height);
+          weightedSum += height * weight;
+          totalWeight += weight;
+        }
+      });
+      
+      if (validHeights.length > 0) {
+        return weightedSum / totalWeight;
+      }
+    }
+    
+    // Single point sampling with bilinear interpolation
+    return sampleSinglePoint(worldX, worldZ, width, height, baseY, position);
+  }
+  
+  return 0; // Fallback for flat terrain
+}
+
+// Helper function for single point height sampling
+function sampleSinglePoint(worldX, worldZ, width, height, baseY, position) {
+  // Convert world coordinates to geometry coordinates
+  const localX = worldX + width * 0.5;  // Convert to 0..width
+  const localZ = worldZ + height * 0.5; // Convert to 0..height
+  
+  // Clamp to terrain bounds
+  const clampedX = Math.max(0, Math.min(width - 0.01, localX));
+  const clampedZ = Math.max(0, Math.min(height - 0.01, localZ));
+  
+  // Get geometry resolution (segments + 1)
+  const segments = Math.sqrt(position.count) - 1;
+  
+  if (!Number.isFinite(segments) || segments <= 0) {
+    return baseY;
+  }
+  
+  const segmentSize = width / segments;
+  
+  // Find nearest vertices
+  const segX = Math.floor(clampedX / segmentSize);
+  const segZ = Math.floor(clampedZ / segmentSize);
+  
+  // Get heights of the 4 surrounding vertices
+  const getVertexHeight = (sx, sz) => {
+    sx = Math.max(0, Math.min(segments, sx));
+    sz = Math.max(0, Math.min(segments, sz));
+    const index = sz * (segments + 1) + sx;
+    return index < position.count ? position.getZ(index) : 0;
+  };
+  
+  const h00 = getVertexHeight(segX, segZ);
+  const h10 = getVertexHeight(segX + 1, segZ);
+  const h01 = getVertexHeight(segX, segZ + 1);
+  const h11 = getVertexHeight(segX + 1, segZ + 1);
+  
+  // Bilinear interpolation
+  const fx = (clampedX % segmentSize) / segmentSize;
+  const fz = (clampedZ % segmentSize) / segmentSize;
+  
+  const h0 = h00 * (1 - fx) + h10 * fx;
+  const h1 = h01 * (1 - fx) + h11 * fx;
+  const interpolatedHeight = h0 * (1 - fz) + h1 * fz;
+  
+  return baseY + interpolatedHeight;
+}
+
 // Handle automatic path-aware placement for objects and personas
 function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh, zoneSeed) {
   // Special handling for gate and bridge objects - they should prefer paths
@@ -72,19 +185,16 @@ function adjustToTerrainHeight(spec, terrainMesh) {
   }
   
   const [x, y, z] = spec.position;
-  let terrainHeight = 0;
   
-  // Get terrain height at position
-  if (terrainMesh.type === 'Group') {
-    // Terrain with paths - get terrain mesh from group
-    const terrain = terrainMesh.children.find(child => child.name === 'terrain');
-    if (terrain) {
-      terrainHeight = getTerrainHeightAt(terrain, x, z);
-    }
-  } else {
-    // Single terrain mesh
-    terrainHeight = getTerrainHeightAt(terrainMesh, x, z);
-  }
+  // Use enhanced terrain height calculation with multi-sampling for hilly terrain
+  const isHillyTerrain = terrainMesh.userData?.isHills || 
+                        (terrainMesh.type === 'Group' && 
+                         terrainMesh.children.find(child => child.name === 'terrain')?.userData?.isHills);
+  
+  const terrainHeight = getTerrainHeightAtPosition(terrainMesh, x, z, {
+    useSampling: isHillyTerrain,
+    sampleRadius: 0.2  // Smaller radius for object placement
+  });
   
   // Adjust Y position to terrain height + small offset
   const adjustedY = terrainHeight + (y || 0) + 0.1; // Small offset to prevent Z-fighting
@@ -93,64 +203,6 @@ function adjustToTerrainHeight(spec, terrainMesh) {
     ...spec,
     position: [x, adjustedY, z]
   };
-}
-
-// Get terrain height at specific world coordinates using raycasting
-function getTerrainHeightAt(terrainMesh, worldX, worldZ) {
-  if (!terrainMesh || !terrainMesh.geometry) {
-    return 0;
-  }
-  
-  // For hills terrain with geometry data
-  if (terrainMesh.geometry.attributes.position) {
-    const geometry = terrainMesh.geometry;
-    const position = geometry.attributes.position;
-    
-    // Get terrain dimensions
-    const terrainSize = terrainMesh.userData.terrainSize || [50, 50];
-    const [width, height] = terrainSize;
-    
-    // Convert world coordinates to geometry coordinates
-    const localX = worldX + width * 0.5;  // Convert to 0..width
-    const localZ = worldZ + height * 0.5; // Convert to 0..height
-    
-    // Clamp to terrain bounds
-    const clampedX = Math.max(0, Math.min(width, localX));
-    const clampedZ = Math.max(0, Math.min(height, localZ));
-    
-    // Get geometry resolution (segments + 1)
-    const segments = Math.sqrt(position.count) - 1;
-    const segmentSize = width / segments;
-    
-    // Find nearest vertices
-    const segX = Math.floor(clampedX / segmentSize);
-    const segZ = Math.floor(clampedZ / segmentSize);
-    
-    // Get heights of the 4 surrounding vertices
-    const getVertexHeight = (sx, sz) => {
-      sx = Math.max(0, Math.min(segments, sx));
-      sz = Math.max(0, Math.min(segments, sz));
-      const index = sz * (segments + 1) + sx;
-      return index < position.count ? position.getZ(index) : 0;
-    };
-    
-    const h00 = getVertexHeight(segX, segZ);
-    const h10 = getVertexHeight(segX + 1, segZ);
-    const h01 = getVertexHeight(segX, segZ + 1);
-    const h11 = getVertexHeight(segX + 1, segZ + 1);
-    
-    // Bilinear interpolation
-    const fx = (clampedX % segmentSize) / segmentSize;
-    const fz = (clampedZ % segmentSize) / segmentSize;
-    
-    const h0 = h00 * (1 - fx) + h10 * fx;
-    const h1 = h01 * (1 - fx) + h11 * fx;
-    const interpolatedHeight = h0 * (1 - fz) + h1 * fz;
-    
-    return interpolatedHeight;
-  }
-  
-  return 0; // Fallback for flat terrain
 }
 
 export function buildZoneFromSpec(worldData, options={}){

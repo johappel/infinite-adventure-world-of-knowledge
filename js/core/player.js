@@ -23,7 +23,7 @@ export class Player {
 
   setTerrainRef(ref){ this.terrainRef = ref || null; }
 
-  getTerrainHeightAt(x, z){
+  getTerrainHeightAt(x, z, useSampling = false){
     if(!this.terrainRef) {
       return null; // null statt 0, um "kein Terrain" zu signalisieren
     }
@@ -39,6 +39,48 @@ export class Player {
     const [width, height] = size;
     const baseY = terrain.position?.y || 0; // Terrain-Basis berücksichtigen
     
+    // Multi-Sample Ansatz für bessere Stabilität in hügeligem Terrain
+    if (useSampling) {
+      const sampleRadius = 0.3; // Radius für Sampling in Weltkoordinaten
+      const samples = [
+        [x, z],                           // Center
+        [x + sampleRadius, z],            // Right
+        [x - sampleRadius, z],            // Left  
+        [x, z + sampleRadius],            // Forward
+        [x, z - sampleRadius],            // Back
+        [x + sampleRadius*0.7, z + sampleRadius*0.7], // Diagonal samples
+        [x - sampleRadius*0.7, z - sampleRadius*0.7],
+        [x + sampleRadius*0.7, z - sampleRadius*0.7],
+        [x - sampleRadius*0.7, z + sampleRadius*0.7]
+      ];
+      
+      let validHeights = [];
+      let totalWeight = 0;
+      let weightedSum = 0;
+      
+      samples.forEach(([sx, sz], index) => {
+        const sampledHeight = this._sampleHeightAtPoint(sx, sz, width, height, baseY, posAttr);
+        if (sampledHeight !== null) {
+          // Gewichtung: Zentrum hat höchstes Gewicht, Ecken niedrigstes
+          const weight = index === 0 ? 4.0 : (index < 5 ? 2.0 : 1.0);
+          validHeights.push(sampledHeight);
+          weightedSum += sampledHeight * weight;
+          totalWeight += weight;
+        }
+      });
+      
+      if (validHeights.length > 0) {
+        // Gewichteter Durchschnitt für smoothere Höhenberechnung
+        return weightedSum / totalWeight;
+      }
+    }
+    
+    // Fallback: Einzelner Sample mit bilinearer Interpolation
+    return this._sampleHeightAtPoint(x, z, width, height, baseY, posAttr);
+  }
+
+  // Hilfsmethode für einzelne Höhenmessung
+  _sampleHeightAtPoint(x, z, width, height, baseY, posAttr) {
     // Korrekte Koordinatenumrechnung: Player-Position zu Terrain-Koordinaten
     const localX = x + width * 0.5;  // Player pos 0,0 = Terrain-Mitte
     const localZ = z + height * 0.5;
@@ -151,7 +193,9 @@ export class Player {
       }
 
       // Nach Positionsänderung: Terrainhöhe anwenden auf Marker selbst (immer, nicht nur bei Bewegung)
-      const yGround = this.getTerrainHeightAt(this.pos.x, this.pos.z);
+      // Verwende Multi-Sampling für bessere Stabilität bei hügeligem Terrain
+      const isHillyTerrain = this.terrainRef?.userData?.isHills || false;
+      const yGround = this.getTerrainHeightAt(this.pos.x, this.pos.z, isHillyTerrain);
       
       if(this.marker){
         if (yGround !== null) {
