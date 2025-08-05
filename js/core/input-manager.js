@@ -19,6 +19,13 @@ export class InputManager {
       if (!this.isTypingInChat()) {
         const key = e.key.toLowerCase();
         this.keys.add(key);
+        
+        // Also add the original case for special keys like Shift
+        if (e.key === 'Shift') {
+          this.keys.add('shift');
+          this.keys.add('Shift');
+        }
+        
         if(key === 'e'){ 
           e.preventDefault();
           if(this.onInteract) this.onInteract();
@@ -32,7 +39,14 @@ export class InputManager {
 
     window.addEventListener('keyup', (e) => {
       if (!this.isTypingInChat()) {
-        this.keys.delete(e.key.toLowerCase());
+        const key = e.key.toLowerCase();
+        this.keys.delete(key);
+        
+        // Also remove the original case for special keys like Shift
+        if (e.key === 'Shift') {
+          this.keys.delete('shift');
+          this.keys.delete('Shift');
+        }
       }
     });
 

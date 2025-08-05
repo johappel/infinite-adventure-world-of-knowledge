@@ -1,0 +1,144 @@
+# YAML Player Configuration Schema
+# Definiert wie Player-Avatare aussehen und sich verhalten
+
+# Beispiel 1: Standard-Spieler
+player:
+  appearance:
+    body_color: "#3366cc"      # Körperfarbe
+    skin_color: "#99ccff"      # Hautfarbe (Hände, Füße, Kopf)
+    hair_color: "#222222"      # Haarfarbe
+    height: 1.0                # Gesamtgröße-Multiplikator
+    proportions:
+      head_size: 0.4           # Kopfgröße relativ zur Gesamtgröße
+      torso_height: 1.2        # Torso-Höhe
+      arm_length: 0.8          # Armlänge
+      leg_length: 1.0          # Beinlänge
+
+  style:
+    hair_type: "hat"           # "spikes", "bald", "hat", "long", "short"
+    clothing: "basic"          # "basic", "armor", "robe", "casual"
+    accessories: ["cape"]      # ["hat", "glasses", "cape", "weapon"]
+
+  animations:
+    idle:
+      arm_swing: 0.1           # Sanfte Armbewegung im Leerlauf
+      body_sway: 0.05          # Körper-Schwanken im Leerlauf
+    walking:
+      arm_swing: 0.8           # Armpendelung beim Gehen
+      leg_swing: 0.8           # Beinbewegung beim Gehen
+      speed: 10                # Animationsgeschwindigkeit
+    running:
+      arm_swing: 1.2           # Intensivere Armbewegung beim Rennen
+      leg_swing: 1.2           # Intensivere Beinbewegung beim Rennen
+      speed: 15                # Höhere Animationsgeschwindigkeit
+
+  position: [0, 0, 0]          # Startposition [x, y, z]
+  rotation: 0                  # Anfangsdrehung (Radiant)
+
+---
+
+# Beispiel 2: Ritter-Charakter
+player:
+  appearance:
+    body_color: "#708090"      # Grauer Rüstungston
+    skin_color: "#deb887"      # Helle Haut
+    hair_color: "#8b4513"      # Braunes Haar
+    height: 1.2                # Größer als Standard
+
+  style:
+    hair_type: "short"
+    clothing: "armor"
+    accessories: ["weapon"]
+
+  animations:
+    walking:
+      speed: 8                 # Langsamere Bewegung durch Rüstung
+    running:
+      speed: 12
+
+---
+
+# Beispiel 3: Zauberer-Charakter
+player:
+  appearance:
+    body_color: "#4b0082"      # Dunkellila Robe
+    skin_color: "#f5deb3"      # Helle Haut
+    hair_color: "#ffffff"      # Weißes Haar
+    height: 1.1
+
+  style:
+    hair_type: "long"
+    clothing: "robe"
+    accessories: ["cape", "glasses"]
+
+  animations:
+    idle:
+      arm_swing: 0.2           # Mehr Bewegung (magische Gesten)
+      body_sway: 0.1
+    walking:
+      arm_swing: 0.5           # Elegantere Bewegung
+      speed: 9
+
+---
+
+# Beispiel 4: Fee-Charakter
+player:
+  appearance:
+    body_color: "#ffd700"      # Goldener Körper
+    skin_color: "#ffffe0"      # Cremige Haut
+    hair_color: "#ff69b4"      # Pink Haar
+    height: 0.8                # Kleiner als Standard
+    proportions:
+      head_size: 0.5           # Größerer Kopf (süßer Look)
+
+  style:
+    hair_type: "long"
+    clothing: "casual"
+    accessories: ["cape"]      # Als Flügel interpretiert
+
+  animations:
+    idle:
+      arm_swing: 0.3           # Flügelähnliche Bewegung
+      body_sway: 0.15          # Schwebendes Gefühl
+    walking:
+      arm_swing: 0.6
+      leg_swing: 0.4           # Weniger Beinbewegung (schwebt)
+      speed: 12
+
+---
+
+# Beispiel 5: Minimaler Spieler (nur Overrides)
+player:
+  appearance:
+    body_color: "#ff6b6b"      # Nur Körperfarbe ändern
+  style:
+    hair_type: "bald"          # Und Frisur
+  # Alle anderen Werte verwenden Defaults
+
+---
+
+# Verwendung in Zone-YAML:
+#
+# name: "Meine Zone"
+# terrain:
+#   preset: "grass_flat"
+#
+# # Player-Definition direkt in der Zone
+# player:
+#   appearance:
+#     body_color: "#3366cc"
+#   style:
+#     hair_type: "hat"
+#
+# objects: [...]
+# personas: [...]
+
+# Oder als Preset (erweitert presets/index.js):
+#
+# objects:
+#   - preset: "tree_simple"
+#
+# player:
+#   preset: "knight"          # Verwendet vordefinierte Konfiguration
+#   appearance:
+#     height: 1.3             # Mit individuellen Anpassungen

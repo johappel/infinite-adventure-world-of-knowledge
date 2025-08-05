@@ -188,6 +188,7 @@
                 <option value="forest">Wald-Zone</option>
                 <option value="library">Bibliothek</option>
                 <option value="collision_test">Kollisions-Test</option>
+                <option value="player_test">YAML Player Test</option>
                 <option value="single_terrain">Nur Terrain</option>
                 <option value="single_object">Nur Objekt</option>
                 <option value="single_persona">Nur NPC</option>
@@ -386,6 +387,52 @@ objects:
     enable_collision_detection: true
     npc_buffer_distance: 2
     object_buffer_distance: 1`,
+
+                    player_test: `# YAML Player Test Zone
+name: "Player Avatar Test"
+description: "Testet den konfigurierbaren YAML Player"
+id: "player-test"
+
+environment:
+  ambient_light: 0.7
+  sun_intensity: 0.9
+
+terrain:
+  preset: "grass_flat"
+  size: [30, 30]
+
+# YAML Player Konfiguration
+player:
+  appearance:
+    body_color: "#ff6b6b"
+    skin_color: "#f4c2a1"
+    hair_color: "#8b4513"
+    height: 1.2
+    proportions:
+      head_size: 0.45
+  
+  style:
+    hair_type: "spikes"
+    accessories: ["cape"]
+  
+  animations:
+    walking:
+      arm_swing: 1.0
+      leg_swing: 0.9
+      speed: 12
+
+# NPCs zum Vergleich
+personas:
+  - preset: "npc_plain"
+    name: "Standard NPC"
+    position: [5, 0, 5]
+
+# Orientierungsobjekte
+objects:
+  - preset: "tree_simple"
+    position: [0, 0, 8]
+  - preset: "crystal"
+    position: [8, 0, 0]`,
 
                     single_terrain: `# Nur Terrain Test
 name: "Terrain Test"

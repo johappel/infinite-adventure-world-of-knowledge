@@ -50,6 +50,99 @@ export const personaPresets = {
   npc_guardian: presetNpcGuardian,
 };
 
+// --- Player Presets für YAML-konfigurierbaren Avatar ---
+
+export const playerPresets = {
+  default: {
+    appearance: {
+      body_color: '#3366cc',
+      skin_color: '#99ccff',
+      hair_color: '#222222',
+      height: 1.0
+    },
+    style: {
+      hair_type: 'hat',
+      clothing: 'basic',
+      accessories: []
+    }
+  },
+  
+  knight: {
+    appearance: {
+      body_color: '#708090',
+      skin_color: '#deb887',
+      hair_color: '#8b4513',
+      height: 1.2
+    },
+    style: {
+      hair_type: 'short',
+      clothing: 'armor',
+      accessories: ['weapon']
+    },
+    animations: {
+      walking: { speed: 8 },
+      running: { speed: 12 }
+    }
+  },
+  
+  mage: {
+    appearance: {
+      body_color: '#4b0082',
+      skin_color: '#f5deb3',
+      hair_color: '#ffffff',
+      height: 1.1
+    },
+    style: {
+      hair_type: 'long',
+      clothing: 'robe',
+      accessories: ['cape', 'glasses']
+    },
+    animations: {
+      idle: { arm_swing: 0.2, body_sway: 0.1 },
+      walking: { arm_swing: 0.5, speed: 9 }
+    }
+  },
+  
+  fairy: {
+    appearance: {
+      body_color: '#ffd700',
+      skin_color: '#ffffe0',
+      hair_color: '#ff69b4',
+      height: 0.8,
+      proportions: {
+        head_size: 0.5
+      }
+    },
+    style: {
+      hair_type: 'long',
+      clothing: 'casual',
+      accessories: ['cape']
+    },
+    animations: {
+      idle: { arm_swing: 0.3, body_sway: 0.15 },
+      walking: { arm_swing: 0.6, leg_swing: 0.4, speed: 12 }
+    }
+  },
+  
+  scholar: {
+    appearance: {
+      body_color: '#2f4f4f',
+      skin_color: '#deb887',
+      hair_color: '#696969',
+      height: 1.0
+    },
+    style: {
+      hair_type: 'short',
+      clothing: 'robe',
+      accessories: ['glasses']
+    },
+    animations: {
+      idle: { arm_swing: 0.05, body_sway: 0.02 },
+      walking: { speed: 7 }
+    }
+  }
+};
+
 export const textures = { makeForestFloorTexture };
 
 // --- Collections System für schnelle Landschafts-Generierung ---

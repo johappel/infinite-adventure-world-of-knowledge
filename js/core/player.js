@@ -38,10 +38,15 @@ export class Player {
 
     const [width, height] = size;
     const baseY = terrain.position?.y || 0; // Terrain-Basis berücksichtigen
-    const localX = x + width * 0.5;
+    
+    // Korrekte Koordinatenumrechnung: Player-Position zu Terrain-Koordinaten
+    const localX = x + width * 0.5;  // Player pos 0,0 = Terrain-Mitte
     const localZ = z + height * 0.5;
-    const clampedX = Math.max(0, Math.min(width, localX));
-    const clampedZ = Math.max(0, Math.min(height, localZ));
+    
+    // Clamp to terrain bounds
+    const clampedX = Math.max(0, Math.min(width - 0.01, localX));
+    const clampedZ = Math.max(0, Math.min(height - 0.01, localZ));
+    
     const segments = Math.sqrt(posAttr.count) - 1;
     
     if(!Number.isFinite(segments) || segments <= 0) {
@@ -59,7 +64,7 @@ export class Player {
       if (index >= posAttr.count) {
         return 0;
       }
-      // Zurück zur ursprünglichen Z-Koordinate
+      // Zurück zur ursprünglichen Z-Koordinate (Höhenwert)
       return posAttr.getZ(index);
     };
 
@@ -67,11 +72,15 @@ export class Player {
     const h10 = getH(segX+1, segZ);
     const h01 = getH(segX, segZ+1);
     const h11 = getH(segX+1, segZ+1);
-    const fx = (clampedX % segmentSize) / segmentSize;
-    const fz = (clampedZ % segmentSize) / segmentSize;
+    
+    // Bilineare Interpolation
+    const fx = (clampedX - segX * segmentSize) / segmentSize;
+    const fz = (clampedZ - segZ * segmentSize) / segmentSize;
     const h0 = h00 * (1 - fx) + h10 * fx;
     const h1 = h01 * (1 - fx) + h11 * fx;
-    const result = baseY + (h0 * (1 - fz) + h1 * fz);
+    const interpolatedHeight = h0 * (1 - fz) + h1 * fz;
+    
+    const result = baseY + interpolatedHeight;
     
     return result; // Kann jetzt auch negative Werte zurückgeben
   }
@@ -104,6 +113,10 @@ export class Player {
       if(keys.has('s')) moveDir = -1;
       
       if(moveDir !== 0) {
+        // Check if running (Shift key pressed)
+        const isRunning = keys.has('shift') || keys.has('Shift');
+        const currentSpeed = isRunning ? this.speed * 1.8 : this.speed; // 80% faster when running
+        
         // Bewegungsrichtung basierend auf aktuellen Yaw berechnen
         const forward = new THREE.Vector3(
           Math.sin(yaw),
@@ -111,7 +124,7 @@ export class Player {
           Math.cos(yaw)
         );
         
-        const movement = forward.multiplyScalar(moveDir * this.speed * dt);
+        const movement = forward.multiplyScalar(moveDir * currentSpeed * dt);
         
         // Welt bewegen statt Spieler (nur X/Z)
         this.worldRoot.position.sub(new THREE.Vector3(movement.x, 0, movement.z));
@@ -128,26 +141,43 @@ export class Player {
         }
       }
 
+      // YAML Player rotation update
+      const isMoving = moveDir !== 0;
+      if(this.marker && this.marker.userData?.yamlPlayer) {
+        // Rotate player to face movement direction when moving
+        if (isMoving) {
+          this.marker.rotation.y = yaw;
+        }
+      }
+
       // Nach Positionsänderung: Terrainhöhe anwenden auf Marker selbst (immer, nicht nur bei Bewegung)
       const yGround = this.getTerrainHeightAt(this.pos.x, this.pos.z);
       
       if(this.marker){
         if (yGround !== null) {
-          // Gültiges Terrain gefunden - normale Anpassung
-          const targetY = yGround + this.hoverOffset;
-          this.marker.position.y += (targetY - this.marker.position.y) * 0.3;
+          // Gültiges Terrain gefunden - sanfte Anpassung mit besserem Offset
+          const avatarHeightOffset = 0.8; // Höher für YAML Player Avatar
+          const targetY = yGround + avatarHeightOffset;
+          
+          // Schnellere Y-Anpassung für besseres Terrain-Following
+          const lerpSpeed = isMoving ? 0.15 : 0.08; // Schneller bei Bewegung
+          this.marker.position.y += (targetY - this.marker.position.y) * lerpSpeed;
         } else {
           // Kein Terrain gefunden - versuche Fallback-Höhe oder halte aktuelle Position
           // Falls der Marker zu weit vom erwarteten Terrain-Level entfernt ist, bringe ihn zurück
           if (this.marker.position.y < -10 || this.marker.position.y > 10) {
-            this.marker.position.y += (this.hoverOffset - this.marker.position.y) * 0.1;
+            this.marker.position.y += (0.8 - this.marker.position.y) * 0.1; // Fallback zu Basis-Höhe
           }
         }
       }
+      
+      // Return movement state for external animation control
+      return isMoving;
     }
-  }
-
-  reset() {
+    
+    // If typing in chat, no movement
+    return false;
+  }  reset() {
     this.pos.set(0,0,0);
     this.worldRoot.position.set(0,0,0);
     if(this.marker){ this.marker.position.y = this.hoverOffset; }

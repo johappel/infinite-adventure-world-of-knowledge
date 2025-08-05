@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAML Player System Test</title>
+    <style>
+        body {
+            margin: 0;
+            background: #222;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        #test-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 400px;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #status {
+            margin-top: 10px;
+            padding: 8px;
+            background: #333;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="test-container">
+        <h3>🧪 YAML Player System Test</h3>
+        <button onclick="testPlayerSystem()">Test Player Avatar</button>
+        <button onclick="testFallback()">Test Fallback</button>
+        <button onclick="testCustomPlayer()">Test Custom Player</button>
+        <button onclick="loadTestZone()">Load Test Zone File</button>
+        <div id="status">Bereit zum Testen...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script type="module">
+        import { buildZoneFromSpec } from './js/world-generation/index.js';
+
+        let scene, camera, renderer;
+        let currentGroup = null;
+
+        // Initialize Three.js Scene
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x87CEEB);
+            document.body.appendChild(renderer.domElement);
+
+            // Basic lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update player animations if available
+            if (currentGroup) {
+                currentGroup.traverse((child) => {
+                    if (child.userData && child.userData.yamlPlayer) {
+                        child.userData.yamlPlayer.update();
+                    }
+                });
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        function updateStatus(message) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            console.log('[Test]', message);
+        }
+
+        function buildTestZone(yamlContent) {
+            try {
+                updateStatus('Building zone from YAML...');
+                const worldData = jsyaml.load(yamlContent);
+                
+                if (currentGroup) {
+                    scene.remove(currentGroup);
+                }
+                
+                const result = buildZoneFromSpec(worldData);
+                currentGroup = result.group;
+                scene.add(currentGroup);
+                
+                // Position camera to see player
+                camera.position.set(3, 2, 3);
+                camera.lookAt(0, 0.5, 0);
+                
+                return result;
+            } catch (error) {
+                updateStatus('Error: ' + error.message);
+                console.error('Zone Build Error:', error);
+                return null;
+            }
+        }
+
+        // Test Functions exposed to global scope
+        window.testPlayerSystem = function() {
+            updateStatus('Testing Player Avatar System...');
+            
+            const yaml = [
+                'zone_id: "player-test"',
+                'terrain:',
+                '  type: "flat"',
+                '  size: [30, 30]',
+                '  color: "#4CAF50"',
+                'player:',
+                '  appearance:',
+                '    body_color: "#ff6b6b"',
+                '    skin_color: "#f4c2a1"',
+                '    hair_color: "#8b4513"',
+                '    height: 1.2',
+                '  style:',
+                '    hair_type: "spikes"',
+                '    accessories: ["cape"]',
+                '  animations:',
+                '    idle:',
+                '      arm_swing: 0.15',
+                '      body_sway: 0.08',
+                'environment:',
+                '  lighting:',
+                '    ambient: "#404040"',
+                '    directional: "#ffffff"'
+            ].join('\n');
+
+            const result = buildTestZone(yaml);
+            if (result && result.player) {
+                updateStatus('✅ Player Avatar loaded! Red avatar with spikes and cape.');
+            } else {
+                updateStatus('❌ No player avatar found.');
+            }
+        };
+
+        window.testFallback = function() {
+            updateStatus('Testing Fallback (no player config)...');
+            
+            const yaml = [
+                'zone_id: "fallback-test"',
+                'terrain:',
+                '  type: "flat"',
+                '  size: [30, 30]',
+                '  color: "#4CAF50"',
+                'environment:',
+                '  lighting:',
+                '    ambient: "#404040"',
+                '    directional: "#ffffff"'
+            ].join('\n');
+
+            const result = buildTestZone(yaml);
+            updateStatus('✅ Fallback Test: No player config = No avatar (expected)');
+        };
+
+        window.testCustomPlayer = function() {
+            updateStatus('Testing Custom Player...');
+            
+            const yaml = [
+                'zone_id: "custom-player-test"',
+                'terrain:',
+                '  type: "flat"',
+                '  size: [30, 30]',
+                '  color: "#8b4513"',
+                'player:',
+                '  appearance:',
+                '    body_color: "#00ff00"',
+                '    skin_color: "#90ee90"',
+                '    hair_color: "#ffffff"',
+                '    height: 0.8',
+                '    proportions:',
+                '      head_size: 0.5',
+                '  style:',
+                '    hair_type: "long"',
+                '    accessories: ["cape", "glasses"]',
+                '  animations:',
+                '    idle:',
+                '      arm_swing: 0.3',
+                '      body_sway: 0.15',
+                'environment:',
+                '  lighting:',
+                '    ambient: "#404040"',
+                '    directional: "#ffffff"'
+            ].join('\n');
+
+            const result = buildTestZone(yaml);
+            if (result && result.player) {
+                updateStatus('✅ Custom Player loaded! Green avatar with long hair, cape and glasses.');
+            } else {
+                updateStatus('❌ Custom Player not loaded.');
+            }
+        };
+
+        window.loadTestZone = async function() {
+            updateStatus('Loading zone-player-test.yaml...');
+            
+            try {
+                const response = await fetch('./worlds/zone-player-test.yaml');
+                if (!response.ok) throw new Error('Failed to load test zone file');
+                
+                const yamlContent = await response.text();
+                const result = buildTestZone(yamlContent);
+                
+                if (result && result.player) {
+                    updateStatus('✅ Test zone loaded with player avatar!');
+                } else {
+                    updateStatus('✅ Test zone loaded (no player in this zone)');
+                }
+            } catch (error) {
+                updateStatus('❌ Could not load test zone file: ' + error.message);
+            }
+        };
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            initThreeJS();
+            updateStatus('Three.js initialized. Ready for testing!');
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

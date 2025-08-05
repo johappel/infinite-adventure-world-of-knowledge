@@ -7,6 +7,7 @@ import { ZoneManager } from './core/zone-manager.js';
 import { InteractionSystem } from './core/interaction-system.js';
 import { DialogSystem } from './core/dialog-system.js';
 import { UIManager } from './ui/ui-manager.js';
+import { YamlPlayer } from './core/yaml-player.js';
 
 export class WisdomWorld {
   constructor() {
@@ -20,14 +21,19 @@ export class WisdomWorld {
     // Three.js setup
     this.setupThreeJS();
     
+    // Note: Other systems will be initialized after YAML player is created
+    // See initializeSystemsWithPlayer()
+  }
+
+  initializeSystemsWithPlayer() {
     // Core systems - WICHTIG: Reihenfolge beachten!
-    this.player = new Player(this.worldRoot, this.playerMarker);
-    this.camera = new ThirdPersonCamera(this.threeCamera, this.playerMarker);
+    this.player = new Player(this.worldRoot, this.currentPlayerObject);
+    this.camera = new ThirdPersonCamera(this.threeCamera, this.currentPlayerObject);
     this.inputManager = new InputManager();
     this.zoneManager = new ZoneManager(this.worldRoot);
     // Terrain-Referenz wird nach initializeWorld() gesetzt, wenn Zone geladen ist
     // InteractionSystem braucht camera und zoneManager
-    this.interactionSystem = new InteractionSystem(this.zoneManager, this.camera, this.playerMarker);
+    this.interactionSystem = new InteractionSystem(this.zoneManager, this.camera, this.currentPlayerObject);
     this.dialogSystem = new DialogSystem();
     this.uiManager = new UIManager();
 
@@ -66,14 +72,8 @@ export class WisdomWorld {
     this.worldRoot = new THREE.Group();
     this.scene.add(this.worldRoot);
 
-    // Player marker
-    this.playerMarker = new THREE.Mesh(
-      new THREE.ConeGeometry(0.25, 0.8, 12),
-      new THREE.MeshStandardMaterial({ color: 0x6ee7ff, emissive: 0x073a55, emissiveIntensity: 0.5 })
-    );
-    this.playerMarker.position.set(0,0.4,0);
-    this.playerMarker.rotation.x = Math.PI;
-    this.scene.add(this.playerMarker);
+    // Create default YAML player (instead of simple marker)
+    this.createDefaultYamlPlayer();
 
     // Clock for animations
     this.clock = new THREE.Clock();
@@ -81,6 +81,68 @@ export class WisdomWorld {
     // Window resize handler
     window.addEventListener('resize', () => this.resize());
     this.resize();
+  }
+
+  createDefaultYamlPlayer() {
+    // Import YamlPlayer and create default player
+    import('./core/yaml-player.js').then(({ YamlPlayer }) => {
+      const defaultPlayerConfig = {
+        appearance: {
+          body_color: "#3366cc",
+          skin_color: "#f4c2a1", 
+          hair_color: "#8b4513",
+          height: 0.6,  // Smaller height to prevent sinking
+          proportions: {
+            head_size: 0.25,
+            torso_height: 0.7,
+            arm_length: 0.5,
+            leg_length: 0.6
+          }
+        },
+        style: {
+          hair_type: "short",
+          accessories: []
+        },
+        animations: {
+          idle: { arm_swing: 0.1, body_sway: 0.05 },
+          walking: { arm_swing: 0.8, leg_swing: 0.8, speed: 12 },
+          running: { arm_swing: 1.2, leg_swing: 1.2, speed: 18 }
+        }
+      };
+
+      this.yamlPlayer = new YamlPlayer(defaultPlayerConfig);
+      this.currentPlayerObject = this.yamlPlayer.avatar;
+      
+      // Set position and add to scene
+      this.currentPlayerObject.position.set(0, 0.1, 0);  // Lower base position
+      this.scene.add(this.currentPlayerObject);
+      
+      // Store player configuration in userData for movement system
+      this.currentPlayerObject.userData = this.currentPlayerObject.userData || {};
+      this.currentPlayerObject.userData.yamlPlayer = this.yamlPlayer;
+      this.currentPlayerObject.userData.type = 'player';
+      this.currentPlayerObject.userData.isPlayer = true;
+
+      // Update systems with new player
+      this.initializeSystemsWithPlayer();
+
+      console.log('✨ Default YAML Player erstellt');
+    }).catch(error => {
+      console.error('Fehler beim Laden des YAML Players:', error);
+      
+      // Fallback to standard marker if YAML player fails
+      this.playerMarker = new THREE.Mesh(
+        new THREE.ConeGeometry(0.25, 0.8, 12),
+        new THREE.MeshStandardMaterial({ color: 0x6ee7ff, emissive: 0x073a55, emissiveIntensity: 0.5 })
+      );
+      this.playerMarker.position.set(0,0.4,0);
+      this.playerMarker.rotation.x = Math.PI;
+      this.scene.add(this.playerMarker);
+      this.currentPlayerObject = this.playerMarker;
+      
+      // Initialize systems with fallback player
+      this.initializeSystemsWithPlayer();
+    });
   }
 
   setupConnections() {
@@ -187,13 +249,29 @@ export class WisdomWorld {
       const dt = this.clock.getDelta();
       
       // Update player movement and rotation
-      this.player.move(
+      const isMoving = this.player.move(
         dt, 
         this.inputManager.keys, 
         this.inputManager.isRightMouseDown, 
         this.camera.getYaw(),
         (rotationChange) => this.camera.addKeyboardRotation(rotationChange)
       );
+      
+      // Update YAML player animations if active
+      if (this.yamlPlayer) {
+        // Determine animation type based on movement
+        if (isMoving) {
+          const isRunning = this.inputManager.keys.has('shift') || this.inputManager.keys.has('Shift');
+          const animationType = isRunning ? 'running' : 'walking';
+          this.yamlPlayer.startAnimation(animationType);
+        } else {
+          // Stop movement animations and return to neutral, then idle
+          this.yamlPlayer.stopAnimation();
+        }
+        
+        // Update player animations
+        this.yamlPlayer.update();
+      }
       
       // Update camera position
       this.camera.update();
@@ -287,13 +365,55 @@ export class WisdomWorld {
    */
   async loadZoneFromYaml(yamlPath) {
     try {
-      const worldData = await this.zoneManager.loadZoneFromYaml(yamlPath);
+      const result = await this.zoneManager.loadZoneFromYaml(yamlPath);
+      
+      // Update player if zone has player configuration
+      this.updatePlayerFromZone(result);
+      
       this.updateUI();
-      this.uiManager.appendLog(`YAML-Zone geladen: ${worldData.name}`);
-      return worldData;
+      this.uiManager.appendLog(`YAML-Zone geladen: ${result.spec?.name || yamlPath}`);
+      return result;
     } catch (error) {
       this.uiManager.appendLog(`Fehler beim Laden: ${error.message}`);
       throw error;
+    }
+  }
+
+  updatePlayerFromZone(zoneResult) {
+    // Always use YAML player now (either custom or default)
+    if (zoneResult.player) {
+      console.log('🎭 YAML Player gefunden (custom oder default)');
+      
+      // Remove old player marker from scene
+      if (this.currentPlayerObject && this.currentPlayerObject !== zoneResult.player.avatar) {
+        this.scene.remove(this.currentPlayerObject);
+      }
+      
+      // Set new YAML player as current player object
+      this.yamlPlayer = zoneResult.player;
+      this.currentPlayerObject = zoneResult.player.avatar;
+      
+      // Add YAML player avatar to scene (not to zone group)
+      if (!this.scene.children.includes(this.currentPlayerObject)) {
+        this.scene.add(this.currentPlayerObject);
+      }
+      
+      // Ensure player starts at origin for movement system
+      this.currentPlayerObject.position.set(0, 0.1, 0);
+      
+      // Update all systems to use new player
+      this.camera.playerMarker = this.currentPlayerObject;
+      this.player.setMarker(this.currentPlayerObject);
+      this.interactionSystem.playerMarker = this.currentPlayerObject;
+      
+      // Remove old blue cone marker if it exists
+      if (this.playerMarker && this.scene.children.includes(this.playerMarker)) {
+        this.scene.remove(this.playerMarker);
+      }
+      
+      this.uiManager.appendLog('✨ YAML Player aktiviert');
+    } else {
+      console.log('❌ Kein Player verfügbar - das sollte nicht passieren');
     }
   }
 

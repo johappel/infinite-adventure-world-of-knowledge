@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { applyEnvironment } from './environment.js';
+import { YamlPlayer } from '../core/yaml-player.js';
 
 // Optional: external textures util could be injected; here we recreate forest_floor.
 function makeForestFloorTexture(){
@@ -843,6 +844,37 @@ export function buildPersona(cfg, index){
   group.add(ring);
 
   return group;
+}
+
+// Build YAML-configurable player avatar
+export function buildPlayer(cfg, index = 'main') {
+  if (!cfg) return null; // No player config = use default marker
+  
+  try {
+    const yamlPlayer = new YamlPlayer(cfg);
+    
+    // Position and rotation
+    if (cfg.position) {
+      yamlPlayer.avatar.position.set(...cfg.position);
+    }
+    if (cfg.rotation !== undefined) {
+      yamlPlayer.avatar.rotation.y = cfg.rotation;
+    }
+    
+    // Add player marker functionality
+    yamlPlayer.avatar.userData = {
+      type: 'player',
+      isPlayer: true,
+      yamlPlayer: yamlPlayer // Reference for animation updates
+    };
+    
+    yamlPlayer.avatar.name = `player_${index}`;
+    
+    return yamlPlayer;
+  } catch (error) {
+    console.error('Failed to build YAML player:', error);
+    return null; // Fallback to default marker
+  }
 }
 
 export function buildPortal(cfg, index){

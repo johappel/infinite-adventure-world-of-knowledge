@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { applyEnvironment } from './environment.js';
-import { buildTerrain, buildObject, buildPersona, buildPortal, buildSkyboxCube } from './builders.js';
+import { buildTerrain, buildObject, buildPersona, buildPortal, buildSkyboxCube, buildPlayer } from './builders.js';
 import { resolveWorldSpec } from './resolve.js';
 import { startZoneAnimations } from './animation.js';
 import { findFreePos, isOnPath, findPathPosition, generateFromCollections } from '../presets/index.js';
@@ -269,8 +269,48 @@ export function buildZoneFromSpec(worldData, options={}){
   const portals=[];
   (spec.portals||[]).forEach((p,i)=>{ const portal = buildPortal(p,i); if(portal){ group.add(portal); portals.push(portal);} });
 
+  // Player (YAML-configurable avatar to replace simple marker)
+  // Always create a default player if none specified
+  let player = null;
+  const playerConfig = spec.player || {
+    appearance: {
+      body_color: "#3366cc",
+      skin_color: "#f4c2a1", 
+      hair_color: "#8b4513",
+      height: 0.5,  // Smaller height to prevent sinking
+      proportions: {
+        head_size: 0.25,
+        torso_height: 0.7,
+        arm_length: 0.5,
+        leg_length: 0.6
+      }
+    },
+    style: {
+      hair_type: "short",
+      accessories: []
+    },
+    animations: {
+      idle: { arm_swing: 0.1, body_sway: 0.05 },
+      walking: { arm_swing: 0.8, leg_swing: 0.8, speed: 12 }
+    }
+  };
+  
+  player = buildPlayer(playerConfig, 'main');
+  if (player && player.avatar) {
+    // DON'T add player to zone group - player should be separate
+    // Set initial position at origin for movement system compatibility
+    // The position adjustment is now handled in YamlPlayer class
+    player.avatar.position.set(0, 0, 0);
+    
+    // Store player configuration in userData for movement system
+    player.avatar.userData = player.avatar.userData || {};
+    player.avatar.userData.yamlPlayer = player;
+    player.avatar.userData.type = 'player';
+    player.avatar.userData.isPlayer = true;
+  }
+
   // Animations
   startZoneAnimations(group);
 
-  return { group, personas, portals, objects, spec };
+  return { group, personas, portals, objects, player, spec };
 }

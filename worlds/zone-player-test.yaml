@@ -1,0 +1,59 @@
+# YAML Player Test Zone
+name: "Player Avatar Test"
+description: "Testet den konfigurierbaren YAML Player Avatar"
+id: "player-test"
+
+environment:
+  ambient_light: 0.7
+  sun_intensity: 0.9
+
+terrain:
+  type: "flat"
+  size: [30, 30]
+  color: "#4a7c1e"
+
+# YAML Player Konfiguration
+player:
+  appearance:
+    body_color: "#ff6b6b"      # Rötlicher Körper
+    skin_color: "#f4c2a1"      # Helle Haut
+    hair_color: "#8b4513"      # Braune Haare
+    height: 1.2                # Etwas größer
+    proportions:
+      head_size: 0.45          # Größerer Kopf
+      torso_height: 1.1        # Kompakterer Torso
+  
+  style:
+    hair_type: "spikes"        # Stachel-Frisur
+    clothing: "basic"
+    accessories: ["cape"]      # Mit Umhang
+  
+  animations:
+    idle:
+      arm_swing: 0.15          # Mehr Armschwingen im Idle
+      body_sway: 0.08          # Mehr Körperschaukeln
+    walking:
+      arm_swing: 1.0           # Starkes Armschwingen
+      leg_swing: 0.9           # Beinschwingen
+      speed: 12                # Schnellere Animation
+
+# Ein paar NPCs zum Vergleich
+personas:
+  - preset: "npc_plain"
+    name: "Standard NPC"
+    position: [5, 0, 5]
+    
+  - preset: "npc_guardian"
+    name: "Wächter"
+    position: [-5, 0, -5]
+
+# Einige Objekte zur Orientierung
+objects:
+  - preset: "tree_simple"
+    position: [0, 0, 8]
+    
+  - preset: "crystal"
+    position: [8, 0, 0]
+    
+  - preset: "well"
+    position: [-8, 0, 0]

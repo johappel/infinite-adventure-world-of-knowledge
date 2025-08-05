@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Minimal YAML Player Test</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #1a1a1a; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h3>🧪 Minimal YAML Player Test</h3>
+        <button onclick="createPlayer()">Standard Player erstellen</button>
+        <button onclick="clearScene()">Szene leeren</button>
+        <div id="status">Bereit...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="module">
+        import { YamlPlayer } from './js/core/yaml-player.js';
+
+        let scene, camera, renderer;
+        let currentPlayer = null;
+
+        // Initialize basic Three.js setup
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(3, 2, 3);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            // Simple ground plane
+            const groundGeometry = new THREE.PlaneGeometry(20, 20);
+            const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Start render loop
+            animate();
+            updateStatus('✅ Three.js initialisiert');
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update player animations if present
+            if (currentPlayer && currentPlayer.update) {
+                currentPlayer.update();
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        // Create YAML Player
+        window.createPlayer = function() {
+            updateStatus('Erstelle Standard YAML Player...');
+            
+            try {
+                // Clear existing player
+                if (currentPlayer) {
+                    scene.remove(currentPlayer.avatar);
+                }
+
+                // Default configuration
+                const defaultConfig = {
+                    appearance: {
+                        body_color: "#3366cc",
+                        skin_color: "#f4c2a1", 
+                        hair_color: "#8b4513",
+                        height: 0.8,
+                        proportions: {
+                            head_size: 0.3,
+                            torso_height: 0.9,
+                            arm_length: 0.6,
+                            leg_length: 0.8
+                        }
+                    },
+                    style: {
+                        hair_type: "short",
+                        accessories: []
+                    },
+                    animations: {
+                        idle: { arm_swing: 0.1, body_sway: 0.05 }
+                    }
+                };
+
+                // Create player
+                currentPlayer = new YamlPlayer(defaultConfig);
+                currentPlayer.avatar.position.set(0, 0.1, 0);
+                scene.add(currentPlayer.avatar);
+                
+                updateStatus('✅ YAML Player erstellt! Sollte einen blauen Avatar zeigen.');
+                
+                // Position camera to see player
+                camera.position.set(2, 1.5, 2);
+                camera.lookAt(0, 0.5, 0);
+                
+            } catch (error) {
+                updateStatus('❌ Fehler: ' + error.message);
+                console.error('Player creation error:', error);
+            }
+        };
+
+        // Clear scene
+        window.clearScene = function() {
+            if (currentPlayer) {
+                scene.remove(currentPlayer.avatar);
+                currentPlayer = null;
+                updateStatus('Szene geleert');
+            }
+        };
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
