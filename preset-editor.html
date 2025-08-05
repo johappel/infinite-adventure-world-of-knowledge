@@ -188,6 +188,7 @@
                 <option value="forest">Wald-Zone</option>
                 <option value="library">Bibliothek</option>
                 <option value="collision_test">Kollisions-Test</option>
+                <option value="skybox_test">Skybox Test</option>
                 <option value="player_test">YAML Player Test</option>
                 <option value="single_terrain">Nur Terrain</option>
                 <option value="single_object">Nur Objekt</option>
@@ -271,6 +272,7 @@ description: "Zum Testen der Presets"
 id: "test-simple"
 
 environment:
+  skybox: "sunset"
   ambient_light: 0.6
   sun_intensity: 0.8
 
@@ -295,6 +297,7 @@ description: "Wald mit allen Preset-Features"
 id: "test-forest"
 
 environment:
+  skybox: "night"
   ambient_light: 0.4
   sun_intensity: 0.3
 
@@ -387,6 +390,37 @@ objects:
     enable_collision_detection: true
     npc_buffer_distance: 2
     object_buffer_distance: 1`,
+
+                    skybox_test: `# Skybox Test Zone
+name: "Skybox Demo"
+description: "Testet verschiedene Skybox-Presets"
+id: "skybox-test"
+
+environment:
+  skybox: "sunset"
+  time_of_day: 0.8
+  ambient_light: 0.4
+  sun_intensity: 0.6
+
+terrain:
+  type: "flat"
+  size: [20, 20]
+  color: "#4a4a3a"
+
+objects:
+  - type: "crystal"
+    position: [0, 0, 0]
+    scale: [1, 1.5, 1]
+    color: "#ffaa00"
+    
+  - type: "tree"
+    position: [5, 0, 2]
+    scale: [1, 2, 1]
+    color: "#1a3a1a"
+
+# Andere Skybox-Presets zum Testen:
+# sunset, night, storm, mystery_dark, 
+# skyline, ocean, bay, clear_day`,
 
                     player_test: `# YAML Player Test Zone
 name: "Player Avatar Test"
@@ -593,6 +627,9 @@ personas:
                     this.scene = new THREE.Scene();
                     this.scene.background = new THREE.Color(0x87ceeb);
 
+                    // Make scene globally available for environment fog
+                    window.presetEditor = { scene: this.scene };
+
                     // Camera
                     this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 1000);
                     this.camera.position.set(15, 15, 15);
@@ -630,17 +667,24 @@ personas:
             async renderYAML() {
                 const yamlText = this.yamlEditor.value.trim(); if (!yamlText) { this.updateStatus('Kein YAML-Code vorhanden'); return; }
                 try {
-                    this.updateStatus('Visualisiere YAML...'); this.resetScene(false);
+                    this.updateStatus('Visualisiere YAML...'); 
+                    this.resetScene();
+
                     const worldData = jsyaml.load(yamlText);
                     const spec = resolveWorldSpec(worldData);
                     const rng = Math.random;
-                    const zoneInfo = buildZoneFromSpec(spec, { rng });
 
-                    // Kamera-Referenz für Billboarding setzen (wie in index.html Welt)
-                    this.scene.userData.__camera = this.camera;
-
-                    this.scene.add(zoneInfo.group);
+                    // 1. Zone OHNE Umgebung bauen (nur Geometrie)
+                    const zoneInfo = buildZoneFromSpec(spec, { rng, skipEnvironment: true });
                     this.currentZone = zoneInfo;
+                    this.scene.add(this.currentZone.group);
+
+                    // 2. Umgebung (Skybox, Lichter, Nebel) auf die Hauptszene anwenden
+                    if (spec.environment) {
+                        const { applyEnvironment } = await import('./js/world-generation/environment.js');
+                        applyEnvironment(spec.environment, this.scene);
+                    }
+                    
                     const count = (zoneInfo.objects?.length||0) + (zoneInfo.personas?.length||0) + (zoneInfo.portals?.length||0) + 1;
                     this.updateObjectCount(count);
                     this.updateStatus('✅ YAML erfolgreich visualisiert');
@@ -651,17 +695,37 @@ personas:
                 }
             }
 
-            resetScene(updateStatus = true) {
-                // Remove current zone
+            resetScene() {
+                // Entfernt die aktuelle Zone (group) komplett
                 if (this.currentZone) {
                     this.scene.remove(this.currentZone.group);
+                    this.currentZone.group.traverse(o => {
+                        if (o.geometry) o.geometry.dispose();
+                        if (o.material) {
+                            if (Array.isArray(o.material)) {
+                                o.material.forEach(m => m.dispose());
+                            } else {
+                                o.material.dispose();
+                            }
+                        }
+                    });
                     this.currentZone = null;
                 }
 
-                if (updateStatus) {
-                    this.updateStatus('Szene zurückgesetzt');
-                    this.updateObjectCount(0);
-                }
+                // Entfernt alle Skybox-Objekte aus der Szene
+                const skyboxesToRemove = [];
+                this.scene.traverse(obj => {
+                    if (obj.userData?.isSkybox) {
+                        skyboxesToRemove.push(obj);
+                    }
+                });
+                skyboxesToRemove.forEach(skybox => this.scene.remove(skybox));
+
+                // Setzt den Nebel der Szene zurück
+                this.scene.fog = null;
+
+                this.updateStatus('Szene zurückgesetzt');
+                this.updateObjectCount(0);
             }
 
             animate() {

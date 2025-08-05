@@ -294,7 +294,19 @@ export function buildTerrain(cfg){
   const isHills = cfg.type==='hills';
   const seg = isHills ? 96 : 2;
   const geometry = new THREE.PlaneGeometry(width, height, seg, seg);
-  const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(cfg.color||'#4a7c1e'), side: THREE.FrontSide, roughness:0.75, metalness:0.05 });
+  
+  // Base color from config
+  const baseColor = new THREE.Color(cfg.color||'#4a7c1e');
+  
+  // Add some emissive light to make terrain visible even in low light
+  const emissiveIntensity = cfg.emissive_intensity ?? 0.15; // Subtle glow to ensure visibility
+  const material = new THREE.MeshStandardMaterial({ 
+    color: baseColor, 
+    emissive: baseColor.clone().multiplyScalar(emissiveIntensity),
+    side: THREE.FrontSide, 
+    roughness: 0.75, 
+    metalness: 0.05 
+  });
   
   // Seed-basierte Terrain-Generierung
   const terrainSeed = cfg.seed || cfg.zone_id || 'default_terrain';
@@ -717,8 +729,11 @@ export function buildObject(cfg, index){
     case 'bookshelf': geometry = new THREE.BoxGeometry(2,4,0.5); break;
     default: geometry = new THREE.BoxGeometry(1,1,1);
   }
+  const baseColor = new THREE.Color(cfg.color||'#8b4513');
+  const emissiveIntensity = cfg.emissive_intensity ?? 0.15;
   const material = new THREE.MeshStandardMaterial({ 
-    color: new THREE.Color(cfg.color||'#8b4513'), 
+    color: baseColor,
+    emissive: baseColor.clone().multiplyScalar(emissiveIntensity),
     roughness: type === 'rock' ? 0.9 : 0.75, // Felsen noch rauer
     metalness: type === 'rock' ? 0.02 : 0.08, // Felsen weniger metallisch
     side: type === 'roof' ? THREE.DoubleSide : THREE.FrontSide // Doppelseitig für Dächer
@@ -912,4 +927,447 @@ export function buildSkyboxCube(rng){
     new THREE.MeshBasicMaterial({ map: texMap.nz, side: THREE.BackSide }),
   ];
   return new THREE.Mesh(skyGeo, materials);
+}
+
+// Build themed skybox cube for specific presets
+export function buildThemedSkyboxCube(preset, timeOfDay = 0.5, rng) {
+  const faces = ['px','nx','py','ny','pz','nz']; // +X, -X, +Y, -Y, +Z, -Z
+  const texMap = {};
+  
+  for(const f of faces) {
+    const c = document.createElement('canvas'); 
+    c.width = 512; c.height = 512; 
+    const ctx = c.getContext('2d');
+    
+    // Draw different content based on preset and face
+    drawThemedSkyboxFace(ctx, preset, f, timeOfDay, rng);
+    texMap[f] = new THREE.CanvasTexture(c);
+  }
+  
+  const skyGeo = new THREE.BoxGeometry(1000, 1000, 1000); 
+  const materials = [
+    new THREE.MeshBasicMaterial({ map: texMap.px, side: THREE.BackSide, name: 'px' }),
+    new THREE.MeshBasicMaterial({ map: texMap.nx, side: THREE.BackSide, name: 'nx' }),
+    new THREE.MeshBasicMaterial({ map: texMap.py, side: THREE.BackSide, name: 'py' }),
+    new THREE.MeshBasicMaterial({ map: texMap.ny, side: THREE.BackSide, name: 'ny' }),
+    new THREE.MeshBasicMaterial({ map: texMap.pz, side: THREE.BackSide, name: 'pz' }),
+    new THREE.MeshBasicMaterial({ map: texMap.nz, side: THREE.BackSide, name: 'nz' }),
+  ];
+  
+  const skybox = new THREE.Mesh(skyGeo, materials);
+  skybox.userData.isSkybox = true;
+  skybox.userData.preset = preset;
+  return skybox;
+}
+
+function drawThemedSkyboxFace(ctx, preset, face, timeOfDay, rng) {
+  const isHorizon = (face === 'px' || face === 'nx' || face === 'pz' || face === 'nz'); // Side faces
+  const isSky = (face === 'py'); // Top face (+Y)
+  const isGround = (face === 'ny'); // Bottom face (-Y)
+  
+  switch(preset) {
+    case 'sunset':
+      drawSunsetSkybox(ctx, face, isHorizon, isSky, isGround, timeOfDay, rng);
+      break;
+    case 'night':
+      drawNightSkybox(ctx, face, isHorizon, isSky, isGround, rng);
+      break;
+    case 'storm':
+      drawStormSkybox(ctx, face, isHorizon, isSky, isGround, rng);
+      break;
+    case 'skyline':
+      drawSkylineSkybox(ctx, face, isHorizon, isSky, isGround, rng);
+      break;
+    case 'ocean':
+      drawOceanSkybox(ctx, face, isHorizon, isSky, isGround, rng);
+      break;
+    case 'mystery_dark':
+      drawMysteryDarkSkybox(ctx, face, isHorizon, isSky, isGround, rng);
+      break;
+    case 'bay':
+      drawBaySkybox(ctx, face, isHorizon, isSky, isGround, rng);
+      break;
+    case 'clear_day':
+    default:
+      drawClearDaySkybox(ctx, face, isHorizon, isSky, isGround, rng);
+      break;
+  }
+}
+
+function drawSunsetSkybox(ctx, face, isHorizon, isSky, isGround, timeOfDay, rng) {
+  if (isSky) {
+    // Sky: Orange to purple gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#ff6b35'); // Orange top
+    grad.addColorStop(0.7, '#f7931e'); // Yellow-orange
+    grad.addColorStop(1, '#c0392b'); // Deep red
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add some clouds
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    for(let i = 0; i < 8; i++) {
+      const x = rng() * 512;
+      const y = rng() * 300 + 100;
+      const w = rng() * 80 + 40;
+      const h = rng() * 20 + 10;
+      ctx.beginPath();
+      ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (isHorizon) {
+    // Horizon: Show sun on one face
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#f39c12'); // Warm yellow top
+    grad.addColorStop(0.7, '#e67e22'); // Orange middle  
+    grad.addColorStop(1, '#2c3e50'); // Dark ground
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Draw sun on one of the horizon faces - moved higher
+    if (face === 'px') {
+      ctx.fillStyle = '#f1c40f';
+      ctx.beginPath();
+      ctx.arc(256, 280, 40, 0, Math.PI * 2); // Moved from 350 to 280
+      ctx.fill();
+      
+      // Sun rays
+      ctx.strokeStyle = 'rgba(241, 196, 15, 0.5)';
+      ctx.lineWidth = 2;
+      for(let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const x1 = 256 + Math.cos(angle) * 50;
+        const y1 = 280 + Math.sin(angle) * 50; // Moved from 350 to 280
+        const x2 = 256 + Math.cos(angle) * 80;
+        const y2 = 280 + Math.sin(angle) * 80; // Moved from 350 to 280
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+    }
+  } else if (isGround) {
+    // Ground: Dark silhouette
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#2c3e50');
+    grad.addColorStop(1, '#1a1a1a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+  }
+}
+
+function drawNightSkybox(ctx, face, isHorizon, isSky, isGround, rng) {
+  // DEBUG: Use different colors for each face to identify issues
+  console.log(`🌙 Drawing night skybox face: ${face}, isHorizon: ${isHorizon}, isSky: ${isSky}, isGround: ${isGround}`);
+  
+  // Fill the entire canvas with the appropriate night sky pattern
+  if (isSky) {
+    // Dark night sky with stars
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#0b1426'); // Deep blue
+    grad.addColorStop(1, '#1a1a2e'); // Purple-blue
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add many stars
+    for(let i = 0; i < 300; i++) {
+      const x = rng() * 512;
+      const y = rng() * 512;
+      const size = rng() * 2 + 0.5;
+      const alpha = 0.5 + rng() * 0.5;
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Add moon on one part
+    if (rng() > 0.7) {
+      ctx.fillStyle = '#f4f4f4';
+      ctx.beginPath();
+      ctx.arc(100, 100, 25, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (isHorizon) {
+    // Dark horizon with subtle city lights
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#1a1a2e');
+    grad.addColorStop(0.7, '#16213e');
+    grad.addColorStop(1, '#0f0f23');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add some distant lights - moved higher to match horizon
+    for(let i = 0; i < 20; i++) {
+      const x = rng() * 512;
+      const y = 320 + rng() * 192; // Moved from 400 to 320 for higher horizon
+      ctx.fillStyle = `rgba(255, 255, 0, ${0.3 + rng() * 0.4})`;
+      ctx.fillRect(x, y, 2, 4);
+    }
+  } else if (isGround) {
+    // Very dark ground
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, 512, 512);
+  } else {
+    // FALLBACK: if none of the conditions are met, use a debug color
+    console.warn(`🚨 Night skybox fallback for face ${face}`);
+    ctx.fillStyle = '#ff0000'; // RED for debugging
+    ctx.fillRect(0, 0, 512, 512);
+  }
+}
+
+function drawSkylineSkybox(ctx, face, isHorizon, isSky, isGround, rng) {
+  if (isSky) {
+    // Urban sky
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#87ceeb'); // Light blue
+    grad.addColorStop(1, '#b0c4de'); // Light steel blue
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+  } else if (isHorizon) {
+    // Sky with city skyline
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#87ceeb');
+    grad.addColorStop(0.6, '#b0c4de');
+    grad.addColorStop(1, '#696969');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Draw city skyline - moved up for better horizon
+    ctx.fillStyle = '#2c3e50';
+    const numBuildings = 8 + Math.floor(rng() * 6);
+    for(let i = 0; i < numBuildings; i++) {
+      const x = (i / numBuildings) * 512;
+      const width = 30 + rng() * 40;
+      const height = 60 + rng() * 120; // Reduced max height
+      const y = 400 - height; // Moved from 512 to 400 for higher horizon
+      ctx.fillRect(x, y, width, height);
+      
+      // Add windows
+      ctx.fillStyle = '#f39c12';
+      for(let j = 0; j < Math.floor(height / 20); j++) {
+        for(let k = 0; k < Math.floor(width / 15); k++) {
+          if (rng() > 0.3) {
+            const wx = x + k * 15 + 5;
+            const wy = y + j * 20 + 5;
+            ctx.fillRect(wx, wy, 6, 8);
+          }
+        }
+      }
+      ctx.fillStyle = '#2c3e50';
+    }
+  } else if (isGround) {
+    // Concrete/asphalt ground
+    ctx.fillStyle = '#34495e';
+    ctx.fillRect(0, 0, 512, 512);
+  }
+}
+
+function drawClearDaySkybox(ctx, face, isHorizon, isSky, isGround, rng) {
+  if (isSky) {
+    // Clear blue sky
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#87ceeb');
+    grad.addColorStop(1, '#e0f6ff');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add some white clouds
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    for(let i = 0; i < 5; i++) {
+      const x = rng() * 512;
+      const y = rng() * 300 + 50;
+      const w = rng() * 60 + 30;
+      const h = rng() * 25 + 15;
+      ctx.beginPath();
+      ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (isHorizon) {
+    // Horizon with grass/hills
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#87ceeb');
+    grad.addColorStop(0.7, '#98d8e8');
+    grad.addColorStop(1, '#4a7c1e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+  } else if (isGround) {
+    // Green grass
+    ctx.fillStyle = '#4a7c1e';
+    ctx.fillRect(0, 0, 512, 512);
+  }
+}
+
+function drawStormSkybox(ctx, face, isHorizon, isSky, isGround, rng) {
+  if (isSky) {
+    // Dark stormy clouds
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#2c3e50');
+    grad.addColorStop(0.5, '#34495e');
+    grad.addColorStop(1, '#1a1a1a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add lightning
+    if (rng() > 0.6) {
+      ctx.strokeStyle = '#f1c40f';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      const x = rng() * 512;
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + (rng() - 0.5) * 100, 200);
+      ctx.lineTo(x + (rng() - 0.5) * 150, 400);
+      ctx.stroke();
+    }
+  } else if (isHorizon || isGround) {
+    // Dark stormy atmosphere
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#34495e');
+    grad.addColorStop(1, '#1a1a1a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+  }
+}
+
+function drawOceanSkybox(ctx, face, isHorizon, isSky, isGround, rng) {
+  if (isSky) {
+    // Ocean blue sky
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#5dade2');
+    grad.addColorStop(1, '#85c1e9');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+  } else if (isHorizon) {
+    // Ocean horizon
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#5dade2');
+    grad.addColorStop(0.5, '#3498db');
+    grad.addColorStop(1, '#2980b9');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add waves - individual wave crests that don't reach edges
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    
+    for(let i = 0; i < 5; i++) {
+      const y = 250 + i * 35;
+      
+      // Create 3-5 distinct wave segments per row, well separated from edges
+      const numSegments = 3 + Math.floor(rng() * 3);
+      const edgeMargin = 80; // Larger margin from edges
+      const availableWidth = 512 - (2 * edgeMargin);
+      const segmentSpacing = availableWidth / (numSegments + 1);
+      
+      for(let seg = 0; seg < numSegments; seg++) {
+        ctx.beginPath();
+        
+        // Position segments evenly with random variation
+        const baseX = edgeMargin + (seg + 1) * segmentSpacing;
+        const segmentStart = baseX + (rng() - 0.5) * 30; // Random offset
+        const segmentLength = 25 + rng() * 35; // Shorter waves: 25-60px
+        const segmentEnd = segmentStart + segmentLength;
+        
+        // Only draw if segment stays within bounds
+        if (segmentStart > edgeMargin && segmentEnd < (512 - edgeMargin)) {
+          // Draw wavy segment
+          for(let x = segmentStart; x <= segmentEnd; x += 3) {
+            const normalizedX = (x - segmentStart) / segmentLength;
+            const wavePhase = normalizedX * Math.PI * 2.5 + i * 0.7 + seg * 1.3;
+            const amplitude = 6 * Math.sin(normalizedX * Math.PI); // Fade amplitude at ends
+            const waveY = y + Math.sin(wavePhase) * amplitude;
+            
+            if (x === segmentStart) ctx.moveTo(x, waveY);
+            else ctx.lineTo(x, waveY);
+          }
+          ctx.stroke();
+        }
+      }
+    }
+  } else if (isGround) {
+    // Deep ocean
+    ctx.fillStyle = '#1b4f72';
+    ctx.fillRect(0, 0, 512, 512);
+  }
+}
+
+function drawMysteryDarkSkybox(ctx, face, isHorizon, isSky, isGround, rng) {
+  if (isSky) {
+    // Mysterious purple sky
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#2d1b69');
+    grad.addColorStop(0.5, '#8e44ad');
+    grad.addColorStop(1, '#4a148c');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add mystical sparkles
+    for(let i = 0; i < 50; i++) {
+      const x = rng() * 512;
+      const y = rng() * 512;
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + rng() * 0.7})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (isHorizon || isGround) {
+    // Dark mysterious ground
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#4a148c');
+    grad.addColorStop(1, '#1a1a1a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+  }
+}
+
+function drawBaySkybox(ctx, face, isHorizon, isSky, isGround, rng) {
+  if (isSky) {
+    // Bay sky
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#7fb3d3');
+    grad.addColorStop(1, '#b0e0e6');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+  } else if (isHorizon) {
+    // Bay with gentle water
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, '#7fb3d3');
+    grad.addColorStop(0.6, '#5fa3c8');
+    grad.addColorStop(1, '#4a90a4');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add gentle waves - individual short segments
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+    for(let i = 0; i < 3; i++) {
+      const y = 280 + i * 30;
+      
+      // Create short gentle wave segments
+      const numSegments = 2 + Math.floor(rng() * 2); // 2-3 segments for calmer bay
+      for(let seg = 0; seg < numSegments; seg++) {
+        ctx.beginPath();
+        
+        const segmentStart = 80 + (rng() * (512 - 200)); // Start between 80-312
+        const segmentLength = 60 + rng() * 60; // Length 60-120px  
+        const segmentEnd = Math.min(segmentStart + segmentLength, 512 - 80);
+        
+        // Draw gentle wavy segment
+        for(let x = segmentStart; x <= segmentEnd; x += 6) {
+          const normalizedX = (x - segmentStart) / segmentLength;
+          const wavePhase = normalizedX * Math.PI * 1.5 + i * 0.3 + seg * 0.8;
+          const waveY = y + Math.sin(wavePhase) * 3; // Small amplitude for bay
+          
+          if (x === segmentStart) ctx.moveTo(x, waveY);
+          else ctx.lineTo(x, waveY);
+        }
+        ctx.stroke();
+      }
+    }
+  } else if (isGround) {
+    // Water floor
+    ctx.fillStyle = '#2980b9';
+    ctx.fillRect(0, 0, 512, 512);
+  }
 }

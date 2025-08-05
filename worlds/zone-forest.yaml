@@ -4,11 +4,10 @@ description: "Ein sanfter Hain mit Hügeln und Pilzen."
 id: "zone-forest"
 
 environment:
-  skybox: "clear_day"
+  skybox: "night"
   time_of_day: 0.35
   ambient_light: 0.3
   sun_intensity: 0.5
-  skybox_mode: "cube"
 
 terrain:
   preset: "forest_floor"

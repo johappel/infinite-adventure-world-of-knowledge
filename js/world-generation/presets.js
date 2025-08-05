@@ -28,7 +28,7 @@ export const defaults = {
   object:  { type: 'box', color: '#8b4513', position: [0,0,0], scale: [1,1,1], rotation: [0,0,0], interactive: false },
   persona: { role: 'NPC', appearance: { color: '#ff6b6b', height: 1.6 }, position: [0,0,0] },
   portal:  { size: [1.8,3.2,0.2], color: '#4169e1', position: [0,0,0] },
-  environment: { skybox: 'clear_day', time_of_day: 0.5, ambient_light: 0.3, sun_intensity: 0.6, fog_distance: null, skybox_mode: 'cube' }
+  environment: { skybox: 'clear_day', time_of_day: 0.5, ambient_light: 0.3, sun_intensity: 0.6, fog_distance: null, skybox_mode: null }
 };
 
 export function deepMerge(a, b){

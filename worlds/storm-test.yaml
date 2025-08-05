@@ -1,0 +1,21 @@
+# Storm Sky Test
+name: "Sturm Himmel"
+description: "Testet den storm Skybox-Preset"
+id: "storm-test"
+
+environment:
+  skybox: "storm"
+  time_of_day: 0.3
+  ambient_light: 0.2
+  sun_intensity: 0.3
+
+terrain:
+  type: "flat"
+  size: [20, 20]
+  color: "#4a4a4a"
+
+objects:
+  - type: "tree"
+    position: [0, 0, 0]
+    scale: [1, 1.5, 1]
+    color: "#1a4a1a"

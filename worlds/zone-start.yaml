@@ -4,16 +4,22 @@ name: Startwiese
 description: Einstieg in die Wissens-Entdeckungswelt
 
 environment:
-  skybox: clear_day
+  skybox: bay
   time_of_day: 0.5
   ambient_light: 0.3
   sun_intensity: 0.6
-  skybox_mode: cube
-  # fog_distance: 90
+  fog_distance: 30
 
 terrain:
-  preset: forest_floor
+  type: "hills"
   size: [50, 50]
+  color: "#2d4a22"
+  texture: "forest_floor"
+  amplitude: 5.2
+  y: -0.9
+  flat_radius: 18
+  blend_radius: 12
+  outer_gain: 2.0
 
 objects:
   - preset: tree_simple

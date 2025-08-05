@@ -1,0 +1,21 @@
+# Skybox Test Zone
+name: "Skybox Test"
+description: "Testet die verschiedenen Skybox-Presets"
+id: "skybox-test"
+
+environment:
+  skybox: "sunset"
+  time_of_day: 0.5
+  ambient_light: 0.4
+  sun_intensity: 0.6
+
+terrain:
+  type: "flat"
+  size: [30, 30]
+  color: "#4a7c1e"
+
+objects:
+  - type: "rock"
+    position: [0, 0, 5]
+    scale: [1, 1, 1]
+    color: "#666666"

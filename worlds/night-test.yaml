@@ -1,0 +1,22 @@
+# Night Sky Test
+name: "Nacht Himmel"
+description: "Testet den night Skybox-Preset mit Fog"
+id: "night-test"
+
+environment:
+  skybox: "night"
+  time_of_day: 0.9
+  ambient_light: 0.5
+  sun_intensity: 0.3
+  fog_distance: 30
+
+terrain:
+  type: "flat"
+  size: [20, 20]
+  color: "#2a3f20"
+
+objects:
+  - type: "crystal"
+    position: [0, 0, 0]
+    scale: [1, 1.5, 1]
+    color: "#00ffff"

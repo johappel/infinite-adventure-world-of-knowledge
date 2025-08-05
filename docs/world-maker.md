@@ -37,12 +37,12 @@ terrain:
 
 | Feld | Typ | Beschreibung | Beispielwerte |
 |------|-----|-------------|---------------|
-| `skybox` | String | Himmel-Typ | `"clear_day"`, `"sunset"`, `"night"`, `"storm"`, `"twilight"`, `"interior"` |
+| `skybox` | String | Himmel-Typ | `"clear_day"`, `"sunset"`, `"night"`, `"storm"`, `"mystery_dark"`, `"skyline"`, `"ocean"`, `"bay"` |
 | `time_of_day` | Float | Tageszeit (0.0=Mitternacht, 0.5=Mittag) | `0.0` - `1.0` |
 | `ambient_light` | Float | Umgebungslicht-Stärke | `0.0` - `1.0` |
 | `sun_intensity` | Float | Direktes Sonnenlicht | `0.0` - `1.0` |
-| `fog_distance` | Number | Sichtweite | `30` - `200` |
-| `ambient_sound` | String | Hintergrundgeräusche | `"birds"`, `"forest"`, `"library"`, `"wind"` |
+| `fog_distance` | Number | Sichtweite (optional) | `30` - `200` oder `null` |
+| `skybox_mode` | String | Skybox-Modus (optional) | `"cube"` für prozedurale Skybox |
 
 ### Terrain (`terrain`)
 

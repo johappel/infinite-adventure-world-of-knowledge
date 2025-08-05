@@ -212,14 +212,22 @@ export function buildZoneFromSpec(worldData, options={}){
   // Extract or generate zone seed for deterministic world generation
   const zoneSeed = spec.zone_id || spec.seed || options.seed || 'default_zone';
 
-  // Optional Skybox cube (procedural)
-  if(spec.environment?.skybox_mode === 'cube' && typeof options.rng === 'function'){
-    const skybox = buildSkyboxCube(options.rng);
-    group.add(skybox);
-  }
+  // In the preset editor, we skip environment creation here and apply it to the scene later.
+  if (!options.skipEnvironment) {
+    // Apply environment first (lights/background/fog) on the group
+    applyEnvironment(spec.environment, group);
 
-  // Apply environment (lights/background/fog) on the group
-  applyEnvironment(spec.environment, group);
+    // Optional Skybox cube (procedural) - only if explicitly requested with skybox_mode 'cube' and no specific preset
+    const environment = spec.environment || {};
+    const skyboxPreset = environment.skybox;
+    const skyboxMode = environment.skybox_mode;
+    const useProceduralCube = skyboxMode === 'cube' && (!skyboxPreset || skyboxPreset === 'clear_day');
+    
+    if(useProceduralCube && typeof options.rng === 'function'){
+      const skybox = buildSkyboxCube(options.rng);
+      group.add(skybox);
+    }
+  }
 
   // Terrain (pass zone seed to terrain builder)
   let terrainMesh = null;
