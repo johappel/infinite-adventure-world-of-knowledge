@@ -9,6 +9,7 @@ import { DialogSystem } from './core/dialog-system.js';
 import { UIManager } from './ui/ui-manager.js';
 import { YamlPlayer } from './core/yaml-player.js';
 import { URLRouter } from './core/url-router.js';
+import { applyEnvironment } from './world-generation/environment.js';
 
 export class WisdomWorld {
   constructor() {
@@ -69,10 +70,12 @@ export class WisdomWorld {
     this.threeCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
     this.threeCamera.position.set(0, 5, 8);
 
-    // Lighting
+    // Bootstrap Lighting (named so we can remove later once environment is applied)
     const hemi = new THREE.HemisphereLight(0xaaccff, 0x223344, 0.5);
+    hemi.name = 'BOOTSTRAP_Hemi';
     this.scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.name = 'BOOTSTRAP_Dir';
     dir.position.set(5,10,3);
     this.scene.add(dir);
 
@@ -166,6 +169,7 @@ export class WisdomWorld {
     this.interactionSystem.setPortalInteractCallback((targetZone) => {
       this.zoneManager.setCurrentZone(targetZone, null, this.player, this.camera);
       this.setTerrainReference();
+      this.applyCurrentEnvironment();
       this.updateUI();
     });
     this.interactionSystem.setFeedbackCallback((message) => this.dialogSystem.addBubble('npc', message));
@@ -176,13 +180,14 @@ export class WisdomWorld {
       onNewZone: (id, persona) => {
         this.zoneManager.setCurrentZone(id, persona, this.player, this.camera);
         this.setTerrainReference();
+        this.applyCurrentEnvironment();
         this.updateUI();
         this.uiManager.appendLog('Zone erzeugt: ' + this.zoneManager.synthZoneTitle(id));
       },
       onNewPortal: () => {
-        if(!this.zoneManager.currentZoneId){ 
-          this.uiManager.appendLog('Keine aktive Zone.'); 
-          return; 
+        if(!this.zoneManager.currentZoneId){
+          this.uiManager.appendLog('Keine aktive Zone.');
+          return;
         }
         const target = crypto.randomUUID().split('-')[0];
         this.zoneManager.linkPortal(this.zoneManager.currentZoneId, target);
@@ -194,6 +199,7 @@ export class WisdomWorld {
           console.log(`🌍 Lade YAML-Zone: ${zoneId}`);
           await this.zoneManager.setCurrentZone(zoneId, null, this.player, this.camera);
           this.setTerrainReference();
+          this.applyCurrentEnvironment();
           this.updateUI();
           this.uiManager.appendLog(`YAML-Zone geladen: ${this.zoneManager.synthZoneTitle(zoneId)}`);
         } catch (error) {
@@ -212,7 +218,7 @@ export class WisdomWorld {
       },
       onMessage: (text) => {
         this.dialogSystem.handleUserMessage(
-          text, 
+          text,
           this.zoneManager.currentZoneId,
           (fromZone, toZone) => {
             this.zoneManager.linkPortal(fromZone, toZone);
@@ -229,7 +235,7 @@ export class WisdomWorld {
     // Setup logging callback for worldStore
     const originalAdd = worldStore.add.bind(worldStore);
     worldStore.add = (evt) => {
-      originalAdd(evt, 
+      originalAdd(evt,
         (line) => this.uiManager.appendLog(line),
         () => this.updateUI()
       );
@@ -314,6 +320,8 @@ export class WisdomWorld {
     );
 
     this.setTerrainReference();
+    // Versuche nach Terrain-/Zone-Setup die Environment (inkl. Fog) anzuwenden
+    this.applyCurrentEnvironment();
   }
 
   // Hilfsfunktion um Terrain-Referenz korrekt zu setzen
@@ -348,6 +356,32 @@ export class WisdomWorld {
     }
   }
 
+  // Environment/Fog aus aktueller WorldSpec anwenden
+  applyCurrentEnvironment() {
+    try {
+      // Entferne Bootstrap-Lichter, damit YAML-Environment allein gilt
+      this.scene.children
+        .filter(c => c.isLight && (c.name === 'BOOTSTRAP_Hemi' || c.name === 'BOOTSTRAP_Dir'))
+        .forEach(l => this.scene.remove(l));
+
+      // Ermittele Environment-Quelle
+      const z = this.zoneManager?.getCurrentZone?.();
+      const currentSpec = this.zoneManager?.getCurrentWorldDoc?.() || z?.spec || null;
+      const env = currentSpec?.environment;
+      if (!env) return;
+
+      // applyEnvironment erwartet (envConfig, sceneOrGroup, options)
+      applyEnvironment(env, this.scene, { skipSkybox: false, skipFog: false, skipLights: false });
+
+      // Renderer ClearColor an Scene-Background angleichen, falls gesetzt
+      if (this.scene.background instanceof THREE.Color) {
+        this.renderer.setClearColor(this.scene.background, 1);
+      }
+    } catch (e) {
+      console.warn('Environment-Anwendung fehlgeschlagen:', e);
+    }
+  }
+
   initializeWorld() {
     this.updateUI();
     const initial = worldStore.byKind(EVENT_KINDS.ZONE)[0];
@@ -358,6 +392,7 @@ export class WisdomWorld {
       this.zoneManager.setCurrentZone('start-'+crypto.randomUUID().split('-')[0], 'Forscher', this.player, this.camera);
     }
     this.setTerrainReference();
+    this.applyCurrentEnvironment();
     this.updateUI();
   }
 
@@ -445,6 +480,7 @@ export class WisdomWorld {
       // Fallback: Prozedurale Zone erstellen
       this.zoneManager.setCurrentZone(zoneId, 'Forscher', this.player, this.camera);
       this.setTerrainReference();
+      this.applyCurrentEnvironment();
       this.updateUI();
     }
   }
@@ -498,6 +534,7 @@ export class WisdomWorld {
     this.camera.reset();
 
     this.setTerrainReference();
+    this.applyCurrentEnvironment();
     this.updateUI();
     this.uiManager.appendLog(`Wechsel zu YAML-Zone: ${worldData.name}`);
   }
