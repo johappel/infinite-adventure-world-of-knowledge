@@ -123,26 +123,32 @@ export function applyEnvironment(envConfig, sceneOrGroup, options = {}){
 
   // --- LIGHTS ---
   if (!skipLights) {
-      // Remove existing lights inside the group to prevent duplicates
+      // Find the scene to apply lights to. This is crucial.
+      let targetScene = sceneOrGroup;
+      while (targetScene.parent && !targetScene.isScene) {
+        targetScene = targetScene.parent;
+      }
+
+      // Remove only lights that were previously added by this function
       const lightsToRemove = [];
-      sceneOrGroup.children.forEach(child => {
-          if (child.isLight) {
+      targetScene.children.forEach(child => {
+          if (child.isLight && child.name.startsWith('YAML_')) {
               lightsToRemove.push(child);
           }
       });
       if(lightsToRemove.length > 0) {
-        lightsToRemove.forEach(light => sceneOrGroup.remove(light));
+        lightsToRemove.forEach(light => targetScene.remove(light));
       }
 
       // Ambient Light
       const ambientLight = new THREE.AmbientLight(0xffffff, env.ambient_light);
       ambientLight.name = 'YAML_AmbientLight';
-      sceneOrGroup.add(ambientLight);
+      targetScene.add(ambientLight);
 
       // Hemisphere Light for more natural ambient lighting
       const hemisphereLight = new THREE.HemisphereLight(skyColor, env.ground_color || 0x444444, env.hemisphere_intensity);
       hemisphereLight.name = 'YAML_HemisphereLight';
-      sceneOrGroup.add(hemisphereLight);
+      targetScene.add(hemisphereLight);
 
       // Directional Light (Sun)
       if (env.sun_intensity > 0) {
@@ -152,7 +158,7 @@ export function applyEnvironment(envConfig, sceneOrGroup, options = {}){
           sunLight.castShadow = true;
           sunLight.shadow.mapSize.width = 2048;
           sunLight.shadow.mapSize.height = 2048;
-          sceneOrGroup.add(sunLight);
+          targetScene.add(sunLight);
       }
   }
 }

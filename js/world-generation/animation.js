@@ -60,16 +60,16 @@ export function startZoneAnimations(group){
     
     // 6. Debug: Zeige was wir haben wenn keine Kamera gefunden
     if(!camera) {
-      console.log('🚨 No camera found. Debug info:', {
-        hasParent: !!group.parent,
-        parentType: group.parent?.type,
-        parentUserData: group.parent?.userData,
-        hasGrandParent: !!(group.parent && group.parent.parent),
-        grandParentType: group.parent?.parent?.type,
-        grandParentUserData: group.parent?.parent?.userData,
-        windowCamera: !!(typeof window !== 'undefined' && window.camera),
-        windowScene: !!(typeof window !== 'undefined' && window.scene)
-      });
+      // console.log('🚨 No camera found. Debug info:', {
+      //   hasParent: !!group.parent,
+      //   parentType: group.parent?.type,
+      //   parentUserData: group.parent?.userData,
+      //   hasGrandParent: !!(group.parent && group.parent.parent),
+      //   grandParentType: group.parent?.parent?.type,
+      //   grandParentUserData: group.parent?.parent?.userData,
+      //   windowCamera: !!(typeof window !== 'undefined' && window.camera),
+      //   windowScene: !!(typeof window !== 'undefined' && window.scene)
+      // });
     }
     
     return camera;

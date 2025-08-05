@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { buildZoneFromSpec } from '../world-generation/index.js';
 import { resolveWorldSpec } from '../world-generation/resolve.js';
+import { applyEnvironment } from '../world-generation/environment.js';
 
 // Globaler Zugriff auf js-yaml (falls via CDN geladen)
 const yaml = window.jsyaml;
@@ -39,13 +40,22 @@ export class YAMLWorldLoader {
 
       // Einheitliche Pipeline
       const spec = resolveWorldSpec({ id: finalZoneId, ...worldData });
-      const zoneInfo = buildZoneFromSpec(spec, { rng: Math.random });
+      // Schritt 1: Nur die Geometrie bauen, ohne die Umgebung anzuwenden (wie im Editor)
+      const zoneInfo = buildZoneFromSpec(spec, { rng: Math.random, skipEnvironment: true });
 
       // Im Root einhängen und sichtbar schalten
       this.zoneManager.worldRoot.add(zoneInfo.group);
       zoneInfo.group.name = finalZoneId;
       zoneInfo.group.visible = true;
       this.zoneManager.zoneMeshes[finalZoneId] = zoneInfo;
+
+      // Schritt 2: Umgebung auf die Hauptszene anwenden, nachdem die Zone Teil der Szene ist
+      if (spec.environment) {
+        const mainScene = this.zoneManager.worldRoot.parent;
+        if (mainScene && mainScene.isScene) {
+            applyEnvironment(spec.environment, mainScene);
+        }
+      }
 
       // In Cache speichern
       this.loadedWorlds.set(finalZoneId, worldData);
