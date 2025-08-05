@@ -23,7 +23,7 @@ export class ZoneManager {
       id: zoneId,
       name: this.synthZoneTitle(zoneId),
       description: this.synthZoneMarkdown(zoneId),
-      environment: { skybox: 'clear_day', time_of_day: 0.5, ambient_light: 0.7, sun_intensity: 0.9, skybox_mode: 'cube' },
+      environment: { skybox: 'clear_day', time_of_day: 0.5, ambient_light: 0.3, sun_intensity: 0.6, skybox_mode: 'cube' },
       terrain: { type: 'hills', texture: 'forest_floor', color: '#4a7c1e', amplitude: 2.5, size: [50,50] },
       objects: [], personas: [], portals: [ { id: 'central', position: [0,1.6,-6], size: [0.9,3.2,0.2], color: '#66ffee' } ]
     };
@@ -98,9 +98,22 @@ export class ZoneManager {
         z = Math.sin(a)*r;
       }
       
+      // Verschiedene braune Felsfarben für Variation
+      const rockColors = [
+        '#8b4513', // Saddle Brown
+        '#a0522d', // Sienna
+        '#8b7355', // Khaki4
+        '#696969', // Dim Gray
+        '#778899', // Light Slate Gray
+        '#5c4033', // Dark Brown
+        '#6b4423', // Dark Brown 2
+        '#654321'  // Dark Goldenrod
+      ];
+      const colorIndex = Math.floor(rng() * rockColors.length);
+      
       const objectSpec = { 
         type: 'rock', 
-        color: `hsl(${Math.floor(rng()*360)} 20% 50%)`, 
+        color: rockColors[colorIndex], // Zufällige braune Farbe aus Array
         position: [x, 0.2, z], 
         scale: [1, 0.4 + rng()*2.0, 1] 
       };

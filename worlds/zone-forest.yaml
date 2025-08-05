@@ -6,8 +6,8 @@ id: "zone-forest"
 environment:
   skybox: "clear_day"
   time_of_day: 0.35
-  ambient_light: 0.6
-  sun_intensity: 0.8
+  ambient_light: 0.3
+  sun_intensity: 0.5
   skybox_mode: "cube"
 
 terrain:

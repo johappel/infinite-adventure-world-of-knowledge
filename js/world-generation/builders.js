@@ -719,8 +719,8 @@ export function buildObject(cfg, index){
   }
   const material = new THREE.MeshStandardMaterial({ 
     color: new THREE.Color(cfg.color||'#8b4513'), 
-    roughness:0.75, 
-    metalness:0.08,
+    roughness: type === 'rock' ? 0.9 : 0.75, // Felsen noch rauer
+    metalness: type === 'rock' ? 0.02 : 0.08, // Felsen weniger metallisch
     side: type === 'roof' ? THREE.DoubleSide : THREE.FrontSide // Doppelseitig für Dächer
   });
   const mesh = new THREE.Mesh(geometry, material);

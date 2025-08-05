@@ -6,8 +6,8 @@ description: Einstieg in die Wissens-Entdeckungswelt
 environment:
   skybox: clear_day
   time_of_day: 0.5
-  ambient_light: 0.7
-  sun_intensity: 0.9
+  ambient_light: 0.3
+  sun_intensity: 0.6
   skybox_mode: cube
   # fog_distance: 90
 
