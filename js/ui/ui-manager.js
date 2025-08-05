@@ -134,8 +134,10 @@ export class UIManager {
         e.preventDefault(); 
         document.getElementById('sendBtn').click(); 
       }
-      if(['a','b','c'].includes(e.key.toLowerCase())){
-        // quick fill
+      
+      // Quick fill A/B/C nur wenn Input leer ist UND Placeholder zeigt Dialog-Optionen
+      const isDialogMode = e.target.placeholder.includes('A, B oder C');
+      if(['a','b','c'].includes(e.key.toLowerCase()) && e.target.value.trim() === '' && isDialogMode){
         e.preventDefault();
         if(callbacks.onMessage) {
           callbacks.onMessage(e.key.toUpperCase());
