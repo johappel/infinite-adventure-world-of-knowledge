@@ -49,12 +49,12 @@ export function getTerrainHeightAtPosition(terrainMesh, worldX, worldZ, options 
       let weightedSum = 0;
       
       samples.forEach(([sx, sz], index) => {
-        const height = sampleSinglePoint(sx, sz, width, height, baseY, position);
-        if (height !== null) {
+        const sampledHeight = sampleSinglePoint(sx, sz, width, height, baseY, position);
+        if (sampledHeight !== null) {
           // Weight: center has highest weight, corners lowest
           const weight = index === 0 ? 4.0 : (index < 5 ? 2.0 : 1.0);
-          validHeights.push(height);
-          weightedSum += height * weight;
+          validHeights.push(sampledHeight);
+          weightedSum += sampledHeight * weight;
           totalWeight += weight;
         }
       });

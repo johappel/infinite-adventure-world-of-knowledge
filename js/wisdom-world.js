@@ -8,6 +8,7 @@ import { InteractionSystem } from './core/interaction-system.js';
 import { DialogSystem } from './core/dialog-system.js';
 import { UIManager } from './ui/ui-manager.js';
 import { YamlPlayer } from './core/yaml-player.js';
+import { URLRouter } from './core/url-router.js';
 
 export class WisdomWorld {
   constructor() {
@@ -31,6 +32,7 @@ export class WisdomWorld {
     this.camera = new ThirdPersonCamera(this.threeCamera, this.currentPlayerObject);
     this.inputManager = new InputManager();
     this.zoneManager = new ZoneManager(this.worldRoot);
+    
     // Terrain-Referenz wird nach initializeWorld() gesetzt, wenn Zone geladen ist
     // InteractionSystem braucht camera und zoneManager
     this.interactionSystem = new InteractionSystem(this.zoneManager, this.camera, this.currentPlayerObject);
@@ -49,8 +51,14 @@ export class WisdomWorld {
     // Start render loop
     this.setupRenderLoop();
     
-    // Initialize with first zone
+    // Initialize with first zone (Standard-Initialisierung wiederhergestellt)
     this.initializeWorld();
+    
+    // URL-Router als zusätzliches Feature hinzufügen
+    this.urlRouter = new URLRouter({
+      loadPredefinedZone: (zoneId) => this.loadPredefinedZone(zoneId),
+      loadYAMLFromString: (yamlString) => this.loadYAMLFromString(yamlString)
+    });
   }
 
   setupThreeJS() {
@@ -414,6 +422,56 @@ export class WisdomWorld {
       this.uiManager.appendLog('✨ YAML Player aktiviert');
     } else {
       console.log('❌ Kein Player verfügbar - das sollte nicht passieren');
+    }
+  }
+
+  /**
+   * Lädt eine vordefinierte Zone (für URL-Router)
+   */
+  async loadPredefinedZone(zoneId) {
+    try {
+      console.log(`🌍 Lade vordefinierte Zone: ${zoneId}`);
+      
+      // Versuche YAML-Zone zu laden
+      const yamlPath = `worlds/${zoneId}.yaml`;
+      await this.loadZoneFromYaml(yamlPath);
+      
+      // URL-Hash aktualisieren
+      this.urlRouter.setZoneHash(zoneId);
+      
+    } catch (error) {
+      console.warn(`⚠️ YAML-Zone ${zoneId} nicht gefunden, erstelle prozedurale Zone`);
+      
+      // Fallback: Prozedurale Zone erstellen
+      this.zoneManager.setCurrentZone(zoneId, 'Forscher', this.player, this.camera);
+      this.setTerrainReference();
+      this.updateUI();
+    }
+  }
+
+  /**
+   * Lädt YAML aus String (für URL-Router)
+   */
+  async loadYAMLFromString(yamlString) {
+    try {
+      // YAML parsen und temporäre Zone erstellen
+      const jsyaml = window.jsyaml || (await import('https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/+esm'));
+      const worldData = jsyaml.load(yamlString);
+      
+      // Zone-ID generieren falls nicht vorhanden
+      if (!worldData.id) {
+        worldData.id = 'url-zone-' + Date.now();
+      }
+      
+      // Als temporäre Zone laden
+      this.zoneManager.loadedWorldDocs.set(worldData.id, worldData);
+      await this.switchToYamlZone(worldData.id);
+      
+      console.log(`🌍 YAML-Zone aus URL geladen: ${worldData.name}`);
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Laden der YAML-Zone aus URL:', error);
+      this.loadPredefinedZone('zone-welcome'); // Fallback
     }
   }
 

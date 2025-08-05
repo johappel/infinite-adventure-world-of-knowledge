@@ -6,12 +6,12 @@ export const terrainPresets = {
 };
 
 export const objectPresets = {
-  tree_simple: { type: 'tree', color: '#1a4a1a', scale: [1,1,1] },
-  rock_small:  { type: 'rock', color: '#8b7355', scale: [0.8,0.8,0.8] },
-  crystal:     { type: 'crystal', color: '#00ffff', scale: [1,1,1] },
-  mushroom_small: { type: 'mushroom', color: '#8b4513', scale: [0.5,0.8,0.5] },
-  stone_circle_thin: { type: 'stone_circle', color: '#696969', scale: [2,2,2] },
-  bookshelf:   { type: 'bookshelf', color: '#8b6d5c', scale: [1,1,1] },
+  tree_simple: { type: 'tree', color: '#1a4a1a', scale: [2,2.5,2] },    // Sync mit js/presets/objects/tree_simple.js
+  rock_small:  { type: 'rock', color: '#6b5b4f', scale: [1,1,1] },      // Sync mit js/presets/objects/rock_small.js  
+  crystal:     { type: 'crystal', color: '#00ffff', scale: [1,1,1] },   // Sync mit js/presets/objects/crystal.js
+  mushroom_small: { type: 'mushroom', color: '#8b4513', scale: [0.5,0.8,0.5] }, // Sync mit js/presets/objects/mushroom_small.js
+  stone_circle_thin: { type: 'stone_circle', color: '#696969', scale: [0.7,0.7,4.0] }, // Sync mit js/presets/objects/stone_circle_thin.js
+  bookshelf:   { type: 'bookshelf', color: '#8b6d5c', scale: [1,1,1] }, // Sync mit js/presets/objects/bookshelf.js
   truncated_cone: { type: 'truncated_cone', color: '#8b4513', scale: [1,1,1] },
   sphere:      { type: 'sphere', color: '#ff6b6b', scale: [1,1,1] }
 };

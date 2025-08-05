@@ -1,0 +1,159 @@
+name: "Willkommen in der Infinite Adventure World"
+description: "Deine Reise beginnt hier! Lerne das System kennen und wähle dein erstes Abenteuer."
+id: "zone-welcome"
+
+environment:
+  ambient_light: 0.8
+  skybox: "clear_day"
+  sun_intensity: 0.9
+  fog:
+    enabled: false
+
+terrain:
+  preset: "marble_flat"
+  size: [40, 40]
+  color: "#f0f8ff"
+
+objects:
+  # Willkommens-Kristall als zentraler Orientierungspunkt
+  - preset: "crystal"
+    position: [0, 0, 0]
+    scale: [1.5, 2.0, 1.5]
+    color: "#66ff99"
+    interactive: true
+    
+  # Tutorial-Bereiche markieren
+  - preset: "stone_circle_thin"
+    position: [8, 0, 0]
+    scale: [1.0, 0.5, 1.0]
+    color: "#4169e1"
+    
+  - preset: "stone_circle_thin"
+    position: [-8, 0, 0]
+    scale: [1.0, 0.5, 1.0]
+    color: "#ff6347"
+    
+  # Dekorative Elemente
+  - preset: "bookshelf"
+    position: [0, 0, -12]
+    scale: [1.5, 1.5, 1.5]
+    
+  - preset: "tree_simple"
+    position: [12, 0, 8]
+    scale: [1.2, 1.2, 1.2]
+    
+  - preset: "tree_simple"
+    position: [-12, 0, 8]
+    scale: [1.2, 1.2, 1.2]
+
+personas:
+  # Haupt-Guide im Zentrum
+  - preset: "npc_guardian"
+    name: "Welt-Guide Aurora"
+    position: [0, 0, 4]
+    dialogue:
+      opening: |
+        🌟 Willkommen, Abenteurer! Ich bin Aurora, dein Guide durch die unendlichen Welten.
+        
+        Hier lernst du die Grundlagen:
+        • WASD = Bewegung, Maus = Kamera
+        • E = Interaktion mit Objekten und NPCs
+        • Shift + Bewegung = Laufen
+        
+        Besuche meine Kollegen für spezielle Tutorials:
+        👉 BLAUER Kreis: Grundlagen & Navigation  
+        👈 ROTER Kreis: Welt-Editor Tutorial
+        📚 Bücherregal: Dokumentation
+        
+        Oder wähle direkt eine vorgefertigte Welt aus dem Menü oben!
+        
+        Was möchtest du zuerst erkunden?
+      responses:
+        A: "Zeig mir die Grundlagen!"
+        B: "Ich möchte eine Beispielwelt besuchen"
+        C: "Erkläre mir den Welt-Editor"
+  
+  # Tutorial-NPC für Grundlagen
+  - preset: "npc_scholar"
+    name: "Professor Basics"
+    position: [8, 0, 3]
+    dialogue:
+      opening: |
+        🎓 Willkommen zur Grundlagen-Akademie!
+        
+        Hier lernst du:
+        • Bewegung und Kamera-Steuerung
+        • Interaktion mit Objekten
+        • Navigation zwischen Welten
+        • Chat-System nutzen
+        
+        Die Kristalle und Objekte hier sind alle interaktiv - probiere es aus!
+        Drücke E um mit allem zu interagieren.
+        
+        Tipp: Halte die rechte Maustaste und bewege die Maus für freie Kamerasicht!
+        
+  # Editor-Tutorial NPC
+  - preset: "npc_fairy"
+    name: "Kreatia die Builder-Fee"
+    position: [-8, 0, 3]
+    dialogue:
+      opening: |
+        ✨ Hi! Ich zeige dir, wie du eigene Welten erschaffst!
+        
+        Es gibt mehrere Wege:
+        🔧 Einfach: Nutze die Buttons oben für zufällige Welten
+        📝 Fortgeschritten: YAML-Editor für präzise Kontrolle
+        🎨 Kreativ: Preset-Editor für Experimente
+        
+        YAML ist super einfach:
+        ```yaml
+        terrain:
+          preset: "forest_floor"
+        objects:
+          - preset: "tree_simple"
+            position: [5, 0, 5]
+        ```
+        
+        Klick auf die YAML-Buttons oben zum Ausprobieren!
+        
+  # Dokumentations-NPC
+  - preset: "npc_plain"
+    name: "Bib Liothek"
+    position: [0, 0, -8]
+    dialogue:
+      opening: |
+        📖 Willkommen in der Wissensbibliothek!
+        
+        Alle Anleitungen findest du hier:
+        • /docs/ Ordner im Projekt
+        • Preset-Guide für YAML-Welten
+        • API-Referenz für Entwickler
+        
+        Häufige Fragen:
+        Q: Wie lade ich eine YAML-Datei?
+        A: Nutze yamlHelpers.loadZone('pfad.yaml') in der Konsole
+        
+        Q: Wie erstelle ich eigene Presets?
+        A: Schaue in /js/presets/ für Beispiele
+        
+        Viel Spaß beim Erforschen! 🚀
+
+portals:
+  # Portale zu Beispielwelten
+  - id: "forest-demo"
+    position: [15, 1.5, 0]
+    target: "zone-forest"
+    size: [1.0, 2.5, 0.3]
+    color: "#228b22"
+    
+  - id: "start-demo"  
+    position: [-15, 1.5, 0]
+    target: "zone-start"
+    size: [1.0, 2.5, 0.3]
+    color: "#4169e1"
+    
+  - id: "archive-demo"
+    position: [0, 1.5, 15]
+    target: "zone-archive"
+    size: [1.0, 2.5, 0.3]
+    color: "#daa520"
