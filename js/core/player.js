@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { /* adjustToTerrainHeight, */ } from '../world-generation/index.js'; // optional ref
+import { getTerrainHeightAtPosition } from '../world-generation/index.js';
 
 export class Player {
   constructor(worldRoot, marker=null) {
@@ -195,7 +195,12 @@ export class Player {
       // Nach Positionsänderung: Terrainhöhe anwenden auf Marker selbst (immer, nicht nur bei Bewegung)
       // Verwende Multi-Sampling für bessere Stabilität bei hügeligem Terrain
       const isHillyTerrain = this.terrainRef?.userData?.isHills || false;
-      const yGround = this.getTerrainHeightAt(this.pos.x, this.pos.z, isHillyTerrain);
+      
+      // Verwende die gleiche Funktion wie für Objekte/NPCs
+      const yGround = this.terrainRef ? getTerrainHeightAtPosition(this.terrainRef, this.pos.x, this.pos.z, {
+        useSampling: isHillyTerrain,
+        sampleRadius: 0.3
+      }) : null;
       
       if(this.marker){
         if (yGround !== null) {
