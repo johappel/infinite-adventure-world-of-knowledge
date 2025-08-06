@@ -120,36 +120,60 @@ export function applyEnvironment(envConfig, sceneOrGroup, options = {}){
   }
   // Height Fog (Tiefnebel) Shader-Injektion
   if (!skipFog && env.height_fog && env.height_fog.enabled) {
-    // Default-Werte
     const fogYStart = env.height_fog.y_start ?? 0;
     const fogYEnd = env.height_fog.y_end ?? 10;
     const fogDensity = env.height_fog.density ?? 0.08;
     const fogColor = env.height_fog.color ? new THREE.Color(env.height_fog.color) : new THREE.Color(skyColor);
-    // Shader patch für alle MeshStandardMaterial
-    targetScene.traverse(obj => {
-      if (obj.material && obj.material.isMeshStandardMaterial) {
-        obj.material.onBeforeCompile = shader => {
-          shader.uniforms.heightFogYStart = { value: fogYStart };
-          shader.uniforms.heightFogYEnd = { value: fogYEnd };
-          shader.uniforms.heightFogDensity = { value: fogDensity };
-          shader.uniforms.heightFogColor = { value: fogColor };
-          // Fragment-Shader patch
-          shader.fragmentShader = shader.fragmentShader.replace(
-            '#include <fog_fragment>',
-            `
+
+    const patchMaterial = (mat) => {
+      if (!mat || !mat.isMeshStandardMaterial) return;
+      const prev = mat.onBeforeCompile;
+      mat.onBeforeCompile = (shader) => {
+        // call previous if any
+        if (prev) prev(shader);
+        shader.uniforms.heightFogYStart = { value: fogYStart };
+        shader.uniforms.heightFogYEnd = { value: fogYEnd };
+        shader.uniforms.heightFogDensity = { value: fogDensity };
+        shader.uniforms.heightFogColor = { value: fogColor };
+
+        // Vertex: declare varying and pass world-space position.y
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', `#include <common>\n varying float vWorldY;`)
+          .replace('#include <project_vertex>', `#include <project_vertex>\n vec3 worldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n vWorldY = worldPos.y;`);
+
+        // Fragment: declare uniforms and varying
+        const injectUniforms = `\n uniform float heightFogYStart;\n uniform float heightFogYEnd;\n uniform float heightFogDensity;\n uniform vec3 heightFogColor;\n varying float vWorldY;\n`;
+        if (shader.fragmentShader.includes('#include <fog_pars_fragment>')) {
+          shader.fragmentShader = shader.fragmentShader.replace('#include <fog_pars_fragment>', `#include <fog_pars_fragment>${injectUniforms}`);
+        } else {
+          shader.fragmentShader = injectUniforms + shader.fragmentShader;
+        }
+
+        // Patch fog fragment
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <fog_fragment>',
+          `
             // Height Fog (Tiefnebel)
-            float fogFactor = 0.0;
-            float y = vPosition.y;
+            float hfFactor = 0.0;
+            float y = vWorldY;
             if (y >= heightFogYStart && y <= heightFogYEnd) {
-              fogFactor = (heightFogYEnd - y) / (heightFogYEnd - heightFogYStart);
-              fogFactor = clamp(fogFactor * heightFogDensity, 0.0, 1.0);
-              gl_FragColor.rgb = mix(gl_FragColor.rgb, heightFogColor.rgb, fogFactor);
+              hfFactor = (heightFogYEnd - y) / max(0.0001, (heightFogYEnd - heightFogYStart));
+              hfFactor = clamp(hfFactor * heightFogDensity, 0.0, 1.0);
+              gl_FragColor.rgb = mix(gl_FragColor.rgb, heightFogColor.rgb, hfFactor);
             }
             #include <fog_fragment>
-            `
-          );
-        };
-        obj.material.needsUpdate = true;
+          `
+        );
+      };
+      mat.needsUpdate = true;
+    };
+
+    targetScene.traverse(obj => {
+      const m = obj.material;
+      if (Array.isArray(m)) {
+        m.forEach(patchMaterial);
+      } else {
+        patchMaterial(m);
       }
     });
   }

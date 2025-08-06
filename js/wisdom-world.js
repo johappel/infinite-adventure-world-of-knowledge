@@ -105,12 +105,12 @@ export class WisdomWorld {
           body_color: "#3366cc",
           skin_color: "#f4c2a1", 
           hair_color: "#8b4513",
-          height: 0.6,  // Smaller height to prevent sinking
+          height: 0.5,  // Smaller height to prevent sinking
           proportions: {
             head_size: 0.25,
-            torso_height: 0.7,
-            arm_length: 0.5,
-            leg_length: 0.6
+            torso_height: 0.8,
+            arm_length: 0.8,
+            leg_length: 0.8
           }
         },
         style: {
@@ -128,7 +128,7 @@ export class WisdomWorld {
       this.currentPlayerObject = this.yamlPlayer.avatar;
       
       // Set position and add to scene
-      this.currentPlayerObject.position.set(0, 0.1, 0);  // Lower base position
+      this.currentPlayerObject.position.set(0, 0.4, 0);  // Lower base position
       this.scene.add(this.currentPlayerObject);
       
       // Store player configuration in userData for movement system

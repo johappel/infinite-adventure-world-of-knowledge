@@ -12,7 +12,7 @@ environment:
 
 terrain:
   preset: marble_flat
-  size: [50, 50]
+  size: [150, 150]
 
 objects:
   - preset: bookshelf

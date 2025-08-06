@@ -20,15 +20,15 @@ export class YamlPlayer {
   mergeWithDefaults(config) {
     const defaults = {
       appearance: {
-        body_color: '#3366cc',
-        skin_color: '#99ccff', 
+        body_color: '#640303',
+        skin_color: '#b8ac68', 
         hair_color: '#222222',
         height: 0.5,  // Much smaller height to prevent sinking
         proportions: {
           head_size: 0.25,     // Smaller head
-          torso_height: 0.7,   // Shorter torso
-          arm_length: 0.5,     // Shorter arms
-          leg_length: 0.6      // Shorter legs
+          torso_height: 0.8,   // Shorter torso
+          arm_length: 0.8,     // Shorter arms
+          leg_length: 0.8      // Shorter legs
         }
       },
       style: {
