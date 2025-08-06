@@ -1,0 +1,80 @@
+### **Konzept: "NostrWorld" – Ein dezentraler 3D-Welt-Client**
+
+#### 1. Kernphilosophie
+*   **Kein zentraler Server:** Der Client agiert serverless. Alle persistenten Daten und Echtzeit-Interaktionen werden über ein dezentrales Netz von Nostr-Relays abgewickelt.
+*   **Benutzer-Souveränität:** Jeder Spieler ist durch seinen Nostr-Schlüssel Herr seiner eigenen Identität und seiner Aktionen. Aktionen sind kryptografisch signiert und nachweisbar.
+*   **Zusammensetzbarkeit und Offenheit:** Jede Welt ist ein offener Daten-Feed. Andere können eigene Clients bauen, die dieselbe Welt lesen, oder die Welt "forken" und ihre eigene Version erschaffen.
+
+---
+
+#### 2. Das Datenmodell: Die "NostrWorld"-Protokoll-Events
+
+Wir definieren einen Satz von `kind`-Nummern, die das Protokoll für unsere Anwendung bilden.
+
+| `kind` | Name | Typ | Zweck |
+| :--- | :--- | :--- | :--- |
+| **`30311`** | **Genesis-Event** | Persistent | Definiert die Existenz und die Grundregeln einer Welt. Dient als Wurzel für alle anderen Daten. |
+| **`30312`** | **Patch-Event** | Persistent | Beschreibt eine einzelne, atomare Änderung an der Welt (`create`, `update`, `delete`). |
+| **`30313`** | **Chat-Event** | Persistent | Eine einzelne, persistente Chat-Nachricht innerhalb einer Welt. |
+| **`27777`** | **Movement-Event**| Ephemer | Hochfrequente, flüchtige Positions- und Zustandsdaten eines Spielers. |
+| **`0`** | **Profile-Event** | Persistent | Standard-Nostr-Event, das zum Abrufen von Spielernamen und -bildern verwendet wird. |
+
+---
+
+#### 3. Client-Lebenszyklus: Vom Start bis zur interaktiven Welt
+
+Dies sind die Schritte, die der Client beim Start ausführt:
+
+1.  **Initialisierung & Identität:**
+    *   Der Client startet.
+    *   Er fragt den Benutzer nach seinem Nostr-Privatschlüssel (`nsec...`) oder generiert ein neues Schlüsselpaar.
+    *   Er verbindet sich mit einer vom Benutzer konfigurierten Liste von Nostr-Relays.
+
+2.  **Auswahl der Welt:**
+    *   Der Benutzer gibt die Adresse einer Welt ein. Die eleganteste Form hierfür ist eine Nostr-Adresse (`naddr`).
+    *   Beispiel: `naddr1qq...` die auf das Genesis-Event der Welt verweist.
+
+3.  **Laden der Basis-Welt (Schritt 1):**
+    *   Der Client fragt die Relays nach dem einen **Genesis-Event (`kind: 30311`)**, das durch die `naddr` identifiziert wird.
+    *   Der `content` dieses Events enthält die grundlegende YAML-Konfiguration. Diese wird geparst.
+    *   Der Three.js-Renderer wird initialisiert und baut die statische und prozedurale Geometrie auf (Landschaft, Himmel, prozedurale Wälder ohne IDs usw.).
+    *   **Ergebnis:** Der Spieler sieht die statische, leblose Welt.
+
+4.  **Laden der persistenten Änderungen (Schritt 2):**
+    *   Der Client fragt die Relays nach **allen Patch-Events (`kind: 30312`)**, die auf das Genesis-Event verweisen (über einen `a`-Tag: `["a", "30311:PUBKEY_DES_ERSTELLERS:WELT_ID"]`).
+    *   Der Client sortiert die empfangenen Patch-Events chronologisch nach ihrem `created_at`-Zeitstempel.
+    *   Er iteriert durch die sortierte Liste und wendet jeden Patch nacheinander auf die Welt an: Er erschafft, aktualisiert oder löscht Entitäten in der Three.js-Szene.
+    *   **Ergebnis:** Die Welt ist nun im aktuellsten persistenten Zustand. Alle von Spielern gebauten Strukturen sind sichtbar.
+
+5.  **Eintritt in die Echtzeit-Sitzung (Schritt 3):**
+    *   Der Client erstellt nun **drei permanente Abonnements** bei den Relays, die alle auf den `a`-Tag der Welt gefiltert sind:
+        1.  Ein Abo für zukünftige **Patch-Events (`kind: 30312`)**, um live mitzubekommen, wenn jemand etwas baut.
+        2.  Ein Abo für **Movement-Events (`kind: 27777`)**, um andere Spieler zu sehen.
+        3.  Ein Abo für **Chat-Events (`kind: 30313`)**, um die Kommunikation zu empfangen.
+    *   Gleichzeitig beginnt der Client selbst, in kurzen Intervallen (z.B. 10 Mal pro Sekunde) seine eigenen **Movement-Events (`kind: 27777`)** zu senden.
+    *   **Ergebnis:** Der Spieler ist vollständig in der Welt. Er sieht andere Spieler, kann mit ihnen chatten und zusehen, wie die Welt live verändert wird.
+
+---
+
+#### 4. Handhabung von Interaktionen
+
+*   **Andere Spieler bewegen sich:** Wenn ein `Movement-Event` vom Abo empfangen wird, sucht der Client den Avatar, der zum Public Key des Events gehört, und aktualisiert dessen Position/Rotation in der Three.js-Szene. (Idealerweise mit sanfter Interpolation, um Ruckeln zu vermeiden).
+*   **Ein Spieler baut etwas:** Der Spieler führt im Client eine Aktion aus (z.B. "Platziere Block"). Der Client generiert ein **Patch-Event (`kind: 30312`)** mit `action: "create"`, signiert es und sendet es ab. Da der Client sein eigenes Abo hat, empfängt er sein eigenes Event zurück und rendert die Änderung, genau wie alle anderen auch.
+*   **Ein Spieler chattet:** Der Spieler tippt eine Nachricht ein. Der Client erstellt ein **Chat-Event (`kind: 30313`)**, signiert es und sendet es ab. Das Event erscheint bei allen im Chatfenster.
+
+---
+
+#### 5. Fortgeschrittene Konzepte und Lösungen
+
+*   **Moderation und Kanon:**
+    *   **Problem:** Was ist die "offizielle" Welt, wenn jeder Forks erstellen kann?
+    *   **Lösung:** Der Client kann eine "Maintainer-Kette" bevorzugen. Er prüft, welche Kette von Patches durchgehend vom Public Key des ursprünglichen Welterstellers signiert ist. Dies wird als die "kanonische" Version der Welt angezeigt. Änderungen von anderen werden als "Vorschläge" oder "Forks" behandelt.
+
+*   **Performance & Skalierbarkeit:**
+    *   **Problem:** Eine Welt mit 100.000 Patches würde das Laden extrem verlangsamen.
+    *   **Lösung: Snapshotting.** Der Welten-Maintainer kann periodisch ein neues **Genesis-Event (Version 2)** erstellen. Der YAML-Inhalt dieses neuen Events ist der Zustand der Welt *nach* Anwendung aller bisherigen Patches. Dieses neue Genesis-Event verweist auf sein Vorgänger-Event. Neue Spieler müssen dann nur den neuesten Snapshot laden und die wenigen Patches, die seitdem erstellt wurden.
+
+*   **Asset-Management:**
+    *   3D-Modelle (`.gltf`), Texturen und Sounds werden nicht auf Nostr gespeichert.
+    *   Die YAML-Datei in der Welt-Definition verweist auf diese Assets über URLs (z.B. zu einem IPFS-Gateway oder einer einfachen Webseite/CDN). Der Client ist dafür verantwortlich, diese Assets beim Laden herunterzuladen.
+
