@@ -105,20 +105,53 @@ export function applyEnvironment(envConfig, sceneOrGroup, options = {}){
 
   // --- FOG ---
   // Fog must be applied to the main scene, not a group.
+  let targetScene = sceneOrGroup;
+  while (targetScene.parent) {
+    targetScene = targetScene.parent;
+  }
+  // Standard-Fog
   if (!skipFog && env.fog_distance) {
     const fogColor = new THREE.Color(skyColor);
-    
-    // Find the top-level scene
-    let targetScene = sceneOrGroup;
-    while (targetScene.parent) {
-      targetScene = targetScene.parent;
-    }
-    
     if (targetScene.isScene) {
       targetScene.fog = new THREE.Fog(fogColor, 5, env.fog_distance);
     } else {
       console.warn('Could not find a valid scene for fog application.');
     }
+  }
+  // Height Fog (Tiefnebel) Shader-Injektion
+  if (!skipFog && env.height_fog && env.height_fog.enabled) {
+    // Default-Werte
+    const fogYStart = env.height_fog.y_start ?? 0;
+    const fogYEnd = env.height_fog.y_end ?? 10;
+    const fogDensity = env.height_fog.density ?? 0.08;
+    const fogColor = env.height_fog.color ? new THREE.Color(env.height_fog.color) : new THREE.Color(skyColor);
+    // Shader patch für alle MeshStandardMaterial
+    targetScene.traverse(obj => {
+      if (obj.material && obj.material.isMeshStandardMaterial) {
+        obj.material.onBeforeCompile = shader => {
+          shader.uniforms.heightFogYStart = { value: fogYStart };
+          shader.uniforms.heightFogYEnd = { value: fogYEnd };
+          shader.uniforms.heightFogDensity = { value: fogDensity };
+          shader.uniforms.heightFogColor = { value: fogColor };
+          // Fragment-Shader patch
+          shader.fragmentShader = shader.fragmentShader.replace(
+            '#include <fog_fragment>',
+            `
+            // Height Fog (Tiefnebel)
+            float fogFactor = 0.0;
+            float y = vPosition.y;
+            if (y >= heightFogYStart && y <= heightFogYEnd) {
+              fogFactor = (heightFogYEnd - y) / (heightFogYEnd - heightFogYStart);
+              fogFactor = clamp(fogFactor * heightFogDensity, 0.0, 1.0);
+              gl_FragColor.rgb = mix(gl_FragColor.rgb, heightFogColor.rgb, fogFactor);
+            }
+            #include <fog_fragment>
+            `
+          );
+        };
+        obj.material.needsUpdate = true;
+      }
+    });
   }
 
   // --- LIGHTS ---
@@ -172,6 +205,13 @@ export function withDefaultsEnv(env) {
         sun_position: [50, 80, 30],
         fog_distance: 0, // 0 = off
         ground_color: 0x444444, // Default ground color for hemisphere light
+        height_fog: {
+            enabled: false,
+            y_start: 0,
+            y_end: 10,
+            density: 0.08,
+            color: null // null = skyColor
+        }
     };
 
     // Preset-specific light defaults
