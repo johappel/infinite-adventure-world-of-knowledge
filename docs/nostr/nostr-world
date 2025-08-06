@@ -78,3 +78,250 @@ Dies sind die Schritte, die der Client beim Start ausführt:
     *   3D-Modelle (`.gltf`), Texturen und Sounds werden nicht auf Nostr gespeichert.
     *   Die YAML-Datei in der Welt-Definition verweist auf diese Assets über URLs (z.B. zu einem IPFS-Gateway oder einer einfachen Webseite/CDN). Der Client ist dafür verantwortlich, diese Assets beim Laden herunterzuladen.
 
+
+
+## Lokale Datenhaltung und Entwicklung mit IndexDB
+
+Wir müssen sicherstellen, dass beide Systeme – Dexie und ein Nostr-Relay – die exakt gleiche "Sprache" sprechen. Diese Sprache besteht aus zwei Teilen: **Events** und **Filtern**.
+
+Die Lösung ist, eine eigene "Adapter"-Schnittstelle zu definieren. Ihr Anwendungs-Code wird ausschließlich mit dieser Schnittstelle sprechen. Wir erstellen dann zwei verschiedene Implementierungen dieser Schnittstelle: eine für Dexie und eine für echte Relays.
+
+### Die goldene Regel: Ihr Anwendungscode sollte niemals wissen, mit wem er spricht.
+
+---
+
+### Schritt 1: Definieren der einheitlichen Schnittstelle (`INostrService`)
+
+Wir legen fest, welche Aktionen unser "Nostr-Dienst" können muss. In TypeScript würde man das als `interface` schreiben, aber das Konzept ist in JavaScript das gleiche:
+
+```javascript
+// Dies ist nur eine konzeptionelle Definition.
+
+interface INostrService {
+  /**
+   * Veröffentlicht ein einzelnes Event.
+   * @param {Event} event - Das zu veröffentlichende, signierte Nostr-Event.
+   * @returns {Promise<void>}
+   */
+  publish(event);
+
+  /**
+   * Abonniert einen Stream von Events, die einem Filter entsprechen.
+   * Gibt einen asynchronen Iterator zurück, der Events liefert, sobald sie eintreffen.
+   * @param {Filter} filter - Ein einzelner Nostr-Filter.
+   * @returns {AsyncIterable<Event>}
+   */
+  subscribe(filter);
+
+  /**
+   * Holt einen Satz von Events, die einem Filter entsprechen, und schließt dann die Verbindung.
+   * @param {Filter} filter - Ein einzelner Nostr-Filter.
+   * @returns {Promise<Event[]>}
+   */
+  get(filter);
+  
+  /**
+   * Beendet ein Abonnement.
+   * @param {Subscription} subscription - Das zurückgegebene Objekt von subscribe().
+   */
+  unsubscribe(subscription);
+}
+```
+
+---
+
+### Schritt 2: Implementierung Nr. 1 – `DexieNostrService`
+
+Diese Klasse implementiert unsere `INostrService`-Schnittstelle und verwendet Dexie.js im Hintergrund.
+
+**1. Datenbank-Setup (mit Dexie):**
+
+```javascript
+import Dexie from 'dexie';
+
+const db = new Dexie('NostrLocalDatabase');
+db.version(1).stores({
+  // Ein sehr effizienter Store für unsere Events.
+  // "++id" ist ein Auto-Incrementing Primary Key für Dexie.
+  // Die anderen sind die Indizes, die wir zum Filtern brauchen.
+  // "&eventId" bedeutet, die Event-ID muss einzigartig sein.
+  events: '++id, &eventId, pubkey, kind, created_at, *tags'
+});
+```
+*   `*tags` ist ein Multi-Entry-Index. Dexie kann damit extrem schnell nach Events suchen, die ein bestimmtes Tag enthalten (z.B. `['a', '30311:...']`).
+
+**2. Die `DexieNostrService`-Klasse:**
+
+```javascript
+class DexieNostrService {
+  constructor(dexieDb) {
+    this.db = dexieDb;
+    // Ein einfacher Event-Emitter, um Live-Updates zu simulieren
+    this.liveSubscriptions = new Map(); 
+  }
+
+  async publish(event) {
+    // 1. Nicht speichern, wenn es ephemer ist
+    if (event.kind >= 20000 && event.kind < 30000) {
+      // Aber Live-Abonnenten trotzdem benachrichtigen!
+      this._notifySubscribers(event);
+      return;
+    }
+
+    // 2. In die Datenbank schreiben
+    try {
+      await this.db.events.add({
+        eventId: event.id,
+        pubkey: event.pubkey,
+        kind: event.kind,
+        created_at: event.created_at,
+        content: event.content,
+        sig: event.sig,
+        tags: event.tags.map(t => `${t[0]}:${t[1] || ''}`) // Tags für die Suche formatieren
+      });
+    } catch (e) {
+      // Ignoriere Fehler bei doppelten Events
+    }
+    
+    // 3. Live-Abonnenten benachrichtigen
+    this._notifySubscribers(event);
+  }
+
+  async* subscribe(filter) {
+    // 1. Hole alle historischen Events, die dem Filter entsprechen
+    let historicalEvents = await this._query(filter).toArray();
+    for (const event of historicalEvents) {
+      yield this._dbToNostrEvent(event); // Gib historische Events sofort zurück
+    }
+
+    // 2. Richte ein Live-Abonnement für zukünftige Events ein
+    const subId = crypto.randomUUID();
+    const queue = [];
+    let resolve;
+
+    this.liveSubscriptions.set(subId, (event) => {
+        if (this._matches(event, filter)) {
+            if (resolve) {
+                resolve({ value: event, done: false });
+                resolve = null;
+            } else {
+                queue.push(event);
+            }
+        }
+    });
+
+    try {
+        while (true) {
+            if (queue.length > 0) {
+                yield queue.shift();
+            } else {
+                yield new Promise(r => resolve = r);
+            }
+        }
+    } finally {
+        this.liveSubscriptions.delete(subId); // Aufräumen, wenn die Schleife beendet wird
+    }
+  }
+
+  // Hilfsmethoden zum Suchen (`_query`), Matchen (`_matches`) und Konvertieren (`_dbToNostrEvent`)
+  // ...
+}
+```
+
+Die Logik hier ist: `subscribe` gibt zuerst alle passenden Events aus der Datenbank zurück und wartet dann auf neue Events, die durch `publish` ausgelöst und über den internen Emitter verteilt werden. Das simuliert das Verhalten eines Relays perfekt.
+
+---
+
+### Schritt 3: Implementierung Nr. 2 – `RelayNostrService`
+
+Diese Klasse implementiert dieselbe Schnittstelle, verwendet aber eine echte Nostr-Bibliothek wie `nostr-tools`.
+
+```javascript
+import { SimplePool } from 'nostr-tools';
+
+class RelayNostrService {
+  constructor(relayUrls) {
+    this.pool = new SimplePool();
+    this.relays = relayUrls;
+  }
+
+  async publish(event) {
+    await this.pool.publish(this.relays, event);
+  }
+
+  async* subscribe(filter) {
+    const sub = this.pool.sub(this.relays, [filter]);
+    const queue = [];
+    let resolve;
+
+    sub.on('event', (event) => {
+      if (resolve) {
+        resolve({ value: event, done: false });
+        resolve = null;
+      } else {
+        queue.push(event);
+      }
+    });
+
+    // Wichtig: nostr-tools `sub` gibt historische und live Events im selben Stream aus.
+    // Die Logik ist also einfacher als bei der Dexie-Version.
+    try {
+      while (true) {
+        if (queue.length > 0) {
+          yield queue.shift();
+        } else {
+          yield new Promise(r => resolve = r);
+        }
+      }
+    } finally {
+      sub.unsub(); // Aufräumen!
+    }
+  }
+}
+```
+
+---
+
+### Schritt 4: Alles im Haupt-Code zusammenführen
+
+Jetzt ist der Code Ihrer Anwendung wunderbar sauber. Sie entscheiden nur einmal am Anfang, welche Implementierung geladen wird.
+
+**config.js:**
+```javascript
+export const APP_MODE = 'development'; // 'development' oder 'production'
+export const RELAYS = ['wss://relay.damus.io', 'wss://nostr.wine'];
+```
+
+**nostr-service-factory.js:**
+```javascript
+import { DexieNostrService } from './dexie-nostr-service.js';
+import { RelayNostrService } from './relay-nostr-service.js';
+import { APP_MODE, RELAYS } from './config.js';
+
+let serviceInstance;
+
+if (APP_MODE === 'development') {
+  serviceInstance = new DexieNostrService(/* ... dexie db instance ... */);
+  console.log("Nostr Service: Running in local Dexie mode.");
+} else {
+  serviceInstance = new RelayNostrService(RELAYS);
+  console.log("Nostr Service: Running in live Relay mode.");
+}
+
+export const nostrService = serviceInstance;
+```
+
+**Ihre Anwendung (z.B. world-loader.js):**
+```javascript
+import { nostrService } from './nostr-service-factory.js';
+
+async function loadWorld(worldAddress) {
+  // Egal welcher Modus, der Code ist IDENTISCH!
+  const subscription = nostrService.subscribe({ 'authors': [worldAddress.pubkey], 'kinds': [30312] });
+
+  for await (const patchEvent of subscription) {
+    // wende Patch an...
+    console.log('Received patch event:', patchEvent.id);
+  }
+}
+```
