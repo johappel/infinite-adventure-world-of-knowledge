@@ -284,7 +284,7 @@ class RelayNostrService {
 
 ### Schritt 4: Alles im Haupt-Code zusammenführen
 
-Jetzt ist der Code Ihrer Anwendung wunderbar sauber. Sie entscheiden nur einmal am Anfang, welche Implementierung geladen wird.
+Jetzt ist der Code Anwendung sauber. Implementierung kann nun auf Wunsch geladen werden.
 
 **config.js:**
 ```javascript
