@@ -285,58 +285,103 @@ export class WisdomWorld {
   }
 
   setupRenderLoop() {
-    const animate = () => {
+    // Throttle-Helfer für seltene Updates
+    const throttle = (fn, minMs) => {
+      let last = 0; let scheduled = false; let lastArgs = null;
+      return (...args) => {
+        const now = performance.now();
+        lastArgs = args;
+        if (now - last >= minMs) {
+          last = now; fn(...args); return;
+        }
+        if (!scheduled) {
+          scheduled = true;
+          const wait = Math.max(0, minMs - (now - last));
+          setTimeout(() => { scheduled = false; last = performance.now(); fn(...lastArgs); }, wait);
+        }
+      };
+    };
+
+    // Gedrosselte Funktionen
+    const updateZoneAnimationsThrottled = throttle((dt) => {
+      this.zoneManager.updateAnimations(
+        dt,
+        this.clock,
+        (obj) => this.interactionSystem.isObjectInRange(obj),
+        this.threeCamera
+      );
+    }, 16); // ~60 Hz max
+
+    const updateYamlPlayerThrottled = throttle(() => {
+      if (this.yamlPlayer) this.yamlPlayer.update();
+    }, 16);
+
+    // Sichtbarkeits-Pause der Engine
+    let isPaused = false;
+    const onVisibilityChange = () => { isPaused = document.hidden; };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Frame-Zeit-Messung (seltenes Warn-Log)
+    let warnCooldown = 0;
+
+    const animate = (time) => {
+      if (isPaused) {
+        // Renderer pausieren, aber nächste RAF weiter planen
+        this.clock.getDelta();
+        this.renderer.setAnimationLoop(animate);
+        return;
+      }
+
       const dt = this.clock.getDelta();
-      
+      const frameStart = performance.now();
+
       // Update player movement and rotation
       const isMoving = this.player.move(
-        dt, 
-        this.inputManager.keys, 
-        this.inputManager.isRightMouseDown, 
+        dt,
+        this.inputManager.keys,
+        this.inputManager.isRightMouseDown,
         this.camera.getYaw(),
         (rotationChange) => this.camera.addKeyboardRotation(rotationChange)
       );
-      
-      // Update YAML player animations if active
+
+      // Update YAML player animations if active (gedrosselt)
       if (this.yamlPlayer) {
-        // Determine animation type based on movement
         if (isMoving) {
           const isRunning = this.inputManager.keys.has('shift') || this.inputManager.keys.has('Shift');
           const animationType = isRunning ? 'running' : 'walking';
           this.yamlPlayer.startAnimation(animationType);
         } else {
-          // Stop movement animations and return to neutral, then idle
           this.yamlPlayer.stopAnimation();
         }
-        
-        // Update player animations
-        this.yamlPlayer.update();
+        updateYamlPlayerThrottled();
       }
-      
+
       // Update camera position
       this.camera.update();
-      
-      // Update zone animations
-      this.zoneManager.updateAnimations(
-        dt, 
-        this.clock, 
-        (obj) => this.interactionSystem.isObjectInRange(obj),
-        this.threeCamera
-      );
 
-      // Optionaler per-Frame-Debug-Hook
-      if (typeof window.__debugInsertFn === 'function') {
-        try {
-          window.__debugInsertFn({ player: this.player, scene: this.scene, app: this });
-        } catch (e) {
-          console.warn('debugInsert hook error:', e);
-        }
+      // Update zone animations (gedrosselt)
+      updateZoneAnimationsThrottled(dt);
+
+      // Optionaler per-Frame-Debug-Hook (try/catch ohne Garbage)
+      const hook = window.__debugInsertFn;
+      if (typeof hook === 'function') {
+        try { hook({ player: this.player, scene: this.scene, app: this }); } catch {}
       }
 
       this.renderer.render(this.scene, this.threeCamera);
-      requestAnimationFrame(animate);
+
+      const frameDur = performance.now() - frameStart;
+      if (frameDur > 16 && (time - warnCooldown) > 2000) {
+        warnCooldown = time;
+        // Dezent: seltene Warnung statt Spam
+        console.warn(`[Perf] Frame ${frameDur.toFixed(1)}ms (>16ms)`);
+      }
+
+      this.renderer.setAnimationLoop(animate);
     };
-    animate();
+
+    // Verwende setAnimationLoop (besser integriert mit WebGL/VR, stabilere Taktung)
+    this.renderer.setAnimationLoop(animate);
   }
 
   updateUI() {
