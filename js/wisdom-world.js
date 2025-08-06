@@ -67,6 +67,9 @@ export class WisdomWorld {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias:true });
     
     this.scene = new THREE.Scene();
+    // Mache Instanz global verfügbar für Debug
+    window.wisdomWorld = this;
+
     this.threeCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
     this.threeCamera.position.set(0, 5, 8);
 
@@ -250,6 +253,29 @@ export class WisdomWorld {
       switchToZone: (id) => this.switchToYamlZone(id)
     };
 
+    
+
+    // === Debug: Neutrales Insert-Hook-System ===
+    // window.debugInsert(fn) registriert eine per-Frame Callback-Funktion, die in der Render-Schleife aufgerufen wird.
+    // Beispiel in der Konsole:
+    //   debugInsert(({player, scene}) => {
+    //     const gy = player._raycastGroundY(player.pos.x, player.pos.z, player.marker?.position.y ?? 0);
+    //     const desired = (gy!=null) ? gy + player.avatarHeightOffset : null;
+    //     if ((window.__ctr=(window.__ctr||0))+1 % 10 === 0) console.log('gy=',gy,'desired=',desired,'markerY=',player.marker?.position.y, 'rootY=', player.worldRoot?.position.y, 'lastGood=', player.lastGoodGroundY);
+    //   });
+    //   // Zum Entfernen:
+    //   debugInsert(null);
+    window.__debugInsertFn = null;
+    window.debugInsert = (fn) => {
+      if (typeof fn === 'function') {
+        window.__debugInsertFn = fn;
+        console.log('[debugInsert] aktiviert');
+      } else {
+        window.__debugInsertFn = null;
+        console.log('[debugInsert] deaktiviert');
+      }
+    };
+
     console.log('🎮 YAML-Hilfsfunktionen verfügbar:');
     console.log('- yamlHelpers.loadZone(path) - Lädt YAML-Zone');
     console.log('- yamlHelpers.loadExamples() - Lädt alle Beispielwelten');
@@ -297,6 +323,15 @@ export class WisdomWorld {
         (obj) => this.interactionSystem.isObjectInRange(obj),
         this.threeCamera
       );
+
+      // Optionaler per-Frame-Debug-Hook
+      if (typeof window.__debugInsertFn === 'function') {
+        try {
+          window.__debugInsertFn({ player: this.player, scene: this.scene, app: this });
+        } catch (e) {
+          console.warn('debugInsert hook error:', e);
+        }
+      }
 
       this.renderer.render(this.scene, this.threeCamera);
       requestAnimationFrame(animate);

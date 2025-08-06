@@ -119,93 +119,56 @@ export class Player {
       // Suche rekursiv nach Mesh mit userData.terrainSize (wird in Terrain-Builder gesetzt)
       const candidates = [];
       this.worldRoot.traverse(obj => {
-        if (obj.isMesh && (obj.userData?.terrainSize || obj.name === 'terrain' || obj.name?.includes('terrain') || obj.name?.includes('ground') || obj.name?.includes('floor'))) {
-          candidates.push({
-            obj: obj,
-            name: obj.name || 'unnamed',
-            userData: Object.keys(obj.userData || {}),
-            vertexCount: obj.geometry?.attributes?.position?.count || 0,
-            material: obj.material?.name || obj.material?.type || 'none'
-          });
+        if (obj.isMesh && (obj.userData?.terrainSize || obj.name === 'terrain')) {
+          candidates.push(obj);
         }
       });
-      
-      // Debug: Zeige alle gefundenen Terrain-Kandidaten
-      if (candidates.length > 0 && Math.random() < 0.1) {
-        console.log(`🗺️ Found ${candidates.length} terrain candidates:`, candidates);
-      }
-      
       // Wähle bevorzugt name==='terrain', sonst erstes mit terrainSize
-      const selected = candidates.find(c => c.obj.name === 'terrain') || candidates[0] || null;
-      terrain = selected?.obj || null;
-      
+      terrain = candidates.find(o => o.name === 'terrain') || candidates[0] || null;
       // Wenn gefunden, als Referenz speichern für die nächsten Frames
-      if (terrain) {
-        this.terrainRef = terrain;
-        if (Math.random() < 0.1) {
-          console.log(`✅ Selected terrain: ${selected.name} (${selected.vertexCount} vertices, material: ${selected.material})`);
-        }
-      }
+      if (terrain) this.terrainRef = terrain;
     }
     if (!terrain) return null;
 
     const raycaster = new THREE.Raycaster();
     const dir = new THREE.Vector3(0, -1, 0);
 
-    // Frontfaces priorisieren (falls verfügbar)
-    raycaster.params.Mesh = raycaster.params.Mesh || {};
-    raycaster.params.Mesh.side = THREE.FrontSide;
-    // Nur den nächsten Treffer ist für uns relevant; firstHitOnly wird nicht in allen THREE-Versionen unterstützt
-    // raycaster.firstHitOnly = true; // uncomment if supported in your THREE version
+    // 5 Strahlen: Mitte + Kreuz um footRadius (stabilisiert schräge Flächen)
+    const offsets = [
+      [0, 0],
+      [ this.footRadius, 0],
+      [-this.footRadius, 0],
+      [0,  this.footRadius],
+      [0, -this.footRadius],
+    ];
 
-    // WICHTIG: Nicht zu hoch starten - das verhindert, dass wir entfernte Hügel treffen
-    const originY = Math.max((currentY ?? 0) + 5.0, 10);
-    const origin = new THREE.Vector3(worldX, originY, worldZ);
-    
-    raycaster.set(origin, dir);
-    raycaster.far = this.raycastRange;
-    
-    // Intersect mit Terrain-Target rekursiv - ALLE Objekte prüfen
-    const isects = raycaster.intersectObject(terrain, true);
-
-    if (!isects || isects.length === 0) {
-      return null;
-    }
-
-    // Nächstliegenden Treffer nehmen: sortiere nach Distanz (aufsteigend)
-    isects.sort((a, b) => a.distance - b.distance);
-
-    // Valide Bodentreffer: nach oben zeigende Normalen bevorzugen
-    const validHits = isects.filter(hit => {
-      if (!hit.face || !hit.face.normal) return true;
-      return hit.face.normal.y >= 0.0; // bevorzugt >= 0 (nach oben)
-    });
-
-    // Wähle den NÄCHSTLIEGENDEN validen Hit
-    let chosen = validHits.length > 0 ? validHits[0] : null;
-
-    // Falls keine validen Hits, nimm den absolut nächstliegenden, wenn er sehr nahe unter uns liegt
-    if (!chosen) {
-      const nearest = isects[0];
-      // Erlaube Fallback nur, wenn der Treffer wirklich direkt unter dem Startpunkt liegt
-      const maxAcceptable = originY + 2.0; // kleine Toleranz
-      if (nearest && nearest.distance <= maxAcceptable) {
-        chosen = nearest;
-      } else {
-        return null;
+    const hits = [];
+    const originY = (currentY ?? 0) + this.raycastOriginLift;
+    for (const [ox, oz] of offsets) {
+      const origin = new THREE.Vector3(worldX + ox, originY, worldZ + oz);
+      raycaster.set(origin, dir);
+      raycaster.far = this.raycastRange;
+      // Intersect mit Terrain-Target rekursiv
+      const isects = raycaster.intersectObject(terrain, true);
+      if (isects && isects.length > 0) {
+        // Wähle erstes valides Dreieck, das nach oben zeigt (normale.y >= 0) bevorzugt, um Unterseiten zu vermeiden
+        const first = isects.find(h => !h.face || (h.face && h.face.normal && h.face.normal.y >= -0.25)) || isects[0];
+        hits.push(first.point.y);
       }
     }
 
-    const hitY = chosen.point.y;
+    if (hits.length === 0) return null;
 
-    // Bounds prüfen
+    // Filtere Treffer, die außerhalb plausibler Bounds liegen
     const minY = this.terrainMinY;
     const maxY = this.terrainMaxY;
-    if (hitY < minY || hitY > maxY) {
-      return null;
-    }
+    const inBounds = hits.filter(y => y >= minY && y <= maxY);
+    if (inBounds.length === 0) return null;
 
-    return hitY;
+    // Nimm Median statt Minimum/Maximum, um Ausreißer (Kanten) zu dämpfen
+    inBounds.sort((a,b)=>a-b);
+    const median = inBounds[Math.floor(inBounds.length/2)];
+    return median;
   }
 
   getTerrainHeightAt(x, z, useSampling = false){
@@ -266,67 +229,58 @@ export class Player {
 
   // Hilfsmethode für einzelne Höhenmessung
   _sampleHeightAtPoint(x, z, width, height, baseY, posAttr) {
-    // Für gekacheltes/flaches Terrain: verwende einfach die Terrain-Basis
-    // Das verhindert das Durchfallen bei flachen Oberflächen
-    
-    if (!posAttr || posAttr.count === 0) {
-      return baseY;
-    }
-    
-    // Prüfe, ob das Terrain hauptsächlich flach ist
-    // Bei flachen Terrains sind die Y-Werte meist alle sehr ähnlich oder 0
-    let sampleY = 0;
-    if (posAttr.getY) {
-      sampleY = posAttr.getY(0);
-    } else if (posAttr.array && posAttr.array.length > 1) {
-      sampleY = posAttr.array[1]; // Y ist der mittlere Wert im XYZ-Tripel
-    } else if (posAttr.getZ) {
-      sampleY = posAttr.getZ(0);
-    }
-    
-    // Für gekachelte/flache Terrains: wenn die Sample-Höhe nahe 0 ist, 
-    // verwende einfach die baseY (Terrain-Position) als Bodenhöhe
-    if (Math.abs(sampleY) < 0.1) {
-      return baseY; // Einfach die Terrain-Basis - das verhindert Durchfallen
-    }
-    
-    // Für Terrains mit tatsächlichen Höhenunterschieden: 
-    // Berechne die Position korrekt
-    const localX = x + width * 0.5;
+    // Korrekte Koordinatenumrechnung: Player-Position zu Terrain-Koordinaten
+    const localX = x + width * 0.5;  // Player pos 0,0 = Terrain-Mitte
     const localZ = z + height * 0.5;
-    const clampedX = Math.max(0, Math.min(width, localX));
-    const clampedZ = Math.max(0, Math.min(height, localZ));
+    
+    // Clamp to terrain bounds mit kleinem Puffer
+    const epsilon = 0.001;
+    const clampedX = Math.max(epsilon, Math.min(width - epsilon, localX));
+    const clampedZ = Math.max(epsilon, Math.min(height - epsilon, localZ));
     
     const segments = Math.sqrt(posAttr.count) - 1;
-    if (!Number.isFinite(segments) || segments <= 0) {
+    
+    if(!Number.isFinite(segments) || segments <= 0) {
       return baseY;
     }
     
     const segmentSize = width / segments;
     const segX = Math.floor(clampedX / segmentSize);
     const segZ = Math.floor(clampedZ / segmentSize);
-    const safeSegX = Math.max(0, Math.min(segments - 1, segX));
-    const safeSegZ = Math.max(0, Math.min(segments - 1, segZ));
-    const index = safeSegZ * (segments + 1) + safeSegX;
+
+    const getH = (sx, sz) => {
+      sx = Math.max(0, Math.min(segments, sx));
+      sz = Math.max(0, Math.min(segments, sz));
+      const index = sz * (segments + 1) + sx;
+      if (index >= posAttr.count || index < 0) {
+        return 0;
+      }
+      // Höhenwert aus Y-Koordinate (nicht Z)
+      const y = posAttr.getY ? posAttr.getY(index) : 
+                posAttr.getZ ? posAttr.getZ(index) : 0;
+      return Number.isFinite(y) ? y : 0;
+    };
+
+    const h00 = getH(segX, segZ);
+    const h10 = getH(segX+1, segZ);
+    const h01 = getH(segX, segZ+1);
+    const h11 = getH(segX+1, segZ+1);
     
-    if (index >= 0 && index < posAttr.count) {
-      let terrainY = 0;
-      if (posAttr.getY) {
-        terrainY = posAttr.getY(index);
-      } else if (posAttr.array && posAttr.array.length > index * 3 + 1) {
-        terrainY = posAttr.array[index * 3 + 1];
-      } else if (posAttr.getZ) {
-        terrainY = posAttr.getZ(index);
-      }
-      
-      if (Number.isFinite(terrainY)) {
-        const result = baseY + terrainY;
-        // Für flache Terrains: verwende mindestens die baseY
-        return Math.max(baseY, result);
-      }
+    // Bilineare Interpolation mit Bounds-Check
+    const fx = Math.max(0, Math.min(1, (clampedX - segX * segmentSize) / segmentSize));
+    const fz = Math.max(0, Math.min(1, (clampedZ - segZ * segmentSize) / segmentSize));
+    const h0 = h00 * (1 - fx) + h10 * fx;
+    const h1 = h01 * (1 - fx) + h11 * fx;
+    const interpolatedHeight = h0 * (1 - fz) + h1 * fz;
+    
+    const result = baseY + interpolatedHeight;
+    
+    // Sanity check für das Ergebnis
+    if (!Number.isFinite(result)) {
+      return baseY;
     }
     
-    return baseY; // Sicherer Fallback
+    return result;
   }
 
   // Prüfen ob gerade im Chat-Input getippt wird
@@ -397,66 +351,23 @@ export class Player {
       // --- Boden-Follow/Physik ---
       const currentY = this.marker ? this.marker.position.y : 0;
 
-      // KORREKTE Weltkoordinaten für Raycast bestimmen
-      let rayWorldPos;
-      if (this.marker) {
-        rayWorldPos = new THREE.Vector3();
-        this.marker.getWorldPosition(rayWorldPos);
-      } else {
-        // kompensiere Weltverschiebung, falls kein Marker vorhanden
-        rayWorldPos = new THREE.Vector3(
-          this.pos.x - this.worldRoot.position.x,
-          currentY,
-          this.pos.z - this.worldRoot.position.z
-        );
-      }
-
-      // Vereinfachte und robuste Höhenbestimmung mit besserer Fehlerbehandlung
+      // Hybride Höhenbestimmung: zuerst Vertex-Sampling, dann Raycast als Fallback
       let groundY = null;
       
-      // 1. ZUERST: Raycast (verlässlichste Methode)
+      // 1. Versuche getTerrainHeightAt mit Multi-Sampling für bessere Stabilität
       if (this.terrainRef) {
-        // Übergib echte Weltkoordinaten
-        let rawGroundY = this._raycastGroundY(rayWorldPos.x, rayWorldPos.z, currentY);
+        groundY = this.getTerrainHeightAt(this.pos.x, this.pos.z, true);
         
-        // Optionales Debug zur Positionsprüfung (deaktiviert)
-        // console.log(`📐 RayPos world=(${rayWorldPos.x.toFixed(2)}, ${rayWorldPos.z.toFixed(2)}), playerPos=(${this.pos.x.toFixed(2)}, ${this.pos.z.toFixed(2)}), worldRoot=(${this.worldRoot.position.x.toFixed(2)}, ${this.worldRoot.position.z.toFixed(2)})`);
-        
-        // Bereinige winzige Werte (wissenschaftliche Notation nahe 0)
-        if (rawGroundY != null) {
-          if (Math.abs(rawGroundY) < 1e-10) {
-            rawGroundY = 0; // Behandle als flache Oberfläche
-          }
-          groundY = rawGroundY;
+        // Falls Vertex-Sampling fehlschlägt oder unrealistische Werte liefert
+        if (groundY == null || !Number.isFinite(groundY)) {
+          // 2. Fallback auf Raycast
+          groundY = this._raycastGroundY(this.pos.x, this.pos.z, currentY);
         }
         
-        // Debug aktiviert um das Höhen-Problem zu analysieren
-        if (isMoving && Math.random() < 0.1) {
-          // console.log(`🐛 Terrain Debug: pos(${this.pos.x.toFixed(2)}, ${this.pos.z.toFixed(2)}) -> rawGroundY: ${rawGroundY}, processed: ${groundY}, baseY: ${this.terrainRef.position?.y || 0}`);
-        }
-        
-        // 2. Falls Raycast fehlschlägt (kein Terrain gefunden), versuche Heightfield
+        // 3. Falls beide fehlschlagen, versuche Heightfield-Sampling
         if (groundY == null) {
           groundY = this._heightfieldY(this.pos.x, this.pos.z);
-          if (isMoving && Math.random() < 0.1) {
-            // console.log(`🔧 Heightfield fallback: ${groundY}`);
-          }
         }
-        
-        // 3. WICHTIG: Falls beide fehlschlagen, NICHT auf Terrain-Basis zurückfallen
-        // Das würde bedeuten, dass der Player außerhalb der Karte ist und fallen sollte
-        if (groundY == null) {
-          if (isMoving && Math.random() < 0.1) {
-            console.log(`🚨 OUTSIDE MAP - Player should fall!`);
-          }
-          // groundY bleibt null - Player wird fallen!
-        }
-      }
-      
-      // 4. Notfall-Fallback nur wenn terrainRef gar nicht existiert
-      if (groundY == null && !this.terrainRef) {
-        groundY = 0; // Fallback nur wenn kein Terrain-System vorhanden
-        // console.log(`� No terrain system - Emergency fallback to 0`);
       }
 
       // Sanity-Check gegen extreme Sprünge
@@ -470,11 +381,6 @@ export class Player {
       }
 
       const desiredY = (groundY != null) ? (groundY + this.avatarHeightOffset) : null;
-      
-      // Debug für die finale Y-Berechnung
-      if (isMoving && Math.random() < 0.1) {
-        // console.log(`📍 Final: groundY: ${groundY}, desiredY: ${desiredY}, marker.y: ${this.marker?.position.y}`);
-      }
 
       if (desiredY != null) {
         // Harter Snap auf Bodenhöhe (kein Lerp/Step) mit Bounds
@@ -487,48 +393,27 @@ export class Player {
         this.verticalVel = 0;
         this.grounded = true;
       } else {
-        // Kein aktueller Ground-Treffer: Player ist außerhalb der Karte oder über einem Loch
-        if (isMoving && Math.random() < 0.1) {
-          console.log(`🕳️ No ground found - Player falling`);
-        }
-        
-        // Intelligente Fallback-Strategie: Nur fallen wenn wirklich außerhalb der Karte
-        this.grounded = false;
-        
-        // Sicherheitsnetz: Wenn wir eine letzte gute Position haben UND nicht zu weit entfernt sind
+        // Kein aktueller Ground-Treffer:
+        // Wenn letzte gute Bodenhöhe existiert, nie unter diese Haltelinie fallen
         if (this.marker && this.lastGoodGroundY != null) {
-          const distanceFromLastGood = Math.abs(this.marker.position.y - (this.lastGoodGroundY + this.avatarHeightOffset));
-          
-          // Nur als Sicherheitsnetz verwenden wenn Player nicht zu weit gefallen ist (< 2 Einheiten)
-          if (distanceFromLastGood < 2.0) {
-            const floorY = this.lastGoodGroundY + this.avatarHeightOffset;
-            this.marker.position.y = Math.max(this.marker.position.y, floorY - 0.1);
-            this.marker.visible = true;
-            this.verticalVel = Math.min(0, this.verticalVel); // Stoppe Fall nicht komplett, nur abwärts begrenzen
-            
-            if (isMoving && Math.random() < 0.1) {
-              // console.log(`🛡️ Safety net active: distance=${distanceFromLastGood.toFixed(2)}, floorY=${floorY.toFixed(2)}`);
-            }
-          } else {
-            // Player ist zu weit gefallen - echtes Fallen aktivieren
-            if (isMoving && Math.random() < 0.1) {
-              console.log(`💀 Player fell too far (${distanceFromLastGood.toFixed(2)}) - no safety net`);
-            }
+          const floorY = this.lastGoodGroundY + this.avatarHeightOffset - 0.02;
+          if (this.marker.position.y < floorY) {
+            this.marker.position.y = floorY;
           }
+          this.marker.visible = true;
+          this.verticalVel = 0;
+          this.grounded = true;
+        } else {
+          // Keine Infos: Höhe beibehalten, minimale Dämpfung (kein Wegfallen)
+          this.grounded = false;
         }
       }
 
-      // Gravitation: Player fällt deutlich wenn nicht am Boden
+      // Gravitation nur, wenn kein Ground und keine Floor-Info vorhanden
       if (!this.grounded && this.marker) {
-        // Verstärkte Gravitation für sichtbares Fallen
-        this.verticalVel += this.gravity * 0.3 * dt; // Deutlich stärker als vorher (0.05)
+        this.verticalVel += this.gravity * .05 * dt; // sehr gedämpft
         this.marker.position.y += this.verticalVel * dt;
         this.marker.visible = true;
-        
-        // Debug für Fall-Verhalten
-        if (isMoving && Math.random() < 0.1) {
-          console.log(`⬇️ Falling: verticalVel=${this.verticalVel.toFixed(3)}, y=${this.marker.position.y.toFixed(3)}`);
-        }
       }
 
       // Return movement state for external animation control

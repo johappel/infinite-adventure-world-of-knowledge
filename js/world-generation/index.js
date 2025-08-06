@@ -208,6 +208,12 @@ function adjustToTerrainHeight(spec, terrainMesh) {
 export function buildZoneFromSpec(worldData, options={}){
   const spec = resolveWorldSpec(worldData);
   const group = new THREE.Group();
+  // Heightfield-Container (Zone-weites Höhenraster) – einfacher Fix: flach bei y=0
+  group.userData.heightfield = {
+    size: (spec.terrain?.size && Array.isArray(spec.terrain.size)) ? spec.terrain.size : [50,50],
+    seg: [1,1], // minimal – konstante Höhe
+    heights: new Float32Array(4).fill(0), // bilinear möglich, alle 0
+  };
 
   // Extract or generate zone seed for deterministic world generation
   const zoneSeed = spec.zone_id || spec.seed || options.seed || 'default_zone';
@@ -228,13 +234,157 @@ export function buildZoneFromSpec(worldData, options={}){
       group.add(skybox);
     }
   }
-
+ 
   // Terrain (pass zone seed to terrain builder)
   let terrainMesh = null;
   if(spec.terrain){
     const terrainConfig = { ...spec.terrain, seed: zoneSeed };
     terrainMesh = buildTerrain(terrainConfig);
     group.add(terrainMesh);
+
+    // Heightfield ggf. an Terraingröße anpassen (bleibt flach)
+    try {
+      const hf = group.userData.heightfield;
+      if (terrainMesh) {
+        let terrainTarget = terrainMesh;
+        if (terrainMesh.type === 'Group') {
+          const tChild = terrainMesh.children.find(c => c.name === 'terrain') || null;
+          if (tChild) terrainTarget = tChild;
+        }
+        const size = terrainTarget?.userData?.terrainSize || hf.size || [50,50];
+        hf.size = size;
+        hf.seg = [1,1];
+        hf.heights = new Float32Array(4).fill(0);
+      }
+    } catch (e) {
+      console.warn('Heightfield-Setup (flat) fehlgeschlagen:', e);
+    }
+
+    // Build a Ground Group (preferred) or Ground Grid (fallback) for robust player ground detection
+    try {
+      // Preferred: collect all terrain tiles into a single raycast target group
+      const groundGroup = new THREE.Group();
+      groundGroup.name = 'ground_group';
+      groundGroup.userData.isGroundGroup = true;
+
+      const addIfTerrainTile = (o) => {
+        if (!o?.isMesh) return;
+        const isTile = o.userData?.terrainSize || /terrain|tile|ground/i.test(o.name);
+        if (isTile) groundGroup.add(o);
+      };
+
+      if (terrainMesh.type === 'Group') {
+        terrainMesh.traverse(addIfTerrainTile);
+      } else {
+        addIfTerrainTile(terrainMesh);
+      }
+
+      if (groundGroup.children.length > 0) {
+        group.add(groundGroup);
+      } else {
+        // Fallback: invisible ground grid proxy aligned to terrain bounds
+        // Determine terrain size and whether it's hills
+        let terrainSizeLocal = [50,50];
+        let isHills = false;
+        let terrainTarget = terrainMesh;
+        if (terrainMesh.type === 'Group') {
+          const tChild = terrainMesh.children.find(c => c.name === 'terrain') || null;
+          if (tChild) terrainTarget = tChild;
+        }
+        if (terrainTarget?.userData?.terrainSize) {
+          terrainSizeLocal = terrainTarget.userData.terrainSize;
+        }
+        isHills = !!terrainTarget?.userData?.isHills;
+
+        const [w, h] = terrainSizeLocal;
+        const segX = 64, segZ = 64;
+        const plane = new THREE.PlaneGeometry(w, h, segX, segZ);
+        plane.rotateX(-Math.PI/2);
+
+        const pos = plane.attributes.position;
+        const baseY = terrainTarget?.position?.y || 0;
+        for (let i=0;i<pos.count;i++){
+          const vx = pos.getX(i);
+          const vz = pos.getZ(i);
+          let y = baseY;
+          if (isHills) {
+            y = getTerrainHeightAtPosition(terrainTarget, vx, vz, { useSampling: true, sampleRadius: 0.2 });
+            if (y == null || !Number.isFinite(y)) y = baseY;
+          }
+          pos.setY(i, y + 0.0005);
+        }
+        pos.needsUpdate = true;
+
+        const mat = new THREE.MeshBasicMaterial({ visible:false });
+        const grid = new THREE.Mesh(plane, mat);
+        grid.name = 'ground_grid';
+        grid.userData.isGroundGrid = true;
+        grid.userData.terrainSize = terrainSizeLocal;
+        group.add(grid);
+      }
+    } catch (e) {
+      console.warn('GroundGroup/GroundGrid creation failed:', e);
+    }
+
+    // === Ground Grid Collider: unsichtbares Gitter als robuste Bodenreferenz ===
+    try {
+      // Ermittele Terrain-Size (Standard 50x50)
+      let terrainSize = [50, 50];
+      let terrainWorldY = 0;
+      let isHills = false;
+      let terrainTarget = terrainMesh;
+
+      if (terrainMesh?.type === 'Group') {
+        const tChild = terrainMesh.children.find(c => c.name === 'terrain') || null;
+        if (tChild) {
+          terrainTarget = tChild;
+        }
+      }
+      if (terrainTarget?.userData?.terrainSize) {
+        terrainSize = terrainTarget.userData.terrainSize;
+      }
+      terrainWorldY = terrainTarget?.position?.y || 0;
+      isHills = !!(terrainTarget?.userData?.isHills);
+
+      // Wähle sinnvolle Segmentanzahl: 64x64 oder an Terrain-Auflösung orientiert
+      const segX = 64;
+      const segZ = 64;
+
+      const [width, height] = terrainSize;
+      const plane = new THREE.PlaneGeometry(width, height, segX, segZ);
+      // Drehe Plane so, dass sie horizontal liegt (XZ), y nach oben
+      plane.rotateX(-Math.PI / 2);
+
+      // Hebe Y der Grid-Vertices an Terrainhöhe an (für hills), sonst flach
+      const pos = plane.attributes.position;
+      // Konvertierer: Plane-Geometry liegt im Zentrum, so wie Terrain (0,0) in der Mitte
+      for (let i = 0; i < pos.count; i++) {
+        const vx = pos.getX(i);
+        const vz = pos.getZ(i);
+        let y = terrainWorldY;
+        if (isHills) {
+          // Nutze vorhandene API für Terrainhöhe
+          y = getTerrainHeightAtPosition(terrainTarget, vx, vz, { useSampling: true, sampleRadius: 0.2 });
+          if (y == null || !Number.isFinite(y)) y = terrainWorldY;
+        }
+        pos.setY(i, y + 0.0005); // minimal oberhalb, um Unterseiten-Treffer zu vermeiden
+      }
+      pos.needsUpdate = true;
+
+      const gridMat = new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: false, visible: false });
+      const groundGrid = new THREE.Mesh(plane, gridMat);
+      groundGrid.name = 'ground_grid';
+      groundGrid.userData.isGroundGrid = true;
+      groundGrid.userData.terrainSize = terrainSize;
+      // Position: deckungsgleich mit Terrain-Mitte
+      groundGrid.position.set(0, 0, 0);
+      groundGrid.visible = false; // unsichtbar
+      groundGrid.matrixAutoUpdate = true;
+      // In die Zone einfügen
+      group.add(groundGrid);
+    } catch (e) {
+      console.warn('Ground Grid konnte nicht erzeugt werden:', e);
+    }
   }
 
   // Get path information for intelligent object placement
