@@ -1,4 +1,5 @@
 import { APP_MODE, RELAYS, IDENTITY_STRATEGY } from './config.js';
+import { ensureUniqueWorldId as _ensureUniqueWorldId } from './unique-id.js';
 
 let _service = null;
 let _identity = null;
@@ -82,6 +83,16 @@ function wrapInterface(serviceImpl) {
     },
 
     async getIdentity() { return getIdentity(); },
+
+    // IDs global eindeutig sicherstellen (NIP-33 d-Tag)
+    async ensureUniqueWorldId(desiredId, opts) {
+      return _ensureUniqueWorldId(this, desiredId, opts);
+    },
+
+    // IDs global eindeutig sicherstellen (NIP-33 d-Tag)
+    async ensureUniqueWorldId(desiredId, opts) {
+      return _ensureUniqueWorldId(this, desiredId, opts);
+    },
 
     // Small helpers for common filters
     filterForWorldATag(aTag, kinds) {

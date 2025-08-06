@@ -182,19 +182,35 @@
     <div class="header">
         <h1>🎯 YAML Preset Editor</h1>
         <div class="controls">
+            <!-- Suche in gespeicherten Welten (IndexedDB/Dexie via nostrService) -->
+            <input class="preset-selector" id="worldSearchInput" placeholder="🔎 gespeicherte Welt suchen (ID, Name, npub…)" title="Suche in lokal gespeicherten Welt-Genesis (Dexie)">
+            <div id="worldSearchResults" style="position:absolute; background:#252526; border:1px solid #3e3e42; max-height:250px; overflow:auto; display:none; z-index:10;"></div>
+
             <select class="preset-selector" id="presetSelect" aria-label="Preset Template auswählen">
                 <option value="">Wähle Preset Template...</option>
-                <option value="simple_world">Einfache Welt</option>
-                <option value="forest">Wald-Zone</option>
-                <option value="library">Bibliothek</option>
-                <option value="collision_test">Kollisions-Test</option>
-                <option value="skybox_test">Skybox Test</option>
-                <option value="player_test">YAML Player Test</option>
-                <option value="single_terrain">Nur Terrain</option>
-                <option value="single_object">Nur Objekt</option>
-                <option value="single_persona">Nur NPC</option>
+                <optgroup label="Lokale Presets (eingebaut)">
+                    <option value="simple_world">Einfache Welt</option>
+                    <option value="forest">Wald-Zone</option>
+                    <option value="library">Bibliothek</option>
+                    <option value="collision_test">Kollisions-Test</option>
+                    <option value="skybox_test">Skybox Test</option>
+                    <option value="player_test">YAML Player Test</option>
+                    <option value="single_terrain">Nur Terrain</option>
+                    <option value="single_object">Nur Objekt</option>
+                    <option value="single_persona">Nur NPC</option>
+                </optgroup>
+                <optgroup label="Worlds aus /worlds (*.yaml)" id="worldFilesGroup">
+                    <option value="" disabled>(wird geladen …)</option>
+                </optgroup>
             </select>
-            <button class="btn" id="loadBtn">📥 Laden</button>
+
+            <!-- NostrWorld Controls (Router v1: worldId) -->
+            <input class="preset-selector" id="worldIdInput" placeholder="worldId (z.B. demo-world)" title="Welt-ID (NIP-33 d=worldId)">
+            <button class="btn" id="newWorldBtn" title="Neue leere Welt mit eindeutiger WORLD_ID">➕ Neu</button>
+            <button class="btn" id="loadWorldBtn" title="Genesis 30311 aus Factory laden">🌐 Laden</button>
+            <button class="btn success" id="saveGenesisBtn" title="Als Genesis 30311 speichern (replaceable via NIP-33)">💾 Speichern (Genesis)</button>
+            <button class="btn" id="savePatchBtn" title="Als Patch 30312 speichern (create/update/delete)">🧩 Speichern (Patch)</button>
+
             <button class="btn success" id="renderBtn">🎬 Rendern</button>
             <button class="btn" id="resetBtn">🔄 Reset</button>
         </div>
@@ -245,11 +261,68 @@ personas:
         import * as THREE from 'three';
         import { buildZoneFromSpec } from './js/world-generation/index.js';
         import { resolveWorldSpec } from './js/world-generation/resolve.js';
+        import { getNostrService } from './js/core/net/nostr-service-factory.js';
+        import { APP_MODE } from './js/core/net/config.js';
         
+        async function fetchText(path) {
+          const res = await fetch(path);
+          if (!res.ok) throw new Error('Konnte Datei nicht laden: ' + path);
+          return await res.text();
+        }
+        async function listWorldFiles() {
+          return [
+            'worlds/night-test.yaml',
+            'worlds/skybox-test.yaml',
+            'worlds/storm-test.yaml',
+            'worlds/sunset-test.yaml',
+            'worlds/zone_village_center.yaml',
+            'worlds/zone-archive.yaml',
+            'worlds/zone-buildings-demo.yaml',
+            'worlds/zone-collections-demo.yaml',
+            'worlds/zone-collision-test.yaml',
+            'worlds/zone-deterministic-test.yaml',
+            'worlds/zone-forest.yaml',
+            'worlds/zone-gates-demo.yaml',
+            'worlds/zone-path-demo.yaml',
+            'worlds/zone-path-test.yaml',
+            'worlds/zone-player-test.yaml',
+            'worlds/zone-preset-test.yaml',
+            'worlds/zone-rock-test.yaml',
+            'worlds/zone-seed-demo.yaml',
+            'worlds/zone-seed-variant.yaml',
+            'worlds/zone-simple-seed-test.yaml',
+            'worlds/zone-start.yaml',
+            'worlds/zone-terrain-height-test.yaml',
+            'worlds/zone-village-demo.yaml',
+            'worlds/zone-welcome.yaml'
+          ];
+        }
+        function deriveCopyId(baseId) {
+          const short = crypto.randomUUID().split('-')[0];
+          const sanitized = String(baseId || 'world').toLowerCase().replace(/[^a-z0-9-_]/g,'-');
+          return `${sanitized}-${short}`;
+        }
+        function safeYamlParse(str) {
+          try { return window.jsyaml.load(str); } catch (e) { throw new Error('YAML-Fehler: ' + e.message); }
+        }
+        function safeYamlDump(obj) {
+          try { return window.jsyaml.dump(obj, { lineWidth: 120 }); } catch (e) { throw new Error('YAML-Serialize-Fehler: ' + e.message); }
+        }
+        function uid(prefix='id') { return `${prefix}-${crypto.randomUUID().split('-')[0]}`; }
+        function nowSec() { return Math.floor(Date.now()/1000); }
+        function makeATag(author, worldId) { return `30311:${author}:${worldId}`; }
+
         class PresetEditor {
             constructor() {
                 this.scene = null; this.camera=null; this.renderer=null; this.currentZone=null; this.animationId=null;
+                this.currentWorldId = '';
+                this.currentGenesisAuthor = null; // filled from identity
+                this.currentGenesisEvent = null;  // last loaded/saved genesis
+                this.nostr = null;
+
                 this.initializeElements(); this.initializePresetTemplates(); this.setupEventListeners(); this.initThreeJS();
+                // Starte Nostr-Initialisierung asynchron (Methode ist unten definiert)
+                this.initNostr();
             }
 
             initializeElements() {
@@ -262,9 +335,20 @@ personas:
                 this.loadBtn = document.getElementById('loadBtn');
                 this.renderBtn = document.getElementById('renderBtn');
                 this.resetBtn = document.getElementById('resetBtn');
+
+                // Gruppe für /worlds
+                this.worldFilesGroup = document.getElementById('worldFilesGroup');
+                this.worldFilesGroup = document.getElementById('worldFilesGroup');
+
+                // Nostr UI
+                this.worldIdInput = document.getElementById('worldIdInput');
+                this.newWorldBtn = document.getElementById('newWorldBtn');
+                this.loadWorldBtn = document.getElementById('loadWorldBtn');
+                this.saveGenesisBtn = document.getElementById('saveGenesisBtn');
+                this.savePatchBtn = document.getElementById('savePatchBtn');
             }
 
-            initializePresetTemplates() {
+            async initializePresetTemplates() {
                 this.templates = {
                     simple_world: `# Einfache Test-Welt
 name: "Einfache Welt"
@@ -511,33 +595,367 @@ personas:
     name: "Test Character"
     position: [0, 0, 3]`
                 };
+                await this.populateWorldFiles();
             }
 
             setupEventListeners() {
-                this.loadBtn.addEventListener('click', () => this.loadTemplate());
-                this.renderBtn.addEventListener('click', () => this.renderYAML());
-                this.resetBtn.addEventListener('click', () => this.resetScene());
-                
-                // Auto-render bei YAML-Änderungen (mit Debounce und besserer Fehlerbehandlung)
+                // Guard: manche Controls existieren ggf. noch nicht in älteren Builds
+                if (this.loadBtn) this.loadBtn.addEventListener('click', () => this.loadTemplate());
+                if (this.renderBtn) this.renderBtn.addEventListener('click', () => this.renderYAML());
+                if (this.resetBtn) this.resetBtn.addEventListener('click', () => this.resetScene());
+
+                // Nostr-Controls (optional vorhanden)
+                if (this.newWorldBtn) this.newWorldBtn.addEventListener('click', () => this.onNewWorld());
+                if (this.loadWorldBtn) this.loadWorldBtn.addEventListener('click', () => this.onLoadWorld());
+                if (this.saveGenesisBtn) this.saveGenesisBtn.addEventListener('click', () => this.onSaveGenesis());
+                if (this.savePatchBtn) this.savePatchBtn.addEventListener('click', () => this.onSavePatch());
+
+                // Dropdown: worlds/*.yaml → YAML sofort im Editor anzeigen und anschließend kopieren
+                if (this.presetSelect) {
+                    this.presetSelect.addEventListener('change', async () => {
+                        const v = this.presetSelect.value;
+                        if (v && v.startsWith('file:')) {
+                            const path = v.substring(5);
+                            try {
+                                // 1) Roh-YAML laden und direkt anzeigen
+                                const res = await fetch(path);
+                                if (!res.ok) throw new Error('Konnte Datei nicht laden: ' + path);
+                                const raw = await res.text();
+                                this.yamlEditor.value = raw;
+
+                                // 2) Neue eindeutige ID bestimmen und Name „(Kopie)“ ergänzen
+                                let spec;
+                                try { spec = window.jsyaml.load(raw); }
+                                catch (e) { this.showError('YAML-Fehler: ' + (e?.message || e)); return; }
+
+                                const desired = spec.id || 'world';
+                                const nostr = this.nostr || await getNostrService();
+                                const uniqueId = await nostr.ensureUniqueWorldId(desired);
+                                spec.id = uniqueId;
+                                if (spec.name) spec.name = `${spec.name} (Kopie)`;
+
+                                // 3) Modifizierten YAML zurückschreiben und UI aktualisieren
+                                this.yamlEditor.value = window.jsyaml.dump(spec, { lineWidth: 120 });
+                                if (this.worldIdInput) this.worldIdInput.value = uniqueId;
+
+                                // 4) Sofort visualisieren
+                                await this.renderYAML();
+                                this.updateStatus?.(`Preset ${path} geladen, neue ID: ${uniqueId}`);
+                            } catch (e) {
+                                this.showError('Preset konnte nicht geladen werden: ' + (e?.message || e));
+                            }
+                        }
+                    });
+                }
+
+                // Auto-render bei YAML-Änderungen (debounced)
                 let timeout;
-                this.yamlEditor.addEventListener('input', () => {
+                if (this.yamlEditor) this.yamlEditor.addEventListener('input', () => {
                     clearTimeout(timeout);
                     timeout = setTimeout(() => {
-                        // Nur rendern wenn YAML vollständig aussieht
                         const yamlText = this.yamlEditor.value.trim();
-                        console.log('🔄 Auto-render check:', { 
-                            hasText: !!yamlText, 
-                            isValid: this.isValidTypingState(yamlText),
-                            textLength: yamlText.length 
-                        });
-                        
                         if (yamlText && this.isValidTypingState(yamlText)) {
-                            console.log('✅ Auto-rendering YAML...');
                             this.renderYAML();
-                        } else {
-                            console.log('⏳ Waiting for complete YAML...');
                         }
-                    }, 1500); // Längere Wartezeit
+                    }, 600);
+                });
+
+                // Kamera-Kontrollen
+                this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+                this.canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+
+            async populateWorldFiles() {
+                if (!this.worldFilesGroup) return;
+                this.worldFilesGroup.innerHTML = '';
+                try {
+                    const files = await listWorldFiles();
+                    if (!files.length) {
+                        const opt = document.createElement('option');
+                        opt.disabled = true; opt.textContent = '(keine YAMLs gefunden)';
+                        this.worldFilesGroup.appendChild(opt);
+                        return;
+                    }
+                    for (const path of files) {
+                        const opt = document.createElement('option');
+                        opt.value = `file:${path}`;
+                        opt.textContent = path.replace('worlds/','');
+                        this.worldFilesGroup.appendChild(opt);
+                    }
+                } catch (e) {
+                    const opt = document.createElement('option');
+                    opt.disabled = true; opt.textContent = '(Fehler beim Laden der Liste)';
+                    this.worldFilesGroup.appendChild(opt);
+                }
+            }
+
+            // Nostr: Neue leere Welt erzeugen
+            onNewWorld() {
+                const id = (this.worldIdInput?.value || '').trim() || uid('world');
+                this.currentWorldId = id;
+                if (this.worldIdInput) this.worldIdInput.value = id;
+
+                const spec = {
+                    id,
+                    name: 'Neue Welt',
+                    description: 'Leere Welt',
+                    environment: { ambient_light: 0.6 },
+                    terrain: { preset: 'grass_flat', size: [20, 20] },
+                    objects: [],
+                    personas: []
+                };
+                this.yamlEditor.value = safeYamlDump(spec);
+                this.updateStatus?.('Neue Welt vorbereitet: ' + id);
+            }
+
+            // Nostr: Genesis laden
+            async onLoadWorld() {
+                try {
+                    if (!this.nostr) { this.updateStatus?.('Nostr nicht bereit.'); return; }
+                    const id = (this.worldIdInput?.value || '').trim();
+                    if (!id) { this.updateStatus?.('Bitte worldId angeben.'); return; }
+                    this.currentWorldId = id;
+
+                    const author = this.currentGenesisAuthor;
+                    if (!author) { this.updateStatus?.('Keine Identität verfügbar.'); return; }
+                    const aTag = makeATag(author, id);
+                    const filter = { kinds: [30311], '#a': [aTag] };
+                    const events = await this.nostr.get(filter);
+                    if (!events.length) { this.updateStatus?.('Keine Genesis für worldId gefunden: ' + id); return; }
+                    const genesis = events.sort((a, b) => (b.created_at) - (a.created_at))[0];
+                    this.currentGenesisEvent = genesis;
+
+                    const spec = safeYamlParse(genesis.content);
+                    if (!spec.id) spec.id = id;
+                    this.yamlEditor.value = safeYamlDump(spec);
+                    this.updateStatus?.('Genesis geladen: ' + id + ' (' + genesis.id.substring(0, 8) + '… )');
+                } catch (e) {
+                    this.updateStatus?.('Laden fehlgeschlagen: ' + (e?.message || e));
+                }
+            }
+
+            // Nostr: Als Genesis speichern (replaceable)
+            async onSaveGenesis() {
+                try {
+                    if (!this.nostr) { this.updateStatus?.('Nostr nicht bereit.'); return; }
+                    let id = (this.worldIdInput?.value || '').trim();
+                    if (!id) { id = uid('world'); if (this.worldIdInput) this.worldIdInput.value = id; }
+                    // Stelle globale Eindeutigkeit sicher (d-Tag)
+                    id = await this.nostr.ensureUniqueWorldId(id);
+                    if (this.worldIdInput) this.worldIdInput.value = id;
+                    this.currentWorldId = id;
+
+                    let spec;
+                    try { spec = safeYamlParse(this.yamlEditor.value); } catch (e) { this.updateStatus?.(String(e.message || e)); return; }
+                    if (!spec.id) spec.id = id;
+
+                    const ident = await this.nostr.getIdentity();
+                    const author = ident.pubkey;
+                    this.currentGenesisAuthor = author;
+
+                    const tags = [
+                        ['a', makeATag(author, id)],
+                        ['d', id]
+                    ];
+                    if (this.currentGenesisEvent) {
+                        tags.push(['e', this.currentGenesisEvent.id]);
+                    }
+
+                    const content = safeYamlDump(spec);
+                    const draft = {
+                        kind: 30311,
+                        created_at: Math.floor(Date.now() / 1000),
+                        tags,
+                        content,
+                        pubkey: author
+                    };
+                    const evt = await this.nostr.ensureSigned(draft);
+                    await this.nostr.publish(evt);
+                    this.currentGenesisEvent = evt;
+                    this.updateStatus?.('Genesis gespeichert (' + id + '), evt=' + evt.id.substring(0, 8) + '…');
+                } catch (e) {
+                    this.updateStatus?.('Speichern fehlgeschlagen: ' + (e?.message || e));
+                }
+            }
+
+            // Nostr: Patch speichern (MVP: kompletter YAML-Update-Vorschlag)
+            async onSavePatch() {
+                try {
+                    if (!this.nostr) { this.updateStatus?.('Nostr nicht bereit.'); return; }
+                    const id = (this.worldIdInput?.value || '').trim();
+                    if (!id) { this.updateStatus?.('Bitte worldId angeben.'); return; }
+                    const ident = await this.nostr.getIdentity();
+                    const author = this.currentGenesisAuthor || ident.pubkey;
+
+                    const patch = {
+                        action: 'update',
+                        target: 'world',
+                        id,
+                        payload: this.yamlEditor.value
+                    };
+
+                    const tags = [['a', makeATag(author, id)]];
+                    if (this.currentGenesisEvent) {
+                        tags.push(['e', this.currentGenesisEvent.id]);
+                    }
+
+                    const draft = {
+                        kind: 30312,
+                        created_at: Math.floor(Date.now() / 1000),
+                        tags,
+                        content: JSON.stringify(patch),
+                        pubkey: author
+                    };
+                    const evt = await this.nostr.ensureSigned(draft);
+                    await this.nostr.publish(evt);
+                    this.updateStatus?.('Patch gespeichert (' + evt.id.substring(0, 8) + '… )');
+                } catch (e) {
+                    this.updateStatus?.('Patch-Speichern fehlgeschlagen: ' + (e?.message || e));
+                }
+            }
+
+            async initNostr() {
+                try {
+                    this.nostr = await getNostrService();
+                    const ident = await this.nostr.getIdentity();
+                    this.currentGenesisAuthor = ident.pubkey;
+                    this.updateStatus?.('Nostr bereit (' + (APP_MODE) + '), pubkey: ' + ident.pubkey.substring(0,8) + '…');
+                } catch (e) {
+                    this.updateStatus?.('Nostr-Initialisierung fehlgeschlagen: ' + (e?.message || e));
+                }
+            }
+
+            setupEventListeners() {
+                // Guard: manche Controls existieren ggf. noch nicht in älteren Builds
+                if (this.loadBtn) this.loadBtn.addEventListener('click', () => this.loadTemplate());
+                if (this.renderBtn) this.renderBtn.addEventListener('click', () => this.renderYAML());
+                if (this.resetBtn) this.resetBtn.addEventListener('click', () => this.resetScene());
+
+                // Nostr-Controls (optional vorhanden)
+                if (this.newWorldBtn) this.newWorldBtn.addEventListener('click', () => this.onNewWorld());
+                if (this.loadWorldBtn) this.loadWorldBtn.addEventListener('click', () => this.onLoadWorld());
+                if (this.saveGenesisBtn) this.saveGenesisBtn.addEventListener('click', () => this.onSaveGenesis());
+                if (this.savePatchBtn) this.savePatchBtn.addEventListener('click', () => this.onSavePatch());
+
+                // Dropdown: worlds/*.yaml → YAML sofort in Editor laden, ID neu setzen, rendern
+                if (this.presetSelect) {
+                    this.presetSelect.addEventListener('change', async () => {
+                        const v = this.presetSelect.value;
+                        if (v && v.startsWith('file:')) {
+                            const path = v.substring(5);
+                            try {
+                                const res = await fetch(path, { cache: 'no-cache' });
+                                if (!res.ok) throw new Error('Konnte Datei nicht laden: ' + path);
+                                const raw = await res.text();
+                                this.yamlEditor.value = raw;
+
+                                let spec;
+                                try { spec = window.jsyaml.load(raw); }
+                                catch (e) { this.showError('YAML-Fehler: ' + (e?.message || e)); return; }
+
+                                if (spec && Object.prototype.hasOwnProperty.call(spec, 'zone_id')) {
+                                    try { delete spec.zone_id; } catch {}
+                                }
+
+                                const desired = spec?.id || 'world';
+                                const nostr = this.nostr || await getNostrService();
+                                const uniqueId = await nostr.ensureUniqueWorldId(desired);
+                                if (spec) {
+                                    spec.id = uniqueId;
+                                    if (spec.name) spec.name = `${spec.name} (Kopie)`;
+                                }
+                                this.yamlEditor.value = window.jsyaml.dump(spec, { lineWidth: 120 });
+                                if (this.worldIdInput) this.worldIdInput.value = uniqueId;
+
+                                await this.renderYAML();
+                                this.updateStatus?.(`Preset ${path} geladen, zone_id entfernt, neue ID: ${uniqueId}`);
+                            } catch (e) {
+                                this.showError('Preset konnte nicht geladen werden: ' + (e?.message || e));
+                            }
+                        }
+                    });
+                }
+
+                // Suche: gespeicherte Welten in Dexie (Genesis 30311) mit Autocomplete
+                const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+                const hideResults = () => { if (this.worldSearchResults) { this.worldSearchResults.style.display = 'none'; this.worldSearchResults.innerHTML = ''; } };
+
+                if (this.worldSearchInput) {
+                    this.worldSearchInput.addEventListener('input', debounce(async () => {
+                        const q = this.worldSearchInput.value.trim().toLowerCase();
+                        if (!q) { hideResults(); return; }
+                        try {
+                            const nostr = this.nostr || await getNostrService();
+                            // Hole alle lokalen Genesis (Dexie) und filtere clientseitig nach id/name/content
+                            const events = await nostr.get({ kinds: [30311] });
+                            const items = (events || [])
+                                .map(e => {
+                                    let name = '';
+                                    try { const spec = window.jsyaml.load(e.content); name = spec?.name || ''; } catch {}
+                                    const dTag = (e.tags || []).find(t => t[0] === 'd')?.[1] || '';
+                                    return {
+                                        id: e.id,
+                                        worldId: dTag,
+                                        name,
+                                        created_at: e.created_at,
+                                        content: e.content
+                                    };
+                                })
+                                .filter(it => (it.worldId && it.worldId.toLowerCase().includes(q)) || (it.name && it.name.toLowerCase().includes(q)));
+
+                            // Render Vorschläge
+                            const box = this.worldSearchResults;
+                            if (!box) return;
+                            box.innerHTML = '';
+                            if (!items.length) { hideResults(); return; }
+
+                            box.style.display = 'block';
+                            box.style.minWidth = (this.worldSearchInput.offsetWidth + 'px');
+
+                            items.slice(0, 20).forEach(it => {
+                                const div = document.createElement('div');
+                                div.style.padding = '6px 10px';
+                                div.style.cursor = 'pointer';
+                                div.textContent = `${it.worldId || '(ohne d)'} — ${it.name || '(ohne Name)'}`;
+                                div.addEventListener('click', () => {
+                                    try {
+                                        // YAML in Editor laden (genau wie bei worlds/*)
+                                        this.yamlEditor.value = it.content;
+                                        // worldIdInput setzen
+                                        if (this.worldIdInput && it.worldId) this.worldIdInput.value = it.worldId;
+                                        // Rendern
+                                        this.renderYAML();
+                                        hideResults();
+                                        this.updateStatus?.(`Gespeicherte Welt geladen: ${it.worldId}`);
+                                    } catch (e) {
+                                        this.showError('Konnte Welt nicht laden: ' + (e?.message || e));
+                                    }
+                                });
+                                div.addEventListener('mouseover', () => div.style.background = '#2d2d30');
+                                div.addEventListener('mouseout', () => div.style.background = 'transparent');
+                                box.appendChild(div);
+                            });
+                        } catch (e) {
+                            hideResults();
+                        }
+                    }, 250));
+
+                    // Verstecken bei Blur (kleines Delay, damit Clicks registriert werden)
+                    this.worldSearchInput.addEventListener('blur', () => setTimeout(hideResults, 200));
+                    // Positioniere die Box grob unter dem Input (einfaches CSS already)
+                }
+
+                // Auto-render bei YAML-Änderungen (debounced, weniger Log)
+                let timeout;
+                if (this.yamlEditor) this.yamlEditor.addEventListener('input', () => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => {
+                        const yamlText = this.yamlEditor.value.trim();
+                        if (yamlText && this.isValidTypingState(yamlText)) {
+                            this.renderYAML();
+                        }
+                    }, 600);
                 });
 
                 // Kamera-Kontrollen
