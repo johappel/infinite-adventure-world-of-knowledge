@@ -55,6 +55,13 @@ async function getIdentity() {
   return _identity;
 }
 
+function parseGenesisNameFromYaml(yaml) {
+  try {
+    const spec = window.jsyaml?.load ? window.jsyaml.load(yaml) : null;
+    return spec?.name || '';
+  } catch { return ''; }
+}
+
 function wrapInterface(serviceImpl) {
   return {
     get impl() { return serviceImpl; },
@@ -89,9 +96,112 @@ function wrapInterface(serviceImpl) {
       return _ensureUniqueWorldId(this, desiredId, opts);
     },
 
-    // IDs global eindeutig sicherstellen (NIP-33 d-Tag)
-    async ensureUniqueWorldId(desiredId, opts) {
-      return _ensureUniqueWorldId(this, desiredId, opts);
+    // API: getById(id) → { id, name, type, yaml, pubkey } | null
+    async getById(id) {
+      if (!id) return null;
+      // Versuche: Genesis (30311) per '#d' und ggf. Patches (30312) mit d=id
+      const filterGenesis = { kinds: [30311], '#d': [id] };
+      const gens = await this.get(filterGenesis).catch(() => []);
+      if (gens && gens.length) {
+        const latest = gens.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
+        const name = parseGenesisNameFromYaml(latest.content);
+        return { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+      }
+      // Fallback: breite Suche und manuelles Filtern (Dexie kompatibel)
+      const broad = await this.get({ kinds: [30311] }).catch(() => []);
+      const g2 = (broad || []).filter(e => Array.isArray(e.tags) && e.tags.some(t => t[0] === 'd' && t[1] === id));
+      if (g2.length) {
+        const latest = g2.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
+        const name = parseGenesisNameFromYaml(latest.content);
+        return { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+      }
+      // Falls keine Genesis: prüfe Patch 30312 (nimmt id als Ziel)
+      const patches = await this.get({ kinds: [30312] }).catch(() => []);
+      // Patch-Content: JSON { action, target, id, payload }
+      const matched = (patches || []).filter(e => {
+        try {
+          const p = JSON.parse(e.content);
+          return p && p.id === id && typeof p.payload === 'string';
+        } catch { return false; }
+      });
+      if (matched.length) {
+        const latest = matched.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
+        let name = '';
+        try { const p = JSON.parse(latest.content); name = parseGenesisNameFromYaml(p.payload); } catch {}
+        return { id, name, type: 'patch', yaml: JSON.parse(latest.content).payload, pubkey: latest.pubkey };
+      }
+      return null;
+    },
+
+    // API: searchWorlds(query) → [{ id, name, type, yaml? }]
+    async searchWorlds(query) {
+      const q = String(query || '').trim().toLowerCase();
+      if (!q) return [];
+      // Hole lokal verfügbare Genesis und Patches und filtere clientseitig
+      const evts = await this.get({ kinds: [30311, 30312] }).catch(() => []);
+      const results = [];
+      for (const e of evts) {
+        if (e.kind === 30311) {
+          const d = (e.tags || []).find(t => t[0] === 'd')?.[1] || '';
+          let name = '';
+          try { name = parseGenesisNameFromYaml(e.content); } catch {}
+          const hit = (d && d.toLowerCase().includes(q)) || (name && name.toLowerCase().includes(q));
+          if (hit) results.push({ id: d, name: name || '(ohne Name)', type: 'genesis' });
+        } else if (e.kind === 30312) {
+          try {
+            const p = JSON.parse(e.content);
+            const d = p?.id || '';
+            let name = '';
+            try { name = parseGenesisNameFromYaml(p.payload); } catch {}
+            const hit = (d && d.toLowerCase().includes(q)) || (name && name.toLowerCase().includes(q));
+            if (hit) results.push({ id: d, name: name || '(ohne Name)', type: 'patch' });
+          } catch {}
+        }
+      }
+      // Gruppieren nach id+type, jeweils jüngstes bevorzugen wäre möglich; hier einfache Dedup
+      const seen = new Set();
+      const dedup = [];
+      for (const r of results) {
+        const key = `${r.type}:${r.id}`;
+        if (!seen.has(key)) { seen.add(key); dedup.push(r); }
+      }
+      return dedup;
+    },
+
+    // API: saveOrUpdate({ id, name, type, yaml, pubkey })
+    async saveOrUpdate({ id, name, type, yaml, pubkey }) {
+      if (!id || !type || !yaml || !pubkey) throw new Error('Ungültige Parameter für saveOrUpdate');
+      const now = Math.floor(Date.now() / 1000);
+
+      if (type === 'genesis') {
+        // Prüfe vorhandene Genesis mit gleicher d=id
+        const existing = await this.getById(id);
+        if (existing && existing.type === 'genesis') {
+          if (existing.pubkey !== pubkey) {
+            const err = new Error('Keine Update-Rechte für diese worldId');
+            err.code = 'AUTH';
+            throw err;
+          }
+        }
+        // Signiere und speichere replaceable Genesis (30311) mit Tags ['d', id]
+        const tags = [['d', id]];
+        // optional 'a' Tag analog bestehendem Code nicht zwingend hier
+        const draft = { kind: 30311, created_at: now, tags, content: yaml, pubkey };
+        const evt = await this.ensureSigned(draft);
+        await this.publish(evt);
+        return { ok: true, id, kind: 30311, eventId: evt.id };
+      }
+
+      if (type === 'patch') {
+        // Patch: 30312, content JSON mit payload
+        const payload = { action: 'update', target: 'world', id, payload: yaml };
+        const draft = { kind: 30312, created_at: now, tags: [], content: JSON.stringify(payload), pubkey };
+        const evt = await this.ensureSigned(draft);
+        await this.publish(evt);
+        return { ok: true, id, kind: 30312, eventId: evt.id };
+      }
+
+      throw new Error('Unbekannter Typ in saveOrUpdate');
     },
 
     // Small helpers for common filters

@@ -5,13 +5,38 @@
  *  - Prüfe zuerst exakt die d=worldId gegen alle bekannten Autoren (bzw. ohne Autorenbindung),
  *    indem wir nach kind 30311 und "#d": [worldId] filtern (Relay-seitig wird "#d" unterstützt).
  *  - Falls Kollision, hänge einen Suffix an: "-<short>" und prüfe erneut (max. Versuche).
+ * Zusätzlich:
+ *  - generateUniqueId(): erzeugt eine kollisionsarme, URL-sichere ID (Base64URL ohne Padding).
  */
-
+ 
 function shortId() {
   try {
     return crypto.randomUUID().split('-')[0];
   } catch {
     return Math.random().toString(36).slice(2, 8);
+  }
+}
+
+/**
+ * Erzeugt eine zufällige, URL-sichere ID (Base64URL, ~22 Zeichen), kollisionsarm.
+ * Verwendet Crypto.getRandomValues, fällt sonst auf Math.random zurück.
+ */
+export function generateUniqueId(bytes = 16) {
+  try {
+    const arr = new Uint8Array(bytes);
+    crypto.getRandomValues(arr);
+    // Base64URL ohne Padding
+    let bin = '';
+    for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+    const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    return b64;
+  } catch {
+    // Fallback: hex aus Math.random
+    let s = '';
+    for (let i = 0; i < bytes; i++) {
+      s += Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+    }
+    return s;
   }
 }
 
