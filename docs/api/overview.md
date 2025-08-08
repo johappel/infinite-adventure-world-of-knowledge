@@ -74,3 +74,22 @@ Sicherheitsprinzipien
 Leistungsaspekte
 - Toposort O(N+E), Anwendung linear in der Anzahl Operationen.
 - Optionales Offloading in Web Worker/Worker Threads.
+
+YAML-Handling und originalYaml-Feld
+- Das `originalYaml`-Feld stellt sicher, dass der ursprüngliche YAML-Text beim Speichern und Laden erhalten bleibt
+- Beim Speichern einer Genesis:
+  - Der YAML-Content wird direkt als String im Event-Content gespeichert (kind 30311)
+  - Das `originalYaml`-Feld wird auf den YAML-String gesetzt
+- Beim Speichern eines Patches:
+  - Der YAML-Content wird im `payload`-Feld des Patch-Events gespeichert (kind 30312)
+  - Das `originalYaml`-Feld wird auf den YAML-String gesetzt
+- Beim Laden:
+  - Genesis: `originalYaml` = Event-Content (YAML-String)
+  - Patch: `originalYaml` = payload (YAML-String)
+- Der Editor verwendet `originalYaml` bevorzugt, um das ursprüngliche YAML-Format wiederherzustellen
+
+Diese Implementierung stellt sicher, dass:
+- Das ursprüngliche YAML-Format erhalten bleibt
+- Keine Datenverlust beim Roundtrip (Speichern → Laden) auftritt
+- Die Kompatibilität mit bestehenden YAML-Dateien gewahrt bleibt
+- Die neue Architektur mit @iakw/patchkit vollständig unterstützt wird

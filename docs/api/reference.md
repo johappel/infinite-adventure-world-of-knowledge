@@ -125,7 +125,7 @@ Typen (Auszug)
 Beispiele
 
 Genesis erzeugen
-- Datei: [examples/genesis-create.ts()](examples/genesis-create.ts:1)
+- Datei: [examples/genesis-create.ts](examples/genesis-create.ts:1)
 import { genesis, io } from "@iakw/patchkit"
 const g = await genesis.create({ name: "Base World", author_npub: "npub1..." })
 const report = await genesis.validate(g)
@@ -133,7 +133,7 @@ if (!report.valid) throw new Error("Genesis invalid")
 const yaml = genesis.serialize(g, "yaml")
 
 Patches anwenden
-- Datei: [examples/world-build.ts()](examples/world-build.ts:1)
+- Datei: [examples/world-build.ts](examples/world-build.ts:1)
 import { io, world } from "@iakw/patchkit"
 const g = await io.loadGenesis("gen_XYZ", genesisPort)
 const patches = await io.listPatchesByWorld("gen_XYZ", patchPort)
@@ -148,4 +148,39 @@ Konflikte erkennen
   "property": "temp",
   "patches": ["a1B2...", "z9Y8..."],
   "details": { "values": [40, 35] }
+}
+
+YAML-Handling und originalYaml-Feld
+- Das `originalYaml`-Feld wird verwendet, um den ursprünglichen YAML-Text beim Speichern und Laden zu erhalten
+- Genesis-Objekte und Patch-Objekte können ein `originalYaml`-Feld enthalten
+- Beim Speichern in Nostr-Events:
+  - Genesis (kind 30311): content = YAML-String
+  - Patch (kind 30312): content = JSON mit action, target, id, payload = YAML-String
+- Beim Laden aus Nostr-Events:
+  - Genesis: originalYaml = content (YAML-String)
+  - Patch: originalYaml = payload (YAML-String)
+- Der Editor verwendet `originalYaml` bevorzugt, um das ursprüngliche YAML-Format wiederherzustellen
+
+Beispiel für die Verwendung des originalYaml-Felds:
+```javascript
+// Genesis mit originalYaml erstellen
+const g = await genesis.create({ name: "Base World", author_npub: "npub1..." });
+g.originalYaml = yamlText; // Ursprünglicher YAML-Text
+
+// Patch mit originalYaml erstellen
+const p = await patch.create({ 
+  name: "Add Desert", 
+  author_npub: "npub1...", 
+  targets_world: "gen_XYZ" 
+});
+p.originalYaml = yamlText; // Ursprünglicher YAML-Text
+
+// Beim Laden
+if (genesis.originalYaml) {
+  // Verwende den ursprünglichen YAML-Text
+  editor.setYamlText(genesis.originalYaml);
+} else {
+  // Fallback auf die serialisierte Form
+  const yaml = genesis.serialize(genesis, "yaml");
+  editor.setYamlText(yaml);
 }

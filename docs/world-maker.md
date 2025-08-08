@@ -80,7 +80,7 @@ objects:
 | `stone_circle` | Steinkreis | Torus |
 | `crystal_knowledge` | Wissenskristall | Großer Octahedron |
 
-### Portale (`portals`)
+### Portale (`portales`)
 
 ```yaml
 portals:
@@ -308,3 +308,54 @@ console.log(app.zoneManager.loadedWorldDocs);
 // Aktuelles WorldDoc
 console.log(app.zoneManager.getCurrentWorldDoc());
 ```
+
+## Integration mit @iakw/patchkit
+
+Das YAML World System ist vollständig in die @iakw/patchkit-Architektur integriert:
+
+### YAML-Speicherung mit originalYaml
+
+- Beim Speichern einer YAML-Welt wird der ursprüngliche YAML-Text im `originalYaml`-Feld gespeichert
+- Dies stellt sicher, dass das ursprüngliche YAML-Format erhalten bleibt
+- Der Editor verwendet `originalYaml` bevorzugt, um das ursprüngliche YAML-Format wiederherzustellen
+
+### Nostr-Event-Struktur
+
+- Genesis-Events (kind 30311): content enthält direkt den YAML-String
+- Patch-Events (kind 30312): content enthält JSON mit action, target, id und payload (YAML-String)
+- Beim Laden wird originalYaml entsprechend gesetzt:
+  - Genesis: originalYaml = content (YAML-String)
+  - Patch: originalYaml = payload (YAML-String)
+
+### Beispiel für die Integration
+
+```javascript
+// YAML-Welt mit @iakw/patchkit speichern
+const yamlText = editor.getYamlText();
+const g = await editor.patchKit.genesis.create({
+  name: stripped?.name || 'Unbenannte Welt',
+  description: stripped?.description || '',
+  author_npub,
+  initialEntities: stripped?.entities || {},
+  rules: stripped?.rules || {}
+});
+// Speichere den ursprünglichen YAML-Text
+g.originalYaml = yamlText;
+
+// YAML-Welt mit @iakw/patchkit laden
+if (genesisEvt.originalYaml) {
+  // Verwende den ursprünglichen YAML-Text direkt
+  editor.setYamlText(genesisEvt.originalYaml);
+} else {
+  // Fallback auf die Genesis-Struktur
+  const worldObj = this.patchKit.genesis.parse(genesisEvt?.yaml || genesisEvt);
+  const text = this.serializeYaml(this.stripWorldId(worldObj));
+  editor.setYamlText(text);
+}
+```
+
+Diese Integration stellt sicher, dass:
+- Das ursprüngliche YAML-Format erhalten bleibt
+- Keine Datenverlust beim Roundtrip (Speichern → Laden) auftritt
+- Die Kompatibilität mit bestehenden YAML-Dateien gewahrt bleibt
+- Die neue Architektur mit @iakw/patchkit vollständig unterstützt wird

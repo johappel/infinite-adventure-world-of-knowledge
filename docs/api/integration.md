@@ -43,8 +43,8 @@ Ports und Adapter
 
 Adapter-Beispiele
 - Nostr (Browser/Node)
-  - Genesis: kind 30311 (d=genesis_id), Tags ["d", id], ["t","genesis"]; content = YAML/JSON
-  - Patch: kind 30312, content = Patch-JSON/YAML, Tags ["targets", genesis_id]
+  - Genesis: kind 30311 (d=genesis_id), Tags ["d", id], ["t","genesis"]; content = YAML-String
+  - Patch: kind 30312, content = Patch-JSON mit payload=YAML-String, Tags ["targets", genesis_id]
   - Signatur: nostr-tools (NIP-07 oder local signer)
 - FS (Node)
   - Verzeichnisstruktur:
@@ -54,15 +54,15 @@ Adapter-Beispiele
   - Dexie-basierter Store für Offline-Entwicklung
 
 Beispiel: Editor-Flow
-- Datei: [examples/genesis-create.ts()](examples/genesis-create.ts:1)
+- Datei: [examples/genesis-create.ts](examples/genesis-create.ts:1)
 import { genesis, io } from "@iakw/patchkit"
 const g = await genesis.create({ name: "Base", author_npub: "npub1..." })
 const rep = await genesis.validate(g)
 if (!rep.valid) throw new Error("Ungültige Genesis")
-const signed = await genesis.sign(g, signerPort)
+const signed = await genesis.sign(g)
 await io.genesis.save(signed)
 
-- Datei: [examples/patch-flow.ts()](examples/patch-flow.ts:1)
+- Datei: [examples/patch-flow.ts](examples/patch-flow.ts:1)
 import { patch, world, io } from "@iakw/patchkit"
 const p = await patch.create({ name: "Add Desert", author_npub: npub, targets_world: gid })
 const valid = await patch.validate(p)
@@ -90,7 +90,7 @@ World Editor Implementierung
 
 - Beispiel für die Verwendung des originalYaml-Felds:
 ```javascript
-// Beim Speichern
+// Beim Speichern einer Genesis
 const yamlText = editor.getYamlText();
 const g = await editor.patchKit.genesis.create({
   name: stripped?.name || 'Unbenannte Welt',
@@ -101,6 +101,15 @@ const g = await editor.patchKit.genesis.create({
 });
 // Speichere den ursprünglichen YAML-Text
 g.originalYaml = yamlText;
+
+// Beim Speichern eines Patches
+const p = await this.patchKit.patch.create({
+  targets_world: this.worldId,
+  author_npub,
+  operations: []
+});
+// Speichere den ursprünglichen YAML-Text
+p.originalYaml = yamlText;
 
 // Beim Laden
 if (genesisEvt.originalYaml) {
@@ -114,8 +123,15 @@ if (genesisEvt.originalYaml) {
 }
 ```
 
+- Nostr-Event-Struktur:
+  - Genesis-Events (kind 30311): content enthält direkt den YAML-String
+  - Patch-Events (kind 30312): content enthält JSON mit action, target, id und payload (YAML-String)
+  - Beim Laden wird originalYaml entsprechend gesetzt:
+    - Genesis: originalYaml = content (YAML-String)
+    - Patch: originalYaml = payload (YAML-String)
+
 Beispiel: Hauptspiel-World-Build
-- Datei: [examples/world-build.ts()](examples/world-build.ts:1)
+- Datei: [examples/world-build.ts](examples/world-build.ts:1)
 import { io, world } from "@iakw/patchkit"
 const g = await io.loadGenesis("gen_XYZ", genesisPort)
 const patches = await io.listPatchesByWorld("gen_XYZ", patchPort)
@@ -160,3 +176,5 @@ Konfiguration
 Sicherheitsaspekte
 - Strict parsing: keine YAML Aliase, Tiefe begrenzen
 - Signaturpflicht optional erzwingbar
+- Eingabehärtung: YAML-Parser mit Tiefe- und Größenlimits
+- Sichere Defaults und normalisierte Schlüssel
