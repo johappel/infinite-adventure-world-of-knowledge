@@ -141,9 +141,11 @@ description: 'Eine Test-Welt für Presets'
   <!-- App Scripts (modularisiert) -->
   <script type="module" src="./editor/js/toast.js"></script>
   <script type="module" src="./editor/js/patchkit-wiring.js"></script>
+  <script type="module" src="./editor/js/load.js"></script>
   <script type="module">
     import { bootstrapPresetEditor } from './editor/js/preset-editor.js';
     import { bootstrapPatchUI } from './editor/js/patch-ui.js';
+    import { initLoadFunctionality } from './editor/js/load.js';
 
     // Zusätzliche robuste Checks vor dem Start
     function assertGlobals() {
@@ -280,8 +282,14 @@ description: 'Eine Test-Welt für Presets'
         const ui = bootstrapPatchUI(editor.patchKit, editor.worldId || null);
         mkClickLoader(editor, ui);
 
-        // Presets auffüllen
-        populateLocalPresets();
+        // Load-Funktionalität initialisieren (Suche und Preset-Auswahl)
+        try {
+          const nostrService = editor.nostrService || await window.NostrServiceFactory.getNostrService();
+          await initLoadFunctionality(editor, nostrService);
+        } catch (e) {
+          console.error('Fehler beim Initialisieren der Load-Funktionalität:', e);
+          if (window.showToast) window.showToast('error', 'Load-Funktionalität konnte nicht initialisiert werden: ' + e.message);
+        }
 
         // Button-Handlings
         const newBtn = document.getElementById('newWorldBtn');
@@ -376,31 +384,8 @@ description: 'Eine Test-Welt für Presets'
           }
         });
 
-        // Preset-Wechsel lädt Beispiel-YAML
-        presetSelect?.addEventListener('change', () => {
-          const v = presetSelect.value;
-          if (!v) return;
-          const examples = {
-            simple_world: { name: 'Einfache Welt', entities: {}, rules: {} },
-            forest: { name: 'Wald-Zone', entities: { terrain: { t1: { kind: 'forest', density: 0.8 } } }, rules: {} },
-            library: { name: 'Bibliothek', entities: { building: { lib1: { kind: 'library' } } }, rules: {} },
-            collision_test: { name: 'Kollisionstest', entities: {}, rules: {} },
-            skybox_test: { name: 'Skybox Test', entities: {}, rules: {} },
-            player_test: { name: 'Player Test', entities: {}, rules: {} },
-            single_terrain: { name: 'Nur Terrain', entities: { terrain: { t1: { kind: 'plain' } } }, rules: {} },
-            single_object: { name: 'Nur Objekt', entities: { object: { o1: { kind: 'box' } } }, rules: {} },
-            single_persona: { name: 'Nur NPC', entities: { npc: { n1: { name: 'Bob' } } }, rules: {} },
-          };
-          const obj = examples[v] || { name: v, entities: {}, rules: {} };
-          try {
-            const text = jsyaml.dump(obj, { noRefs: true, lineWidth: 120 });
-            const ta = document.getElementById('yaml-editor');
-            if (ta) ta.value = text;
-            if (window.showToast) window.showToast('info', 'Preset geladen: ' + v);
-          } catch (e) {
-            console.error(e);
-          }
-        });
+        // Preset-Wechsel wird jetzt durch load.js gehandhabt
+        // Der alte Code wurde entfernt, da die Funktionalität in load.js implementiert ist
 
        
         // Identitäts-Hinweis (npub) anzeigen
