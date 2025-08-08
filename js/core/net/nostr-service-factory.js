@@ -96,7 +96,7 @@ function wrapInterface(serviceImpl) {
       return _ensureUniqueWorldId(this, desiredId, opts);
     },
 
-    // API: getById(id) → { id, name, type, yaml, pubkey } | null
+    // API: getById(id) → { id, name, type, yaml, originalYaml?, pubkey } | null
     async getById(id) {
       if (!id) return null;
       // Versuche: Genesis (30311) per '#d' und ggf. Patches (30312) mit d=id
@@ -105,7 +105,12 @@ function wrapInterface(serviceImpl) {
       if (gens && gens.length) {
         const latest = gens.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
         const name = parseGenesisNameFromYaml(latest.content);
-        return { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+        const result = { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+        
+        // Bei Genesis ist der Content direkt der YAML-Text, also setzen wir originalYaml = yaml
+        result.originalYaml = latest.content;
+        
+        return result;
       }
       // Fallback: breite Suche und manuelles Filtern (Dexie kompatibel)
       const broad = await this.get({ kinds: [30311] }).catch(() => []);
@@ -113,7 +118,12 @@ function wrapInterface(serviceImpl) {
       if (g2.length) {
         const latest = g2.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
         const name = parseGenesisNameFromYaml(latest.content);
-        return { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+        const result = { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+        
+        // Bei Genesis ist der Content direkt der YAML-Text, also setzen wir originalYaml = yaml
+        result.originalYaml = latest.content;
+        
+        return result;
       }
       // Falls keine Genesis: prüfe Patch 30312 (nimmt id als Ziel)
       const patches = await this.get({ kinds: [30312] }).catch(() => []);
@@ -127,8 +137,14 @@ function wrapInterface(serviceImpl) {
       if (matched.length) {
         const latest = matched.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
         let name = '';
-        try { const p = JSON.parse(latest.content); name = parseGenesisNameFromYaml(p.payload); } catch {}
-        return { id, name, type: 'patch', yaml: JSON.parse(latest.content).payload, pubkey: latest.pubkey };
+        const patchContent = JSON.parse(latest.content);
+        try { name = parseGenesisNameFromYaml(patchContent.payload); } catch {}
+        const result = { id, name, type: 'patch', yaml: patchContent.payload, pubkey: latest.pubkey };
+        
+        // Bei Patch ist der payload direkt der YAML-Text, also setzen wir originalYaml = payload
+        result.originalYaml = patchContent.payload;
+        
+        return result;
       }
       return null;
     },
@@ -168,8 +184,8 @@ function wrapInterface(serviceImpl) {
       return dedup;
     },
 
-    // API: saveOrUpdate({ id, name, type, yaml, pubkey })
-    async saveOrUpdate({ id, name, type, yaml, pubkey }) {
+    // API: saveOrUpdate({ id, name, type, yaml, originalYaml?, pubkey })
+    async saveOrUpdate({ id, name, type, yaml, originalYaml, pubkey }) {
       if (!id || !type || !yaml || !pubkey) throw new Error('Ungültige Parameter für saveOrUpdate');
       const now = Math.floor(Date.now() / 1000);
 
@@ -183,10 +199,15 @@ function wrapInterface(serviceImpl) {
             throw err;
           }
         }
+        
+        // Speichere den YAML-Content direkt als String im Event-Content
+        // Wenn originalYaml vorhanden ist, verwende es, sonst den yaml-Parameter
+        const contentToSave = originalYaml || yaml;
+        
         // Signiere und speichere replaceable Genesis (30311) mit Tags ['d', id]
         const tags = [['d', id]];
         // optional 'a' Tag analog bestehendem Code nicht zwingend hier
-        const draft = { kind: 30311, created_at: now, tags, content: yaml, pubkey };
+        const draft = { kind: 30311, created_at: now, tags, content: contentToSave, pubkey };
         const evt = await this.ensureSigned(draft);
         await this.publish(evt);
         return { ok: true, id, kind: 30311, eventId: evt.id };
@@ -194,7 +215,10 @@ function wrapInterface(serviceImpl) {
 
       if (type === 'patch') {
         // Patch: 30312, content JSON mit payload
-        const payload = { action: 'update', target: 'world', id, payload: yaml };
+        // Verwende originalYaml falls vorhanden, sonst yaml
+        const payloadToSave = originalYaml || yaml;
+        
+        const payload = { action: 'update', target: 'world', id, payload: payloadToSave };
         const draft = { kind: 30312, created_at: now, tags: [], content: JSON.stringify(payload), pubkey };
         const evt = await this.ensureSigned(draft);
         await this.publish(evt);

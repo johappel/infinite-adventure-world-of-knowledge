@@ -18,7 +18,7 @@ body {
   align-items: center;
 }
 .header h1 { color: #4fc3f7; font-size: 18px; }
-.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; position: relative;}
 .preset-selector {
   background: #3c3c3c; border: 1px solid #5a5a5a; color: #d4d4d4;
   padding: 6px 12px; border-radius: 4px;
@@ -57,6 +57,10 @@ body {
 
 .search-results {
   position:absolute; background:#252526; border:1px solid #3e3e42; max-height:250px; overflow:auto; z-index:10; min-width: 280px;
+  top: 100%; /* Positioniert das Element direkt unter dem Elternelement */
+  left: 0;
+  width: 100%;
+  margin-top: 2px; /* Kleiner Abstand zum Sucheingabefeld */
 }
 
 /* Toasts */

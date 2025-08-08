@@ -358,13 +358,20 @@ export function setupWorldSearch(editor, nostrService) {
             if (!it.yaml) {
               data = await nostr.getById(it.id);
             }
-            if (!data || !data.yaml) throw new Error('Kein YAML gefunden');
+            if (!data || (!data.yaml && !data.originalYaml)) throw new Error('Kein YAML gefunden');
             
-            // YAML parsen und root.id entfernen, dann Editor setzen
-            let spec = safeYamlParse(data.yaml);
-            spec = stripRootId(spec);
+            // Prüfe, ob originalYaml vorhanden ist (ursprünglicher YAML-Content)
+            let yamlContent = data.originalYaml || data.yaml;
             
-            if (yamlEditor) yamlEditor.value = safeYamlDump(spec);
+            // Wenn originalYaml vorhanden ist, verwende es direkt
+            if (data.originalYaml) {
+              if (yamlEditor) yamlEditor.value = yamlContent;
+            } else {
+              // Andernfalls parsen und root.id entfernen, dann Editor setzen
+              let spec = safeYamlParse(yamlContent);
+              spec = stripRootId(spec);
+              if (yamlEditor) yamlEditor.value = safeYamlDump(spec);
+            }
             
             // worldIdInput auf die externe ID setzen
             if (worldIdInput && data.id) worldIdInput.value = data.id;

@@ -264,12 +264,23 @@ export class PresetEditor {
         this._setStatus('Keine Genesis für World ID gefunden.', 'info');
         return;
       }
-      // parse erwartet den YAML-Inhalt
-      const worldObj = this.patchKit.genesis.parse(genesisEvt?.yaml || genesisEvt);
-      const text = this.serializeYaml(this.stripWorldId(worldObj));
-      this.setYamlText(text);
-      this._setStatus('World geladen und in YAML eingefügt.', 'success');
-      await this.updatePreviewFromObject(worldObj);
+      
+      // Prüfe, ob originalYaml vorhanden ist (ursprünglicher YAML-Content)
+      if (genesisEvt.originalYaml) {
+        // Wenn originalYaml vorhanden ist, verwende es direkt
+        this.setYamlText(genesisEvt.originalYaml);
+        this._setStatus('World geladen und in YAML eingefügt.', 'success');
+        // Parse für die Vorschau
+        const worldObj = this.parseYaml();
+        await this.updatePreviewFromObject(this.normalizeUserYaml(worldObj));
+      } else {
+        // Andernfalls parse den YAML-Inhalt wie bisher
+        const worldObj = this.patchKit.genesis.parse(genesisEvt?.yaml || genesisEvt);
+        const text = this.serializeYaml(this.stripWorldId(worldObj));
+        this.setYamlText(text);
+        this._setStatus('World geladen und in YAML eingefügt.', 'success');
+        await this.updatePreviewFromObject(worldObj);
+      }
     } catch (e) {
       this._setStatus('Fehler beim Laden: ' + e.message, 'error');
     }
@@ -281,6 +292,7 @@ export class PresetEditor {
       return;
     }
     try {
+      const yamlText = this.getYamlText();
       const parsedBeforeSave = this.parseYaml();
       if (!parsedBeforeSave) {
         this._setStatus('Kein YAML vorhanden.', 'info');
@@ -303,6 +315,10 @@ export class PresetEditor {
           author_npub,
           operations: []
         });
+        
+        // Speichere den ursprünglichen YAML-Text im Patch-Objekt
+        p.originalYaml = yamlText;
+        
         // Optional: Daten in operations verpacken (abhängig vom konkreten Datenmodell)
         const res = await this.patchKit.patch.validate(p);
         const valid = res?.valid === true || res === true;
@@ -323,7 +339,15 @@ export class PresetEditor {
           initialEntities: normalized?.entities || stripped?.entities || {},
           rules: normalized?.rules || stripped?.rules || {}
         });
-        const res = await this.patchKit.genesis.validate(g);
+        
+        // Speichere den ursprünglichen YAML-Text im Genesis-Objekt
+        g.originalYaml = yamlText;
+        
+        // Erstelle eine Kopie für die Validierung, ohne das originalYaml-Feld
+        const gForValidation = { ...g };
+        delete gForValidation.originalYaml;
+        
+        const res = await this.patchKit.genesis.validate(gForValidation);
         const valid = res?.valid === true || res === true;
         if (!valid) {
           const errors = Array.isArray(res?.errors) ? res.errors : [];

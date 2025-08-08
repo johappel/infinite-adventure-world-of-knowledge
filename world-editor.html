@@ -307,11 +307,41 @@ description: 'Eine Test-Welt für Presets'
               initialEntities: {},
               rules: {}
             });
+            
+            // Füge ein leeres originalYaml-Feld für neue Welten hinzu
+            g.originalYaml = '';
+            
             const signed = await editor.patchKit.genesis.sign(g);
             const saved = await editor.patchKit.io.genesisPort.save(signed);
             editor.worldId = saved?.worldId || g?.metadata?.id || null;
             const wInput = document.getElementById('worldIdInput');
             if (wInput) wInput.value = editor.worldId || '';
+            
+            // Setze einen leeren YAML-Content im Editor
+            const yamlEditor = document.getElementById('yaml-editor');
+            if (yamlEditor) {
+              yamlEditor.value = `# Neue Welt
+name: "Neue Welt"
+description: "Beschreibung hier einfügen"
+
+environment:
+  skybox: "sunset"
+  ambient_light: 0.6
+  sun_intensity: 0.8
+
+terrain:
+  type: "flat"
+  size: [20, 20]
+  color: "#4a4a4a"
+
+objects:
+  - type: "tree"
+    position: [0, 0, 0]
+    scale: [1, 1.5, 1]
+    color: "#1a4a1a"
+`;
+            }
+            
             if (window.showToast) window.showToast('success', 'Neue Welt erstellt: ' + (editor.worldId || 'unbekannt'));
           } catch (e) {
             console.error(e);
@@ -322,8 +352,12 @@ description: 'Eine Test-Welt für Presets'
         loadBtn?.addEventListener('click', async () => {
           const w = document.getElementById('worldIdInput')?.value?.trim();
           if (w) {
+            // Verwende die loadWorldById-Methode, die bereits originalYaml unterstützt
             await editor.loadWorldById(w);
-            await ui.load(w);
+            // Aktualisiere die UI, falls erforderlich
+            if (ui && typeof ui.load === 'function') {
+              await ui.load(w);
+            }
           } else {
             if (window.showToast) window.showToast('info', 'Bitte eine World ID eingeben.');
           }
@@ -331,9 +365,12 @@ description: 'Eine Test-Welt für Presets'
 
         saveG?.addEventListener('click', async () => {
           try {
+            const yamlText = editor.getYamlText();
             const obj = editor.parseYaml();
             const stripped = editor.stripWorldId(obj || {});
             const author_npub = await getAuthorNpub(editor);
+            
+            // Erstelle Genesis-Objekt, aber behalte den ursprünglichen YAML-Text bei
             const g = await editor.patchKit.genesis.create({
               name: stripped?.name || 'Unbenannte Welt',
               description: stripped?.description || '',
@@ -341,7 +378,15 @@ description: 'Eine Test-Welt für Presets'
               initialEntities: stripped?.entities || {},
               rules: stripped?.rules || {}
             });
-            const res = await editor.patchKit.genesis.validate(g);
+            
+            // Speichere den ursprünglichen YAML-Text im Genesis-Objekt
+            g.originalYaml = yamlText;
+            
+            // Erstelle eine Kopie für die Validierung, ohne das originalYaml-Feld
+            const gForValidation = { ...g };
+            delete gForValidation.originalYaml;
+            
+            const res = await editor.patchKit.genesis.validate(gForValidation);
             if (!(res?.valid === true || res === true)) {
               const errors = Array.isArray(res?.errors) ? res.errors : [];
               throw new Error('Genesis ungültig: ' + JSON.stringify(errors));

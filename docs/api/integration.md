@@ -69,6 +69,51 @@ const valid = await patch.validate(p)
 const { ordered } = await world.computeOrder([p])
 const { state } = await world.applyPatches(genesisState, ordered)
 
+World Editor Implementierung
+- Der World Editor (`world-editor.html`) bietet eine modulare Struktur mit separaten JavaScript-Modulen:
+  - `/editor/js/toast.js` - Toast-Benachrichtigungen
+  - `/editor/js/patchkit-wiring.js` - PatchKit IO Ports und Adapter
+  - `/editor/js/preset-editor.js` - Haupt-Editor-Klasse mit YAML-Handling
+  - `/editor/js/patch-ui.js` - Patch-UI v1 Logik
+  - `/editor/js/load.js` - Such- und Ladefunktionalität für Welten und Presets
+
+- Save/Load-Logik mit originalYaml-Feld:
+  - Beim Speichern wird der ursprüngliche YAML-Content im `originalYaml`-Feld des Genesis-Objekts gespeichert
+  - Beim Laden wird geprüft, ob ein `originalYaml`-Feld vorhanden ist, und dieses bevorzugt verwendet
+  - Dies stellt sicher, dass das ursprüngliche YAML-Format erhalten bleibt und nicht in die Genesis-Struktur umgewandelt wird
+  - Die Implementierung erfolgt in mehreren Schichten:
+    - `world-editor.html` - UI-Event-Handler für Speichern/Laden
+    - `editor/js/preset-editor.js` - Editor-Klassenmethoden für Save/Load
+    - `editor/js/load.js` - Such- und Ladefunktionalität
+    - `editor/js/patchkit-wiring.js` - IO-Ports für Genesis und Patch
+    - `js/core/net/nostr-service-factory.js` - Nostr-Service mit Unterstützung für originalYaml
+
+- Beispiel für die Verwendung des originalYaml-Felds:
+```javascript
+// Beim Speichern
+const yamlText = editor.getYamlText();
+const g = await editor.patchKit.genesis.create({
+  name: stripped?.name || 'Unbenannte Welt',
+  description: stripped?.description || '',
+  author_npub,
+  initialEntities: stripped?.entities || {},
+  rules: stripped?.rules || {}
+});
+// Speichere den ursprünglichen YAML-Text
+g.originalYaml = yamlText;
+
+// Beim Laden
+if (genesisEvt.originalYaml) {
+  // Verwende den ursprünglichen YAML-Text direkt
+  editor.setYamlText(genesisEvt.originalYaml);
+} else {
+  // Fallback auf die Genesis-Struktur
+  const worldObj = this.patchKit.genesis.parse(genesisEvt?.yaml || genesisEvt);
+  const text = this.serializeYaml(this.stripWorldId(worldObj));
+  editor.setYamlText(text);
+}
+```
+
 Beispiel: Hauptspiel-World-Build
 - Datei: [examples/world-build.ts()](examples/world-build.ts:1)
 import { io, world } from "@iakw/patchkit"

@@ -51,12 +51,19 @@ export function createPatchKitPorts(nostrService) {
       return nostrService?.getById ? nostrService.getById(id) : notImpl('getById')();
     },
     async save(signedGenesis) {
-      // saveOrUpdate erwartet { id, name, type:'genesis', yaml, pubkey }
+      // saveOrUpdate erwartet { id, name, type:'genesis', yaml, originalYaml?, pubkey }
       // Extrahiere minimal benötigte Felder aus signedGenesis
       const md = signedGenesis?.metadata || {};
       const yaml = PatchKit.genesis.serialize ? PatchKit.genesis.serialize(signedGenesis, 'yaml') : JSON.stringify(signedGenesis);
       const ident = await nostrService.getIdentity();
-      const payload = { id: md.id, name: md.name || '', type: 'genesis', yaml, pubkey: ident.pubkey };
+      const payload = {
+        id: md.id,
+        name: md.name || '',
+        type: 'genesis',
+        yaml,
+        originalYaml: signedGenesis.originalYaml, // originalYaml-Feld weitergeben
+        pubkey: ident.pubkey
+      };
       return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
     }
   };
@@ -72,7 +79,8 @@ export function createPatchKitPorts(nostrService) {
           const p = JSON.parse(e.content);
           if (p && p.id === worldId) {
             // Transformiere Event zu PatchKit-Objekt (roh, PatchKit.patch.parse kann weiter verarbeiten)
-            out.push({
+            // Speichere den YAML-Payload im originalYaml-Feld für den Editor
+            const patchObj = {
               metadata: {
                 schema_version: 'patchkit/1.0',
                 id: e.id || p.patch_id || p.id || '',
@@ -86,7 +94,14 @@ export function createPatchKitPorts(nostrService) {
                 overrides: Array.isArray(p.overrides) ? p.overrides : []
               },
               operations: Array.isArray(p.operations) ? p.operations : []
-            });
+            };
+            
+            // Speichere den YAML-Payload im originalYaml-Feld für den Editor
+            if (p.payload) {
+              patchObj.originalYaml = p.payload;
+            }
+            
+            out.push(patchObj);
           }
         } catch { /* ignore */ }
       }
@@ -99,9 +114,17 @@ export function createPatchKitPorts(nostrService) {
     async save(signedPatch) {
       // saveOrUpdate für patch
       const md = signedPatch?.metadata || {};
-      const yaml = PatchKit.patch.serialize ? PatchKit.patch.serialize(signedPatch, 'yaml') : JSON.stringify(signedPatch);
+      // Verwende originalYaml falls vorhanden, sonst serialisiere das Patch-Objekt
+      const yaml = signedPatch.originalYaml || (PatchKit.patch.serialize ? PatchKit.patch.serialize(signedPatch, 'yaml') : JSON.stringify(signedPatch));
       const ident = await nostrService.getIdentity();
-      const payload = { id: md.targets_world || md.id, name: md.name || '', type: 'patch', yaml, pubkey: ident.pubkey };
+      const payload = {
+        id: md.targets_world || md.id,
+        name: md.name || '',
+        type: 'patch',
+        yaml,
+        originalYaml: signedPatch.originalYaml, // originalYaml-Feld weitergeben
+        pubkey: ident.pubkey
+      };
       return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
     }
   };
