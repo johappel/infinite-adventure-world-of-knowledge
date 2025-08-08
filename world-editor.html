@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>World Editor</title>
+
+  <!-- Importmap (Three.js) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <!-- Vendor: Ajv + js-yaml + DOMPurify -->
+  <!-- Hinweis: ajv2020.min.js ist nicht in allen Versionen vorhanden.
+       Wir laden das UMD-Bundle ajv.min.js und aliasen es zu window.ajv2020. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ajv/8.12.0/ajv2020.bundle.min.js"></script>
+  <script>
+    (function ensureAjv2020Global(){
+      // Falls das UMD-Bundle Ajv global setzt, mappe auf ajv2020
+      if (typeof window.ajv2020 === 'undefined' && typeof window.Ajv !== 'undefined') {
+        window.ajv2020 = window.Ajv;
+      }
+      console.log('Ajv availability:', { Ajv: typeof window.Ajv, ajv2020: typeof window.ajv2020 });
+    })();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+  <!-- DOMPurify für robustes HTML-Escaping -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <!-- NostrServiceFactory vor dem Bootstrap global setzen -->
+  <script type="module">
+    import * as NS from './js/core/net/nostr-service-factory.js';
+    const factory = (NS && 'default' in NS) ? NS.default : NS;
+    window.NostrServiceFactory = factory;
+    console.log('NostrServiceFactory gesetzt?', !!window.NostrServiceFactory);
+    console.log('Ajv (ajv2020) global?', typeof window.ajv2020);
+    console.log('DOMPurify global?', typeof window.DOMPurify);
+  </script>
+
+  <!-- Editor CSS -->
+  <link rel="stylesheet" href="./editor/css/editor.css" />
+</head>
+<body>
+  <!-- Toast Root -->
+  <div id="toast-root" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <div class="header">
+    <h1>🎯 World Editor</h1>
+    <div class="controls">
+      <input class="preset-selector" id="worldSearchInput" placeholder="🔎 gespeicherte Welt suchen (ID, Name, npub…)" title="Suche in lokal gespeicherten Welt-Genesis (Dexie)">
+      <div id="worldSearchResults" class="search-results" style="display:none;"></div>
+      <!-- Hinweis: Preset/World-Dropdown wird clientseitig gefüllt; IDs müssen mit JS übereinstimmen -->
+
+      <select class="preset-selector" id="presetSelect" aria-label="Preset Template auswählen">
+        <option value="">Wähle Preset Template...</option>
+        <optgroup label="Lokale Presets (eingebaut)" id="localPresetsGroup">
+          <!-- Wird dynamisch befüllt -->
+        </optgroup>
+        <optgroup label="Worlds aus /worlds (*.yaml)" id="worldFilesGroup">
+          <option value="" disabled>(wird geladen …)</option>
+        </optgroup>
+      </select>
+
+      <input class="preset-selector" id="worldIdInput" placeholder="worldId (z.B. demo-world)" title="Welt-ID (NIP-33 d=worldId)">
+      <button class="btn" id="newWorldBtn" title="Neue leere Welt mit eindeutiger WORLD_ID">➕ Neu</button>
+      <button class="btn" id="loadWorldBtn" title="Genesis 30311 laden">🌐 Laden</button>
+      <button class="btn success" id="saveGenesisBtn" title="Als Genesis 30311 speichern">💾 Speichern (Genesis)</button>
+      <button class="btn" id="savePatchBtn" title="Als Patch 30312 speichern">🧩 Speichern (Patch)</button>
+
+      <button class="btn success" id="renderBtn">🎬 Rendern</button>
+      <button class="btn" id="resetBtn">🔄 Reset</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="left-panel">
+      <div class="panel-header">📝 YAML Editor</div>
+      <textarea class="yaml-editor" id="yaml-editor" placeholder="# Deine YAML-Welt hier eingeben...
+name: 'Test World'
+description: 'Eine Test-Welt für Presets'
+"></textarea>
+    </div>
+
+    <div class="right-panel">
+      <div class="panel-header">🎮 3D Vorschau</div>
+      <div class="canvas-container">
+        <canvas id="preview-canvas"></canvas>
+        <div class="loading" id="loadingIndicator">
+          <div>🌍 Welt wird geladen...</div>
+          <div class="subtext">THREE.js wird initialisiert</div>
+        </div>
+      </div>
+      <div class="status-bar">
+        <span id="status-bar">Bereit zum Rendern</span>
+        <span id="objectCount">0 Objekte</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patch UI v1 -->
+  <section id="patchUIContainer" aria-label="Patch-Verwaltung">
+    <aside id="patchListPanel" aria-label="Patches">
+      <header>
+        <strong>Patches</strong>
+        <input id="patchFilter" type="search" placeholder="Filter..." aria-label="Patch-Filter" />
+      </header>
+
+      <div id="applyUntilContainer">
+        <label for="preview-range" style="white-space:nowrap;">Preview bis:</label>
+        <input id="preview-range" type="range" min="0" max="0" value="0" step="1" />
+        <span id="applyUntilValue">0</span>
+      </div>
+
+      <div class="list" id="patch-list" role="listbox" aria-label="Patch-Liste"></div>
+    </aside>
+
+    <section>
+      <div id="patch-detail" aria-live="polite">
+        <div class="pd-title" id="pd-title">(keine Auswahl)</div>
+        <div class="pd-row" id="pd-id"></div>
+        <div class="pd-row" id="pd-author"></div>
+        <div class="pd-row" id="pd-date"></div>
+        <div class="pd-row" id="pd-deps"></div>
+        <label class="include-toggle"><input type="checkbox" id="pd-include" /> in Preview einbeziehen</label>
+        <div class="pd-warn" id="pd-cycle" style="display:none;"></div>
+      </div>
+
+      <section id="conflictsPanel" aria-live="polite">
+        <h3>Konflikte</h3>
+        <div id="conflicts-panel"></div>
+      </section>
+    </section>
+  </section>
+
+  <!-- App Scripts (modularisiert) -->
+  <script type="module" src="./editor/js/toast.js"></script>
+  <script type="module" src="./editor/js/patchkit-wiring.js"></script>
+  <script type="module">
+    import { bootstrapPresetEditor } from './editor/js/preset-editor.js';
+    import { bootstrapPatchUI } from './editor/js/patch-ui.js';
+
+    // Zusätzliche robuste Checks vor dem Start
+    function assertGlobals() {
+      const diag = {
+        hasAjv2020: typeof window.ajv2020 !== 'undefined',
+        hasYAML: typeof window.jsyaml !== 'undefined',
+        hasNostrFactory: typeof window.NostrServiceFactory !== 'undefined',
+        hasDOMPurify: typeof window.DOMPurify !== 'undefined'
+      };
+      console.log('Pre-Bootstrap Check:', diag);
+      if (!diag.hasAjv2020) throw new Error('Ajv2020 fehlt');
+      if (!diag.hasYAML) throw new Error('js-yaml fehlt');
+    }
+
+    async function resolvePatchKit() {
+      // Versuche zuerst ESM-Import; wenn nicht möglich, nutze window.PatchKit
+      try {
+        const mod = await import('./libs/patchkit/index.js');
+        const pk = mod?.default ?? mod;
+        // Akzeptiere sowohl Factory-Export (createApi) als auch bereits voll konstruiertes API-Objekt
+        if (pk && (typeof pk.createApi === 'function' || (pk.genesis && pk.patch && pk.world))) {
+          return pk;
+        }
+        console.warn('PatchKit ESM importiert, aber createApi fehlt. Export:', pk);
+      } catch (e) {
+        console.warn('PatchKit ESM Import fehlgeschlagen, versuche window.PatchKit:', e);
+      }
+      return typeof window.PatchKit !== 'undefined' ? window.PatchKit : undefined;
+    }
+
+    function validatePortsFromEditor(editor) {
+      // editor.patchKit kann fehlen, dann Diagnose über Ports aus wiring erforderlich.
+      // bootstrapPresetEditor soll intern PatchKit erstellen; wir prüfen danach.
+      const api = editor?.patchKit;
+      if (!api) return { ok: false, reason: 'editor.patchKit ist undefined' };
+      const ok = api.genesis && api.patch && api.world;
+      return { ok, reason: ok ? '' : 'api hat nicht alle Namespaces (genesis, patch, world)' };
+    }
+
+    function mkClickLoader(editor, ui) {
+      const loadBtn = document.getElementById('loadWorldBtn');
+      loadBtn?.addEventListener('click', async () => {
+        const w = document.getElementById('worldIdInput')?.value?.trim();
+        if (w) {
+          await editor.loadWorldById(w);
+          await ui.load(w);
+        }
+      });
+    }
+
+    // Hilfsfunktion: Optionen in #presetSelect befüllen
+    function populateLocalPresets() {
+      const local = [
+        { id: 'simple_world', label: 'Einfache Welt' },
+        { id: 'forest', label: 'Wald-Zone' },
+        { id: 'library', label: 'Bibliothek' },
+        { id: 'collision_test', label: 'Kollisions-Test' },
+        { id: 'skybox_test', label: 'Skybox Test' },
+        { id: 'player_test', label: 'YAML Player Test' },
+        { id: 'single_terrain', label: 'Nur Terrain' },
+        { id: 'single_object', label: 'Nur Objekt' },
+        { id: 'single_persona', label: 'Nur NPC' }
+      ];
+      const group = document.getElementById('localPresetsGroup');
+      if (group) {
+        group.innerHTML = '';
+        for (const p of local) {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.label;
+          group.appendChild(opt);
+        }
+      }
+    }
+
+    // Autor aus Nostr-Identität ermitteln (npub). Fällt robust auf 'npub0' zurück.
+    async function getAuthorNpub(editor) {
+      try {
+        if (editor?.nostrService && typeof editor.nostrService.getIdentity === 'function') {
+          const ident = await editor.nostrService.getIdentity();
+          return ident?.pubkey || 'npub0';
+        }
+        const svcMaybe = window.NostrServiceFactory?.getNostrService?.();
+        const svc = (svcMaybe && typeof svcMaybe.then === 'function') ? await svcMaybe : svcMaybe;
+        const ident = svc && typeof svc.getIdentity === 'function' ? await svc.getIdentity() : null;
+        return ident?.pubkey || 'npub0';
+      } catch {
+        return 'npub0';
+      }
+    }
+
+    (async () => {
+      try {
+        assertGlobals();
+
+        // Stelle sicher, dass PatchKit geladen werden kann (ESM oder window)
+        const PatchKit = await resolvePatchKit();
+        console.log('PatchKit presence', { moduleType: typeof PatchKit, hasWindowPK: typeof window.PatchKit !== 'undefined' });
+        if (!PatchKit) {
+          throw new Error('PatchKit nicht geladen (ESM/Window prüfen)');
+        }
+        // Wenn PatchKit bereits ein fertiges API ist (genesis/patch/world vorhanden), kann es direkt verwendet werden
+        const isReadyApi = !!(PatchKit.genesis && PatchKit.patch && PatchKit.world);
+        const hasFactory = typeof PatchKit.createApi === 'function';
+        if (!isReadyApi && !hasFactory) {
+          console.error('PatchKit Export:', PatchKit);
+          throw new Error('PatchKit weder fertiges API noch Factory (createApi) exportiert');
+        }
+
+        // Starte Editor-Bootstrap; dieser nutzt intern patchkit-wiring
+        const editor = await bootstrapPresetEditor();
+
+        // Fallback: wenn editor.patchKit leer ist, nutze entweder fertiges API oder die Factory
+        if (!editor?.patchKit) {
+          if (isReadyApi) {
+            console.warn('editor.patchKit nicht verfügbar – verwende PatchKit-API aus Modul-Export');
+            editor.patchKit = PatchKit;
+          } else if (hasFactory) {
+            console.warn('editor.patchKit nicht verfügbar – versuche direkte API-Erzeugung via PatchKit.createApi');
+            const api = await PatchKit.createApi({ ajv: window.ajv2020 });
+            if (api && api.world && api.patch && api.genesis) {
+              editor.patchKit = api;
+            }
+          }
+        }
+
+        const v = validatePortsFromEditor(editor);
+        if (!v.ok) {
+          console.error('PatchKit API Diagnose:', v.reason);
+          throw new Error('PatchKit API nicht verfügbar (Ajv/IO prüfen).');
+        }
+
+        // UI initialisieren
+        const ui = bootstrapPatchUI(editor.patchKit, editor.worldId || null);
+        mkClickLoader(editor, ui);
+
+        // Presets auffüllen
+        populateLocalPresets();
+
+        // Button-Handlings
+        const newBtn = document.getElementById('newWorldBtn');
+        const loadBtn = document.getElementById('loadWorldBtn');
+        const saveG = document.getElementById('saveGenesisBtn');
+        const saveP = document.getElementById('savePatchBtn');
+        const presetSelect = document.getElementById('presetSelect');
+
+        newBtn?.addEventListener('click', async () => {
+          try {
+            const author_npub = await getAuthorNpub(editor);
+            const g = await editor.patchKit.genesis.create({
+              name: 'Neue Welt',
+              author_npub,
+              initialEntities: {},
+              rules: {}
+            });
+            const signed = await editor.patchKit.genesis.sign(g);
+            const saved = await editor.patchKit.io.genesisPort.save(signed);
+            editor.worldId = saved?.worldId || g?.metadata?.id || null;
+            const wInput = document.getElementById('worldIdInput');
+            if (wInput) wInput.value = editor.worldId || '';
+            if (window.showToast) window.showToast('success', 'Neue Welt erstellt: ' + (editor.worldId || 'unbekannt'));
+          } catch (e) {
+            console.error(e);
+            if (window.showToast) window.showToast('error', 'Neu-Erstellung fehlgeschlagen: ' + e.message);
+          }
+        });
+
+        loadBtn?.addEventListener('click', async () => {
+          const w = document.getElementById('worldIdInput')?.value?.trim();
+          if (w) {
+            await editor.loadWorldById(w);
+            await ui.load(w);
+          } else {
+            if (window.showToast) window.showToast('info', 'Bitte eine World ID eingeben.');
+          }
+        });
+
+        saveG?.addEventListener('click', async () => {
+          try {
+            const obj = editor.parseYaml();
+            const stripped = editor.stripWorldId(obj || {});
+            const author_npub = await getAuthorNpub(editor);
+            const g = await editor.patchKit.genesis.create({
+              name: stripped?.name || 'Unbenannte Welt',
+              description: stripped?.description || '',
+              author_npub,
+              initialEntities: stripped?.entities || {},
+              rules: stripped?.rules || {}
+            });
+            const res = await editor.patchKit.genesis.validate(g);
+            if (!(res?.valid === true || res === true)) {
+              const errors = Array.isArray(res?.errors) ? res.errors : [];
+              throw new Error('Genesis ungültig: ' + JSON.stringify(errors));
+            }
+            const signed = await editor.patchKit.genesis.sign(g);
+            const saved = await editor.patchKit.io.genesisPort.save(signed);
+            editor.worldId = saved?.worldId || g?.metadata?.id || null;
+            const wInput = document.getElementById('worldIdInput');
+            if (wInput) wInput.value = editor.worldId || '';
+            if (window.showToast) window.showToast('success', 'Genesis gespeichert.');
+          } catch (e) {
+            console.error(e);
+            if (window.showToast) window.showToast('error', 'Speichern (Genesis) fehlgeschlagen: ' + e.message);
+          }
+        });
+
+        saveP?.addEventListener('click', async () => {
+          try {
+            if (!editor.worldId) {
+              if (window.showToast) window.showToast('info', 'Keine World ID gesetzt. Speichere zunächst eine Genesis.');
+              return;
+            }
+            const author_npub = await getAuthorNpub(editor);
+            const p = await editor.patchKit.patch.create({
+              targets_world: editor.worldId,
+              author_npub,
+              operations: []
+            });
+            const res = await editor.patchKit.patch.validate(p);
+            if (!(res?.valid === true || res === true)) {
+              const errors = Array.isArray(res?.errors) ? res.errors : [];
+              throw new Error('Patch ungültig: ' + JSON.stringify(errors));
+            }
+            const signed = await editor.patchKit.patch.sign(p);
+            await editor.patchKit.io.patchPort.save(signed);
+            if (window.showToast) window.showToast('success', 'Patch gespeichert.');
+          } catch (e) {
+            console.error(e);
+            if (window.showToast) window.showToast('error', 'Speichern (Patch) fehlgeschlagen: ' + e.message);
+          }
+        });
+
+        // Preset-Wechsel lädt Beispiel-YAML
+        presetSelect?.addEventListener('change', () => {
+          const v = presetSelect.value;
+          if (!v) return;
+          const examples = {
+            simple_world: { name: 'Einfache Welt', entities: {}, rules: {} },
+            forest: { name: 'Wald-Zone', entities: { terrain: { t1: { kind: 'forest', density: 0.8 } } }, rules: {} },
+            library: { name: 'Bibliothek', entities: { building: { lib1: { kind: 'library' } } }, rules: {} },
+            collision_test: { name: 'Kollisionstest', entities: {}, rules: {} },
+            skybox_test: { name: 'Skybox Test', entities: {}, rules: {} },
+            player_test: { name: 'Player Test', entities: {}, rules: {} },
+            single_terrain: { name: 'Nur Terrain', entities: { terrain: { t1: { kind: 'plain' } } }, rules: {} },
+            single_object: { name: 'Nur Objekt', entities: { object: { o1: { kind: 'box' } } }, rules: {} },
+            single_persona: { name: 'Nur NPC', entities: { npc: { n1: { name: 'Bob' } } }, rules: {} },
+          };
+          const obj = examples[v] || { name: v, entities: {}, rules: {} };
+          try {
+            const text = jsyaml.dump(obj, { noRefs: true, lineWidth: 120 });
+            const ta = document.getElementById('yaml-editor');
+            if (ta) ta.value = text;
+            if (window.showToast) window.showToast('info', 'Preset geladen: ' + v);
+          } catch (e) {
+            console.error(e);
+          }
+        });
+
+       
+        // Identitäts-Hinweis (npub) anzeigen
+        try {
+          const svcMaybe = window.NostrServiceFactory?.getNostrService?.();
+          const svc = (svcMaybe && typeof svcMaybe.then === 'function') ? await svcMaybe : svcMaybe;
+          const ident = svc && typeof svc.getIdentity === 'function' ? await svc.getIdentity() : null;
+          if (ident?.pubkey && window.showToast) {
+            window.showToast('info', 'Angemeldet als npub: ' + ident.pubkey);
+          }
+        } catch {}
+
+        console.log('Bootstrap erfolgreich abgeschlossen.');
+      } catch (e) {
+        console.error('Bootstrap-Fehler:', e);
+        if (window.showToast) window.showToast('error', 'Bootstrap fehlgeschlagen: ' + e.message);
+      }
+    })();
+  </script>
+</body>
+</html>

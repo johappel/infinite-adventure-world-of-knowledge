@@ -1,0 +1,27 @@
+name: "Wegweiser"
+description: "Fügt Weggweiser an den Eingängen hinzu"
+objects:
+  - type: box
+    position: [0, 1, 30]
+    scale: [0.3, 2, 0.3]
+    color: "#654321"
+    
+  - type: box  
+    position: [20, 1, 20]
+    scale: [0.3, 2, 0.3]
+    color: "#654321"
+    
+  - type: box
+    position: [30, 1, 0] 
+    scale: [0.3, 2, 0.3]
+    color: "#654321"
+    
+  - type: box
+    position: [-15, 1, -15]
+    scale: [0.3, 2, 0.3] 
+    color: "#654321"
+    
+  - type: box
+    position: [-25, 1, 5]
+    scale: [0.3, 2, 0.3]
+    color: "#654321"

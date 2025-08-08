@@ -1,0 +1,152 @@
+/**
+ * PatchKit Wiring
+ * Bindet PatchKit-IO an den Nostr-Service und mappt auf die erwarteten Facade-Methoden der lokalen PatchKit-Implementierung.
+ * Erwartet: libs/patchkit/index.js (ESM) verfügbar. Nostr-Service kann optional sein.
+ *
+ * WICHTIG: libs/patchkit/index.js erwartet Ports mit Methodennamen:
+ *   genesisPort: { getById(id), save(signedGenesis) }
+ *   patchPort:   { listByWorld(worldId), getById(id), save(signedPatch) }
+ * Siehe libs/patchkit/index.js io-Fassade.
+ */
+
+import PatchKit from '../../libs/patchkit/index.js';
+
+// Optional: Globale Debug-Refs
+const debug = (name, val) => { try { window[name] = val; } catch {} };
+
+export function createAjvInstanceIfNeeded() {
+  // PatchKit intern nutzt ensureAjv(); wir übergeben ajv nur, wenn vorhanden.
+  // Browser-CDN-Varianten: window.ajv2020 (PatchKit nutzt diese intern), oder klassische window.Ajv.
+  const AjvFromPatchKit = null; // nicht benötigt, PatchKit lädt selbst via window.ajv2020
+  const AjvGlobal =
+    (typeof window !== 'undefined' && (window.Ajv || window.ajv || window.AJV || window.ajv2020))
+    || (typeof Ajv !== 'undefined' ? Ajv : undefined);
+  // Wenn keine Ajv-Klasse da ist, lassen wir PatchKit ohne Ajv laufen (nutzt Fallback-Validation).
+  if (!AjvGlobal) return null;
+  try {
+    // Wenn ajv2020 vorhanden ist, übergeben wir keine Instanz, da PatchKit selbst initialisiert.
+    if (typeof window !== 'undefined' && window.ajv2020) return null;
+    return new AjvGlobal({ allErrors: true, strict: false });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Adapter auf erwartete Ports der PatchKit-io-Fassade.
+ * Mapping von vorhandenen NostrService-Methoden auf:
+ *  - genesisPort.getById(id)
+ *  - genesisPort.save(signedGenesis)
+ *  - patchPort.listByWorld(worldId)
+ *  - patchPort.getById(id)
+ *  - patchPort.save(signedPatch)
+ */
+export function createPatchKitPorts(nostrService) {
+  // Wenn kein Service vorliegt, liefern wir Ports, die definierte Fehler werfen/leer liefern.
+  const notImpl = (name) => async () => { throw new Error(`NostrService.${name} ist nicht implementiert`); };
+
+  const genesisPort = {
+    async getById(id) {
+      // nostr-service-factory.js bietet getById(id) auf dem Service-Wrapper
+      return nostrService?.getById ? nostrService.getById(id) : notImpl('getById')();
+    },
+    async save(signedGenesis) {
+      // saveOrUpdate erwartet { id, name, type:'genesis', yaml, pubkey }
+      // Extrahiere minimal benötigte Felder aus signedGenesis
+      const md = signedGenesis?.metadata || {};
+      const yaml = PatchKit.genesis.serialize ? PatchKit.genesis.serialize(signedGenesis, 'yaml') : JSON.stringify(signedGenesis);
+      const ident = await nostrService.getIdentity();
+      const payload = { id: md.id, name: md.name || '', type: 'genesis', yaml, pubkey: ident.pubkey };
+      return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
+    }
+  };
+
+  const patchPort = {
+    async listByWorld(worldId) {
+      // Service hat keine direkte listByWorld; implementiere via get({kinds:[30312]}) und Filter
+      if (!nostrService?.get) return [];
+      const evts = await nostrService.get({ kinds: [30312] }).catch(() => []);
+      const out = [];
+      for (const e of evts) {
+        try {
+          const p = JSON.parse(e.content);
+          if (p && p.id === worldId) {
+            // Transformiere Event zu PatchKit-Objekt (roh, PatchKit.patch.parse kann weiter verarbeiten)
+            out.push({
+              metadata: {
+                schema_version: 'patchkit/1.0',
+                id: e.id || p.patch_id || p.id || '',
+                name: p.name || '',
+                description: p.description || '',
+                author_npub: e.pubkey || '',
+                created_at: e.created_at || 0,
+                version: p.version || '',
+                targets_world: p.id || worldId,
+                depends_on: Array.isArray(p.depends_on) ? p.depends_on : [],
+                overrides: Array.isArray(p.overrides) ? p.overrides : []
+              },
+              operations: Array.isArray(p.operations) ? p.operations : []
+            });
+          }
+        } catch { /* ignore */ }
+      }
+      return out;
+    },
+    async getById(id) {
+      // nutze Service.getById; gibt ggf. { id, type, yaml } zurück
+      return nostrService?.getById ? nostrService.getById(id) : notImpl('getById')();
+    },
+    async save(signedPatch) {
+      // saveOrUpdate für patch
+      const md = signedPatch?.metadata || {};
+      const yaml = PatchKit.patch.serialize ? PatchKit.patch.serialize(signedPatch, 'yaml') : JSON.stringify(signedPatch);
+      const ident = await nostrService.getIdentity();
+      const payload = { id: md.targets_world || md.id, name: md.name || '', type: 'patch', yaml, pubkey: ident.pubkey };
+      return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
+    }
+  };
+
+  debug('genesisPortRef', genesisPort);
+  debug('patchPortRef', patchPort);
+  return { genesisPort, patchPort };
+}
+
+/**
+ * Stellt ein PatchKit-API-Objekt bereit: { genesis, patch, world, io?, ajv?, io:{genesisPort,patchPort} }
+ */
+export async function createPatchKitAPI(nostrService) {
+  // Ajv optional; PatchKit kann ohne Ajv mit Fallback prüfen.
+  const ajv = createAjvInstanceIfNeeded() || undefined;
+
+  // Nostr-Service auto-erzeugen, falls nicht übergeben
+  let service = nostrService;
+  if (!service && typeof window !== 'undefined' && window.NostrServiceFactory) {
+    try {
+      // Factory liefert ein Interface mit getById/saveOrUpdate/get/etc.
+      const resolved = await awaitOrNull(window.NostrServiceFactory.getNostrService);
+      service = resolved || (typeof window.NostrServiceFactory.create === 'function' ? window.NostrServiceFactory.create() : null);
+    } catch { service = null; }
+  }
+
+  const { genesisPort, patchPort } = createPatchKitPorts(service);
+
+  // PatchKit-Namespaces holen
+  const kit = PatchKit; // default export mit { genesis, patch, world, io }
+  const api = { genesis: kit.genesis, patch: kit.patch, world: kit.world, ajv, io: { genesisPort, patchPort } };
+  debug('PatchKitAPI', api);
+  return api;
+}
+
+// Hilfsfunktion: ruft eine evtl. async Factory-Funktion auf oder gibt null zurück
+async function awaitOrNull(fn) {
+  try {
+    if (typeof fn === 'function') {
+      const r = fn();
+      return (r && typeof r.then === 'function') ? await r : r;
+    }
+  } catch {}
+  return null;
+}
+
+// Optional: globaler Fallback
+try { window.createPatchKitAPI = createPatchKitAPI; } catch {}

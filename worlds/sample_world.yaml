@@ -1,0 +1,255 @@
+# seed wird automatisch aus worldid generert generiert
+name: "Beispiel einer YAML-WELT"
+description: "Testet verschiedene YAML-Funktionen wie Terrain, Objekte, Personas und Portale"
+
+
+environment:
+  skybox: clear_day
+  time_of_day: 0.9
+  ambient_light: 0.5
+  sun_intensity: 0.3
+  fog_distance: 30
+
+
+terrain:
+  type: hills
+  size: [80, 80]
+  amplitude: 1.5
+  flat_radius: 3
+  blend_radius: 12
+  color: "#4a7c1e"
+  texture: grass_texture
+  
+  # Wege
+  paths:
+    # Zentraler Dorfkreis
+    - points:
+        # Vollständiger Kreis mit 24 Punkten für glatte Rundung
+        - [0, 8]      # Norden
+        - [2.1, 7.7]  # NNO
+        - [4, 6.9]    # NO
+        - [5.7, 5.7]  # ONO
+        - [6.9, 4]    # O
+        - [7.7, 2.1]  # OSO
+        - [8, 0]      # Süden
+        - [7.7, -2.1] # SSO
+        - [6.9, -4]   # SO
+        - [5.7, -5.7] # SSO
+        - [4, -6.9]   # S
+        - [2.1, -7.7] # SSW
+        - [0, -8]     # Süden
+        - [-2.1, -7.7] # SSW
+        - [-4, -6.9]  # SW
+        - [-5.7, -5.7] # WSW
+        - [-6.9, -4]  # W
+        - [-7.7, -2.1] # WNW
+        - [-8, 0]     # Westen
+        - [-7.7, 2.1] # WNW
+        - [-6.9, 4]   # NW
+        - [-5.7, 5.7] # NNW
+        - [-4, 6.9]   # N
+        - [-2.1, 7.7] # NNO
+        - [0, 8]      # Zurück zum Start für geschlossenen Kreis
+      smooth: true
+      
+    # Weg 1: Von Norden zum Dorfkreis
+    - points:
+        - [0, 35]     # Startpunkt weit im Norden
+        - [0, 25]     # Zwischenpunkt
+        - [0, 15]     # Annäherung
+        - [0, 8]      # Anschluss an Dorfkreis
+      smooth: true
+      
+    # Weg 2: Von Nordosten zum Dorfkreis  
+    - points:
+        - [25, 25]    # Startpunkt Nordost
+        - [18, 18]    # Zwischenpunkt
+        - [12, 12]    # Annäherung
+        - [5.7, 5.7]  # Anschluss an Dorfkreis
+      smooth: true
+      
+    # Weg 3: Von Osten zum Dorfkreis
+    - points:
+        - [35, 0]     # Startpunkt Osten
+        - [25, 0]     # Zwischenpunkt
+        - [15, 0]     # Annäherung
+        - [6.9, 0]    # Anschluss an Dorfkreis (leicht angepasst)
+      smooth: true
+      
+    # Weg 4: Von Südwesten zum Dorfkreis
+    - points:
+        - [-20, -20]  # Startpunkt Südwest
+        - [-15, -15]  # Zwischenpunkt
+        - [-10, -10]  # Annäherung
+        - [-5.7, -5.7] # Anschluss an Dorfkreis
+      smooth: true
+      
+    # Weg 5: Von Westen zum Dorfkreis
+    - points:
+        - [-30, 5]    # Startpunkt Westen (leicht versetzt)
+        - [-22, 3]    # Zwischenpunkt
+        - [-15, 2]    # Annäherung
+        - [-7.7, 1]   # Anschluss an Dorfkreis
+      smooth: true
+  
+  path_options:
+    pathWidth: 18
+    pathColor: "#8b7355"
+
+objects:
+  # Dorfgebäude um den Kreis herum
+  - type: house_simple
+    position: [3, 0, 10]
+    rotation: [0, 0.5, 0]
+    
+  - type: house_large  
+    position: [-5, 0, 9]
+    rotation: [0, -0.3, 0]
+    
+  - type: barn
+    position: [8, 0, 3]
+    rotation: [0, 1.2, 0]
+    
+  - type: well
+    position: [0, 0, 0]  # Brunnen in der Dorfmitte
+    
+  - type: church
+    position: [-2, 0, -8]
+    rotation: [0, 3.14, 0]
+    
+  - type: windmill
+    position: [12, 0, -2]
+    rotation: [0, 0.8, 0]
+    
+
+  
+# Objekte mit kollektiver Generierung für besseren Test
+  - collections: ["forest_objects"]
+    number: 15
+    seed: "terrain_test_objects"
+    avoid_paths: true
+    min_path_distance: 3
+	
+  - collections: ["rocks"]
+    count: 8
+
+personas:
+  # Haupt-Guide im Zentrum
+  - preset: "npc_guardian"
+    name: "Welt-Guide Aurora"
+    position: [0, 0, 4]
+    dialogue:
+      opening: |
+        🌟 Willkommen, Abenteurer! Ich bin Aurora, dein Guide durch die unendlichen Welten.
+        
+        Hier lernst du die Grundlagen:
+        • WASD = Bewegung, Maus = Kamera
+        • E = Interaktion mit Objekten und NPCs
+        • Shift + Bewegung = Laufen
+        
+        Besuche meine Kollegen für spezielle Tutorials:
+        👉 BLAUER Kreis: Grundlagen & Navigation  
+        👈 ROTER Kreis: Welt-Editor Tutorial
+        📚 Bücherregal: Dokumentation
+        
+        Oder wähle direkt eine vorgefertigte Welt aus dem Menü oben!
+        
+        Was möchtest du zuerst erkunden?
+      responses:
+        A: "Zeig mir die Grundlagen!"
+        B: "Ich möchte eine Beispielwelt besuchen"
+        C: "Erkläre mir den Welt-Editor"
+  
+  # Tutorial-NPC für Grundlagen
+  - preset: "npc_scholar"
+    name: "Professor Basics"
+    position: [1, 0, 1]
+    dialogue:
+      opening: |
+        🎓 Willkommen zur Grundlagen-Akademie!
+        
+        Hier lernst du:
+        • Bewegung und Kamera-Steuerung
+        • Interaktion mit Objekten
+        • Navigation zwischen Welten
+        • Chat-System nutzen
+        
+        Die Kristalle und Objekte hier sind alle interaktiv - probiere es aus!
+        Drücke E um mit allem zu interagieren.
+        
+        Tipp: Halte die rechte Maustaste und bewege die Maus für freie Kamerasicht!
+        
+  # Editor-Tutorial NPC
+  - preset: "npc_fairy"
+    name: "Kreatia die Builder-Fee"
+    position: [-1, 0, -2]
+    dialogue:
+      opening: |
+        ✨ Hi! Ich zeige dir, wie du eigene Welten erschaffst!
+        
+        Es gibt mehrere Wege:
+        🔧 Einfach: Nutze die Buttons oben für zufällige Welten
+        📝 Fortgeschritten: YAML-Editor für präzise Kontrolle
+        🎨 Kreativ: Preset-Editor für Experimente
+        
+        YAML ist super einfach:
+        ```yaml
+        terrain:
+          preset: "forest_floor"
+        objects:
+          - preset: "tree_simple"
+            position: [5, 0, 5]
+        ```
+        
+        Klick auf die YAML-Buttons oben zum Ausprobieren!
+        
+  # Dokumentations-NPC
+  - preset: "npc_plain"
+    name: "Bib Liothek"
+    position: [0, 0, 1]
+    dialogue:
+      opening: |
+        📖 Willkommen in der Wissensbibliothek!
+        
+        Alle Anleitungen findest du hier:
+        • /docs/ Ordner im Projekt
+        • Preset-Guide für YAML-Welten
+        • API-Referenz für Entwickler
+        
+        Häufige Fragen:
+        Q: Wie lade ich eine YAML-Datei?
+        A: Nutze yamlHelpers.loadZone('pfad.yaml') in der Konsole
+        
+        Q: Wie erstelle ich eigene Presets?
+        A: Schaue in /js/presets/ für Beispiele
+        
+        Viel Spaß beim Erforschen! 🚀
+
+portals:
+  # Portale zu Beispielwelten
+  - id: "forest-demo"
+    position: [15, 1.5, 0]
+    target: "zone-forest"
+    size: [1.0, 2.5, 0.3]
+    color: "#228b22"
+    
+  - id: "start-demo"  
+    position: [-15, 1.5, 0]
+    target: "zone-start"
+    size: [1.0, 2.5, 0.3]
+    color: "#4169e1"
+    
+  - id: "archive-demo"
+    position: [0, 1.5, 15]
+    target: "zone-archive"
+    size: [1.0, 2.5, 0.3]
+    color: "#daa520"
+
+
+extensions:
+  scripts_enabled: true
+  multiplayer_spawn: [0, 0, 0]
+
+camera:
+  position: [0, 15, 30]
+  target: [0, 0, 0]
