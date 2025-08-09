@@ -58,31 +58,51 @@ export class ThreeJSManager {
     }
 
     async renderWorld(worldData) {
-        if (!this.initialized) await this.init();
+        console.log('🌍 [Integrationstest] ThreeJSManager.renderWorld aufgerufen mit worldData:', worldData);
+        
+        if (!this.initialized) {
+            console.log('🔄 [Integrationstest] Three.js nicht initialisiert, initialisiere jetzt...');
+            await this.init();
+        }
         
         try {
+            console.log('🧹 [Integrationstest] Setze Szene zurück');
             this.resetScene();
             
             // Konvertiere das Genesis-Format in das für die Weltgenerierung erwartete Format
+            console.log('🔄 [Integrationstest] Konvertiere Genesis-Format in World-Format');
             const convertedWorldData = this.convertGenesisToWorldFormat(worldData);
+            console.log('✅ [Integrationstest] Konvertierte Daten:', convertedWorldData);
             
+            console.log('🔍 [Integrationstest] Rufe resolveWorldSpec auf');
             const spec = resolveWorldSpec(convertedWorldData);
+            console.log('✅ [Integrationstest] World-Spec:', spec);
+            
             const rng = Math.random;
             
             // Zone OHNE Umgebung bauen (nur Geometrie)
+            console.log('🏗️ [Integrationstest] Baue Zone ohne Umgebung');
             const zoneInfo = buildZoneFromSpec(spec, { rng, skipEnvironment: true });
+            console.log('✅ [Integrationstest] Zone gebaut:', zoneInfo);
+            
             this.currentZone = zoneInfo;
             this.scene.add(this.currentZone.group);
+            console.log('📦 [Integrationstest] Zone zur Szene hinzugefügt');
             
             // Umgebung (Skybox, Lichter, Nebel) auf die Hauptszene anwenden
             if (spec.environment) {
+                console.log('🌅 [Integrationstest] Wende Umgebung an');
                 const { applyEnvironment } = await import('../../js/world-generation/environment.js');
                 applyEnvironment(spec.environment, this.scene);
+                console.log('✅ [Integrationstest] Umgebung angewendet');
+            } else {
+                console.log('ℹ️ [Integrationstest] Keine Umgebung in Spec gefunden');
             }
             
+            console.log('🎉 [Integrationstest] renderWorld erfolgreich abgeschlossen, gebe zoneInfo zurück:', zoneInfo);
             return zoneInfo;
         } catch (error) {
-            console.error('World Rendering Error:', error);
+            console.error('❌ [Integrationstest] World Rendering Error:', error);
             throw error;
         }
     }
@@ -303,7 +323,12 @@ export class ThreeJSManager {
 
     // Konvertiert das Genesis-Format in das für die Weltgenerierung erwartete Format
     convertGenesisToWorldFormat(genesisData) {
-        if (!genesisData) return {};
+        console.log('🔄 [Integrationstest] convertGenesisToWorldFormat aufgerufen mit genesisData:', genesisData);
+        
+        if (!genesisData) {
+            console.warn('⚠️ [Integrationstest] Keine genesisData übergeben, gebe leeres Objekt zurück');
+            return {};
+        }
         
         const worldData = {
             name: genesisData.metadata?.name || 'Unbenannte Welt',
@@ -311,37 +336,47 @@ export class ThreeJSManager {
             zone_id: genesisData.metadata?.id || 'default_zone'
         };
         
+        console.log('📋 [Integrationstest] Basis-Welt-Daten erstellt:', worldData);
+        
         const entities = genesisData.entities || {};
+        console.log('📦 [Integrationstest] Entities gefunden:', Object.keys(entities));
         
         // Environment
         if (entities.environment) {
             const envKeys = Object.keys(entities.environment);
+            console.log('🌅 [Integrationstest] Environment-Keys:', envKeys);
             if (envKeys.length > 0) {
                 worldData.environment = entities.environment[envKeys[0]];
+                console.log('✅ [Integrationstest] Environment hinzugefügt:', worldData.environment);
             }
         }
         
         // Terrain
         if (entities.terrain) {
             const terrainKeys = Object.keys(entities.terrain);
+            console.log('🏔️ [Integrationstest] Terrain-Keys:', terrainKeys);
             if (terrainKeys.length > 0) {
                 worldData.terrain = entities.terrain[terrainKeys[0]];
+                console.log('✅ [Integrationstest] Terrain hinzugefügt:', worldData.terrain);
             }
         }
         
         // Objects
         if (entities.object) {
             worldData.objects = Object.values(entities.object);
+            console.log('📦 [Integrationstest] Objects hinzugefügt:', worldData.objects.length, 'Objekte');
         }
         
         // Personas
         if (entities.persona) {
             worldData.personas = Object.values(entities.persona);
+            console.log('👤 [Integrationstest] Personas hinzugefügt:', worldData.personas.length, 'Personas');
         }
         
         // Portals
         if (entities.portal) {
             worldData.portals = Object.values(entities.portal);
+            console.log('🌀 [Integrationstest] Portals hinzugefügt:', worldData.portals.length, 'Portale');
         }
         
         // Extensions
@@ -352,16 +387,20 @@ export class ThreeJSManager {
                     worldData.extensions[extension.name] = extension.value !== undefined ? extension.value : extension;
                 }
             }
+            console.log('🔧 [Integrationstest] Extensions hinzugefügt:', Object.keys(worldData.extensions));
         }
         
         // Camera
         if (entities.camera) {
             const cameraKeys = Object.keys(entities.camera);
+            console.log('📷 [Integrationstest] Camera-Keys:', cameraKeys);
             if (cameraKeys.length > 0) {
                 worldData.camera = entities.camera[cameraKeys[0]];
+                console.log('✅ [Integrationstest] Camera hinzugefügt:', worldData.camera);
             }
         }
         
+        console.log('🎉 [Integrationstest] Konvertierung abgeschlossen, gebe worldData zurück:', worldData);
         return worldData;
     }
 

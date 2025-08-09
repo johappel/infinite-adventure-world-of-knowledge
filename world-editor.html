@@ -71,7 +71,7 @@
       <button class="btn" id="newWorldBtn" title="Neue leere Welt mit eindeutiger WORLD_ID">➕ Neu</button>
       <button class="btn" id="loadWorldBtn" title="Genesis 30311 laden">🌐 Laden</button>
       <button class="btn success" id="saveGenesisBtn" title="Als Genesis 30311 speichern">💾 Speichern (Genesis)</button>
-      <button class="btn" id="savePatchBtn" title="Als Patch 30312 speichern">🧩 Speichern (Patch)</button>
+      <button class="btn" id="savePatchBtn" title="Als Patch 30312 speichern" style="display: none;">🧩 Speichern (Patch)</button>
 
       <button class="btn success" id="renderBtn">🎬 Rendern</button>
       <button class="btn" id="resetBtn">🔄 Reset</button>
@@ -81,10 +81,34 @@
   <div class="container">
     <div class="left-panel">
       <div class="panel-header">📝 YAML Editor</div>
-      <textarea class="yaml-editor" id="yaml-editor" placeholder="# Deine YAML-Welt hier eingeben...
+      
+      <!-- Tab-Navigation -->
+      <div class="tab-navigation">
+        <button class="tab-button active" data-tab="world">Welt: <span id="worldName">Unbenannt</span></button>
+        <button class="tab-button" data-tab="patch">Patch: <span id="patchName">Neuer Patch</span></button>
+      </div>
+      
+      <!-- Tab-Inhalte -->
+      <div class="tab-content active" id="world-tab">
+        <textarea class="yaml-editor" id="world-yaml-editor" placeholder="# Deine YAML-Welt hier eingeben...
 name: 'Test World'
 description: 'Eine Test-Welt für Presets'
 "></textarea>
+      </div>
+      <div class="tab-content" id="patch-tab">
+        <textarea class="yaml-editor" id="patch-yaml-editor" placeholder="# Deinen YAML-Patch hier eingeben...
+metadata:
+  name: 'Mein Patch'
+  description: 'Beschreibung des Patches'
+operations:
+  - type: add
+    entity_type: objects
+    entity_id: 'new_object'
+    payload:
+      name: 'Neues Objekt'
+      position: [0, 0, 0]
+"></textarea>
+      </div>
     </div>
 
     <div class="right-panel">

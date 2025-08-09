@@ -359,3 +359,30 @@ Diese Integration stellt sicher, dass:
 - Keine Datenverlust beim Roundtrip (Speichern → Laden) auftritt
 - Die Kompatibilität mit bestehenden YAML-Dateien gewahrt bleibt
 - Die neue Architektur mit @iakw/patchkit vollständig unterstützt wird
+
+## Patch-Visualisierung
+
+Der Preset-Editor wurde um eine umfassende Patch-Visualisierung erweitert, die es ermöglicht, Änderungen an Welten visuell darzustellen und zu verwalten. Weitere Informationen findest du in der [Patch-Visualierungs-Anleitung](./guides/patch-visualization.md).
+
+### Hauptfunktionen
+
+- **Visuelle Darstellung von Patches**: Sieh dir die Auswirkungen von Patches auf die 3D-Welt in Echtzeit an
+- **Patch-Erstellung**: Erstelle neue Patches basierend auf visuellen Änderungen
+- **Patch-Bearbeitung**: Bearbeite vorhandene Patches mit direkter Vorschau
+- **Patch-Management**: Verwalte deine Patches mit einem übersichtlichen UI
+
+### Farbliche Hervorhebungen
+
+- **Grün**: Hinzugefügte Entitäten
+- **Rot**: Entfernte Entitäten
+- **Gelb**: Modifizierte Entitäten
+- **Blau**: Konflikte zwischen Patches
+
+### Verwendung
+
+1. Öffne den Preset-Editor über `preset-editor.html`
+2. Lade eine vorhandene Welt oder erstelle eine neue
+3. Wechsle zum "Patch"-Tab oben im Editor
+4. Erstelle, bearbeite oder visualisiere Patches
+
+Für eine detaillierte Anleitung siehe [Patch-Visualisierung nutzen](./guides/patch-visualization.md).

@@ -17,6 +17,7 @@ export class PatchUI {
     this.worldId = opts.worldId || null;
     this.patchVisualizer = opts.patchVisualizer || null;
     this.genesisData = opts.genesisData || null;
+    this.editor = opts.editor || null; // Referenz zum PresetEditor für Bearbeitungs- und Löschfunktionen
 
     // UI-Refs (IDs aus world-editor.html)
     this.listEl = opts.listEl || document.getElementById('patch-list');
@@ -397,19 +398,31 @@ export class PatchUI {
 
       const inCycle = p._inCycle ? '<span class="cycle-badge">cycle</span>' : '';
       const checked = this.includes.get(p.id) ? 'checked' : '';
+      
+      // Erstelle Bearbeiten- und Löschen-Buttons
+      const editButtonId = `edit-patch-${p.id}`;
+      const deleteButtonId = `delete-patch-${p.id}`;
+      
       li.innerHTML =
         '<div class="row">' +
           `<label class="include-toggle"><input type="checkbox" data-inc="${p.id}" ${checked}> include</label>` +
           `<span class="name">${this._esc(p?.metadata?.name || p.id)}</span>` +
           inCycle +
+          `<div class="patch-actions">` +
+            `<button id="${editButtonId}" class="btn btn-sm btn-primary" title="Patch bearbeiten">✏️</button>` +
+            `<button id="${deleteButtonId}" class="btn btn-sm btn-danger" title="Patch löschen">🗑️</button>` +
+          `</div>` +
         '</div>' +
         `<div class="meta">by ${this._esc(p?.metadata?.author || p?.metadata?.author_npub || 'unknown')} · ${this._esc(p?.metadata?.date || '')}</div>`;
 
       li.addEventListener('click', (ev) => {
         // Checkbox-Klick nicht Doppel-behandeln
         if (ev.target && ev.target.matches('input[type="checkbox"]')) return;
+        // Button-Klick nicht Doppel-behandeln
+        if (ev.target && ev.target.matches('button')) return;
         this.selectPatch(p.id);
       });
+      
       {
         const cb = li.querySelector('input[type="checkbox"]');
         if (cb) {
@@ -417,6 +430,24 @@ export class PatchUI {
             this.toggleInclude(p.id, ev.target.checked);
           });
         }
+      }
+      
+      // Event-Listener für den Bearbeiten-Button
+      const editButton = li.querySelector(`#${editButtonId}`);
+      if (editButton) {
+        editButton.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          this._editPatch(p.id);
+        });
+      }
+      
+      // Event-Listener für den Löschen-Button
+      const deleteButton = li.querySelector(`#${deleteButtonId}`);
+      if (deleteButton) {
+        deleteButton.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          this._deletePatch(p.id);
+        });
       }
 
       this.listEl.appendChild(li);
@@ -541,6 +572,54 @@ export class PatchUI {
     if (this.patchVisualizer) {
       this.patchVisualizer.updatePulsingAnimations();
     }
+  }
+
+  /**
+   * Bearbeitet einen Patch
+   * @param {string} patchId - Die ID des zu bearbeitenden Patches
+   */
+  async _editPatch(patchId) {
+    try {
+      if (!this.editor) {
+        console.warn('Kein Editor-Referenz für Patch-Bearbeitung verfügbar');
+        if (window.showToast) window.showToast('error', 'Patch-Bearbeitung nicht verfügbar');
+        return;
+      }
+      
+      // Rufe die editPatch-Methode des Editors auf
+      await this.editor.editPatch(patchId);
+    } catch (error) {
+      console.error('Fehler bei der Patch-Bearbeitung:', error);
+      if (window.showToast) window.showToast('error', 'Patch-Bearbeitung fehlgeschlagen: ' + error.message);
+    }
+  }
+  
+  /**
+   * Löscht einen Patch
+   * @param {string} patchId - Die ID des zu löschenden Patches
+   */
+  async _deletePatch(patchId) {
+    try {
+      if (!this.editor) {
+        console.warn('Kein Editor-Referenz für Patch-Löschung verfügbar');
+        if (window.showToast) window.showToast('error', 'Patch-Löschung nicht verfügbar');
+        return;
+      }
+      
+      // Rufe die deletePatch-Methode des Editors auf
+      await this.editor.deletePatch(patchId);
+    } catch (error) {
+      console.error('Fehler bei der Patch-Löschung:', error);
+      if (window.showToast) window.showToast('error', 'Patch-Löschung fehlgeschlagen: ' + error.message);
+    }
+  }
+  
+  /**
+   * Setzt die Editor-Referenz
+   * @param {PresetEditor} editor - Der PresetEditor
+   */
+  setEditor(editor) {
+    this.editor = editor;
   }
 
   _esc(s) {

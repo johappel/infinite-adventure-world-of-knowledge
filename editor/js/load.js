@@ -309,7 +309,7 @@ export async function listWorldFiles() {
 export function setupWorldSearch(editor, nostrService) {
   const worldSearchInput = document.getElementById('worldSearchInput');
   const worldSearchResults = document.getElementById('worldSearchResults');
-  const yamlEditor = document.getElementById('yaml-editor');
+  const yamlEditor = document.getElementById('world-yaml-editor');
   const worldIdInput = document.getElementById('worldIdInput');
   
   if (!worldSearchInput || !worldSearchResults) return;
@@ -436,16 +436,60 @@ export function setupWorldSearch(editor, nostrService) {
 
 // Setup für das Preset-Dropdown
 export function setupPresetSelect(editor) {
+  console.log('🔧 [Integrationstest] setupPresetSelect aufgerufen');
+  
   const presetSelect = document.getElementById('presetSelect');
-  const yamlEditor = document.getElementById('yaml-editor');
+  const yamlEditor = document.getElementById('world-yaml-editor');
   const worldIdInput = document.getElementById('worldIdInput');
   
-  if (!presetSelect || !yamlEditor) return;
+  console.log('🔍 [Integrationstest] UI-Elemente gefunden:', {
+    presetSelect: !!presetSelect,
+    yamlEditor: !!yamlEditor,
+    worldIdInput: !!worldIdInput
+  });
+  
+  if (!presetSelect || !yamlEditor) {
+    console.warn('❌ [Integrationstest] Preset-Select oder YAML-Editor nicht gefunden');
+    return;
+  }
+  
+  // Prüfe, ob die Optionsgruppen bereits existieren
+  let localPresetsGroup = document.getElementById('localPresetsGroup');
+  let worldFilesGroup = document.getElementById('worldFilesGroup');
+  
+  console.log('🔍 [Integrationstest] Optionsgruppen gefunden:', {
+    localPresetsGroup: !!localPresetsGroup,
+    worldFilesGroup: !!worldFilesGroup
+  });
+  
+  // Erstelle die Optionsgruppen, falls sie nicht existieren
+  if (!localPresetsGroup) {
+    console.log('📝 [Integrationstest] Erstelle lokale Presets-Gruppe');
+    localPresetsGroup = document.createElement('optgroup');
+    localPresetsGroup.id = 'localPresetsGroup';
+    localPresetsGroup.label = 'Lokale Vorlagen';
+    presetSelect.appendChild(localPresetsGroup);
+  }
+  
+  if (!worldFilesGroup) {
+    console.log('📝 [Integrationstest] Erstelle Welt-Dateien-Gruppe');
+    worldFilesGroup = document.createElement('optgroup');
+    worldFilesGroup.id = 'worldFilesGroup';
+    worldFilesGroup.label = 'Welt-Dateien';
+    presetSelect.appendChild(worldFilesGroup);
+  }
   
   // Lokale Presets befüllen
-  const localPresetsGroup = document.getElementById('localPresetsGroup');
-  if (localPresetsGroup) {
-    localPresetsGroup.innerHTML = '';
+  console.log('📝 [Integrationstest] Befülle lokale Presets, Anzahl:', Object.keys(templates).length);
+  localPresetsGroup.innerHTML = '';
+  if (Object.keys(templates).length === 0) {
+    console.log('❌ [Integrationstest] Keine lokalen Vorlagen gefunden');
+    const opt = document.createElement('option');
+    opt.disabled = true;
+    opt.textContent = '(keine Vorlagen gefunden)';
+    localPresetsGroup.appendChild(opt);
+  } else {
+    console.log('✅ [Integrationstest] Füge lokale Vorlagen hinzu');
     Object.keys(templates).forEach(id => {
       const opt = document.createElement('option');
       opt.value = id;
@@ -455,59 +499,82 @@ export function setupPresetSelect(editor) {
   }
   
   // Welt-Dateien befüllen
-  const worldFilesGroup = document.getElementById('worldFilesGroup');
-  if (worldFilesGroup) {
-    worldFilesGroup.innerHTML = '';
-    listWorldFiles().then(files => {
-      if (!files.length) {
-        const opt = document.createElement('option');
-        opt.disabled = true; 
-        opt.textContent = '(keine YAMLs gefunden)';
-        worldFilesGroup.appendChild(opt);
-        return;
-      }
-      for (const path of files) {
-        const opt = document.createElement('option');
-        opt.value = `file:${path}`;
-        opt.textContent = path.replace('worlds/','');
-        worldFilesGroup.appendChild(opt);
-      }
-    }).catch(e => {
+  console.log('📝 [Integrationstest] Befülle Welt-Dateien');
+  worldFilesGroup.innerHTML = '';
+  listWorldFiles().then(files => {
+    console.log('📦 [Integrationstest] Welt-Dateien erhalten:', files);
+    if (!files || !files.length) {
+      console.log('❌ [Integrationstest] Keine Welt-Dateien gefunden');
       const opt = document.createElement('option');
-      opt.disabled = true; 
-      opt.textContent = '(Fehler beim Laden der Liste)';
+      opt.disabled = true;
+      opt.textContent = '(keine YAMLs gefunden)';
       worldFilesGroup.appendChild(opt);
-    });
-  }
+      return;
+    }
+    console.log('✅ [Integrationstest] Füge Welt-Dateien hinzu, Anzahl:', files.length);
+    for (const path of files) {
+      const opt = document.createElement('option');
+      opt.value = `file:${path}`;
+      opt.textContent = path.replace('worlds/','');
+      worldFilesGroup.appendChild(opt);
+    }
+  }).catch(e => {
+    console.error('❌ [Integrationstest] Fehler beim Laden der Welt-Dateien:', e);
+    const opt = document.createElement('option');
+    opt.disabled = true;
+    opt.textContent = '(Fehler beim Laden der Liste)';
+    worldFilesGroup.appendChild(opt);
+  });
   
   // Event-Listener für Änderungen
+  console.log('🔧 [Integrationstest] Füge Event-Listener für Preset-Änderungen hinzu');
   presetSelect.addEventListener('change', async () => {
+    console.log('🔄 [Integrationstest] Preset-Änderung erkannt');
     const v = presetSelect.value;
+    console.log('📝 [Integrationstest] Ausgewählter Wert:', v);
+    
     // Eingebaute Templates
     if (v && templates[v]) {
+      console.log('📝 [Integrationstest] Lade lokales Template:', v);
       try {
         const raw = templates[v];
+        console.log('📦 [Integrationstest] Template-Raw-Content Länge:', raw.length);
         let spec = safeYamlParse(raw);
+        console.log('✅ [Integrationstest] Template geparst:', spec);
+        
         // Single Source of Truth: root.id entfernen
         spec = stripRootId(spec);
+        console.log('✅ [Integrationstest] Root-ID entfernt');
         
         // Neue systemseitige ID generieren
         const uniqueId = deriveCopyId(v);
+        console.log('🏷️ [Integrationstest] Neue ID generiert:', uniqueId);
         if (worldIdInput) worldIdInput.value = uniqueId;
         
         // In den Editor schreiben wir YAML OHNE id
-        yamlEditor.value = safeYamlDump(spec);
+        const yamlContent = safeYamlDump(spec);
+        console.log('📝 [Integrationstest] YAML-Content generiert, Länge:', yamlContent.length);
+        yamlEditor.value = yamlContent;
         
         // Aktualisiere die Welt-ID im Editor
-        if (editor) editor.worldId = uniqueId;
+        if (editor) {
+          editor.worldId = uniqueId;
+          console.log('🏷️ [Integrationstest] Welt-ID im Editor gesetzt');
+        }
         
         // Aktualisiere die Vorschau
+        console.log('🎬 [Integrationstest] Aktualisiere Vorschau');
         if (editor && typeof editor.updatePreviewFromYaml === 'function') {
           await editor.updatePreviewFromYaml();
+          console.log('✅ [Integrationstest] Vorschau aktualisiert');
+        } else {
+          console.error('❌ [Integrationstest] Editor oder updatePreviewFromYaml nicht verfügbar');
         }
         
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
+        console.log('🎉 [Integrationstest] Lokales Template erfolgreich geladen');
       } catch (e) {
+        console.error('❌ [Integrationstest] Fehler beim Laden des lokalen Templates:', e);
         if (window.showToast) window.showToast('error', 'Preset konnte nicht geladen werden: ' + (e?.message || e));
       }
       return;
@@ -516,37 +583,54 @@ export function setupPresetSelect(editor) {
     // worlds/*.yaml Dateien
     if (v && v.startsWith('file:')) {
       const path = v.substring(5);
+      console.log('📁 [Integrationstest] Lade Welt-Datei:', path);
       try {
         const res = await fetch(path, { cache: 'no-cache' });
         if (!res.ok) throw new Error('Konnte Datei nicht laden: ' + path);
         const raw = await res.text();
+        console.log('📦 [Integrationstest] Datei-Content Länge:', raw.length);
         let spec = safeYamlParse(raw);
+        console.log('✅ [Integrationstest] Datei geparst:', spec);
         
         // zone_id bereinigen wie bisher
         if (spec && Object.prototype.hasOwnProperty.call(spec, 'zone_id')) {
           try { delete spec.zone_id; } catch {}
+          console.log('✅ [Integrationstest] zone_id entfernt');
         }
         
         // Single Source of Truth: root.id entfernen
         spec = stripRootId(spec);
+        console.log('✅ [Integrationstest] Root-ID entfernt');
         
         // Neue systemseitige ID generieren
         const uniqueId = deriveCopyId(path.replace('worlds/', '').replace('.yaml', ''));
+        console.log('🏷️ [Integrationstest] Neue ID generiert:', uniqueId);
         if (worldIdInput) worldIdInput.value = uniqueId;
         
         // In den Editor schreiben wir YAML OHNE id
-        yamlEditor.value = safeYamlDump(spec);
+        const yamlContent = safeYamlDump(spec);
+        console.log('📝 [Integrationstest] YAML-Content generiert, Länge:', yamlContent.length);
+        yamlEditor.value = yamlContent;
         
         // Aktualisiere die Welt-ID im Editor
-        if (editor) editor.worldId = uniqueId;
+        if (editor) {
+          editor.worldId = uniqueId;
+          console.log('🏷️ [Integrationstest] Welt-ID im Editor gesetzt');
+        }
         
         // Aktualisiere die Vorschau
+        console.log('🎬 [Integrationstest] Aktualisiere Vorschau');
         if (editor && typeof editor.updatePreviewFromYaml === 'function') {
           await editor.updatePreviewFromYaml();
+          console.log('✅ [Integrationstest] Vorschau aktualisiert');
+        } else {
+          console.error('❌ [Integrationstest] Editor oder updatePreviewFromYaml nicht verfügbar');
         }
         
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
+        console.log('🎉 [Integrationstest] Welt-Datei erfolgreich geladen');
       } catch (e) {
+        console.error('❌ [Integrationstest] Fehler beim Laden der Welt-Datei:', e);
         if (window.showToast) window.showToast('error', 'Preset konnte nicht geladen werden: ' + (e?.message || e));
       }
     }
@@ -575,7 +659,7 @@ export function setupRenderResetButtons(editor) {
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
       try {
-        const yamlEditor = document.getElementById('yaml-editor');
+        const yamlEditor = document.getElementById('world-yaml-editor');
         const worldIdInput = document.getElementById('worldIdInput');
         
         if (yamlEditor) yamlEditor.value = '';

@@ -16,6 +16,7 @@ Ziel: Diese Dokumentation führt dich schrittweise durch die UI, Architektur und
   - [3D-Objekt hinzufügen](./guides/add-3d-object.md)
   - [UI-Panel hinzufügen](./guides/add-ui-panel.md)
   - [Nostr integrieren](./guides/integrate-nostr.md)
+  - [Patch-Visualisierung nutzen](./guides/patch-visualization.md)
 - Referenz
   - [Architekturdiagramme](./reference/architecture.md)
   - [Glossar](./reference/glossary.md)
@@ -40,6 +41,7 @@ Eine interaktive 3D-Client-UI, die eine Szene rendert, UI-Interaktionen bereitst
 - Erste Schritte bauen:
    - [3D-Objekt hinzufügen](./guides/add-3d-object.md)
    - [Nostr integrieren](./guides/integrate-nostr.md)
+   - [Patch-Visualisierung nutzen](./guides/patch-visualization.md)
 - Vertiefung:
    - [State & Events](./features/state-and-events.md)
    - [Erweiterbarkeit](./features/extensibility.md)
@@ -53,6 +55,7 @@ Eine interaktive 3D-Client-UI, die eine Szene rendert, UI-Interaktionen bereitst
 - Lies [ui-overview.md](./ui-overview.md), um die Oberfläche und Interaktionspunkte zu verstehen.
 - Starte das Projekt lokal mit [setup-local.md](./guides/setup-local.md).
 - Füge probeweise ein Objekt über [add-3d-object.md](./guides/add-3d-object.md) ein.
+- Erstelle und visualisiere Patches mit [patch-visualization.md](./guides/patch-visualization.md).
 
 ---
 

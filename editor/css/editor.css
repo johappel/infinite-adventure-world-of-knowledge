@@ -39,6 +39,38 @@ body {
 .panel-header {
   background: #252526; padding: 10px 15px; border-bottom: 1px solid #3e3e42; font-weight: bold; color: #cccccc;
 }
+/* Tab-System */
+.tab-navigation {
+  display: flex;
+  border-bottom: 1px solid #3e3e42;
+  margin-bottom: 10px;
+}
+
+.tab-button {
+  background: #2d2d30;
+  border: none;
+  color: #d4d4d4;
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-size: 14px;
+}
+
+.tab-button.active {
+  border-bottom-color: #4fc3f7;
+  color: #4fc3f7;
+}
+
+.tab-content {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+}
+
+.tab-content.active {
+  display: flex;
+}
+
 .yaml-editor {
   flex: 1; background: #1e1e1e; color: #d4d4d4;
   font-family: 'Consolas', monospace; font-size: 14px;
@@ -92,6 +124,8 @@ body {
 #patchUIContainer {
   position: relative; display: grid; grid-template-columns: 340px 1fr; gap: 12px; padding: 10px;
   background: #f5f6f7; border-top: 1px solid #e5e7eb; color: #111827;
+  height: 300px;
+  overflow-y: auto;
 }
 #patchListPanel {
   background: #fafafa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; max-height: 45vh; overflow: auto;
