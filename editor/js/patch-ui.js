@@ -9,10 +9,14 @@
  * - showToast/escapeHtml
  */
 
+import { PatchVisualizer } from './patch-visualizer.js';
+
 export class PatchUI {
   constructor(opts = {}) {
     this.patchKit = opts.patchKit; // erwartet createPatchKitAPI(...) Ergebnis
     this.worldId = opts.worldId || null;
+    this.patchVisualizer = opts.patchVisualizer || null;
+    this.genesisData = opts.genesisData || null;
 
     // UI-Refs (IDs aus world-editor.html)
     this.listEl = opts.listEl || document.getElementById('patch-list');
@@ -470,11 +474,72 @@ export class PatchUI {
     }
  
     try {
-      const base = { entities: {} }; // minimale Basis-Welt
-      await this.patchKit.world.applyPatches(base, selectedPatches);
-       if (this.applyUntilValueEl) this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
+      // Wenn Genesis-Daten und PatchVisualizer vorhanden sind, visualisiere die Patches
+      if (this.genesisData && this.patchVisualizer) {
+        await this.patchVisualizer.visualizePatches(this.genesisData, selectedPatches, {
+          showConflicts: true,
+          highlightIntensity: 0.7
+        });
+      } else {
+        // Fallback: Nur die Patch-Anwendung ohne Visualisierung
+        const base = { entities: {} }; // minimale Basis-Welt
+        await this.patchKit.world.applyPatches(base, selectedPatches);
+      }
+      
+      if (this.applyUntilValueEl) this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
     } catch (e) {
       if (window.showToast) window.showToast('error', 'Preview fehlgeschlagen: ' + e.message);
+    }
+  }
+
+  /**
+   * Setzt die Genesis-Daten für die Patch-Visualisierung
+   * @param {Object} genesisData - Die Genesis-Welt
+   */
+  setGenesisData(genesisData) {
+    this.genesisData = genesisData;
+  }
+
+  /**
+   * Setzt den PatchVisualizer für die 3D-Visualisierung
+   * @param {PatchVisualizer} patchVisualizer - Der PatchVisualizer
+   */
+  setPatchVisualizer(patchVisualizer) {
+    this.patchVisualizer = patchVisualizer;
+  }
+
+  /**
+   * Setzt die aktuelle Patch-Auswahl und visualisiert sie
+   * @param {Array} selectedPatches - Die ausgewählten Patches
+   */
+  async setSelectedPatches(selectedPatches) {
+    if (!this.genesisData || !this.patchVisualizer) return;
+    
+    try {
+      await this.patchVisualizer.visualizePatches(this.genesisData, selectedPatches, {
+        showConflicts: true,
+        highlightIntensity: 0.7
+      });
+    } catch (e) {
+      if (window.showToast) window.showToast('error', 'Patch-Visualisierung fehlgeschlagen: ' + e.message);
+    }
+  }
+
+  /**
+   * Setzt die Visualisierung zurück
+   */
+  resetVisualization() {
+    if (this.patchVisualizer) {
+      this.patchVisualizer.resetVisualization();
+    }
+  }
+
+  /**
+   * Aktualisiert die Pulsier-Animationen für Konflikt-Materialien
+   */
+  updateAnimations() {
+    if (this.patchVisualizer) {
+      this.patchVisualizer.updatePulsingAnimations();
     }
   }
 

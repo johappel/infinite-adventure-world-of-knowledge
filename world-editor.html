@@ -100,6 +100,74 @@ description: 'Eine Test-Welt für Presets'
         <span id="status-bar">Bereit zum Rendern</span>
         <span id="objectCount">0 Objekte</span>
       </div>
+      
+      <!-- Patch-Visualisierungskontrollen -->
+      <div class="patch-visualization-controls" id="patchVisualizationControls" style="display: none;">
+        <div class="controls-header">
+          <h3>🎨 Patch-Visualisierung</h3>
+          <button id="togglePatchVisualization" class="btn small">Visualisierung ein/aus</button>
+        </div>
+        
+        <div class="visualization-options">
+          <div class="option-group">
+            <label>Visualisierungsmodus:</label>
+            <select id="visualizationMode">
+              <option value="all">Alle Änderungen</option>
+              <option value="added">Nur hinzugefügt</option>
+              <option value="modified">Nur modifiziert</option>
+              <option value="removed">Nur entfernt</option>
+              <option value="conflicts">Nur Konflikte</option>
+            </select>
+          </div>
+          
+          <div class="option-group">
+            <label>Animationsmodus:</label>
+            <select id="animationMode">
+              <option value="none">Keine Animation</option>
+              <option value="step">Schrittweise</option>
+              <option value="continuous">Kontinuierlich</option>
+            </select>
+          </div>
+          
+          <div class="option-group">
+            <label>Animationsgeschwindigkeit:</label>
+            <input type="range" id="animationSpeed" min="0.5" max="5" step="0.5" value="1">
+            <span id="speedValue">1x</span>
+          </div>
+          
+          <div class="option-group">
+            <label>Transparenz:</label>
+            <input type="range" id="transparency" min="0.1" max="1" step="0.1" value="0.7">
+            <span id="transparencyValue">70%</span>
+          </div>
+        </div>
+        
+        <div class="legend">
+          <h4>Legende:</h4>
+          <div class="legend-item">
+            <span class="legend-color" style="background-color: #00ff00;"></span>
+            <span>Hinzugefügt</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background-color: #ffff00;"></span>
+            <span>Modifiziert</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background-color: #ff0000;"></span>
+            <span>Entfernt</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background-color: #ff00ff;"></span>
+            <span>Konflikt</span>
+          </div>
+        </div>
+        
+        <div class="action-buttons">
+          <button id="startAnimation" class="btn small">Animation starten</button>
+          <button id="resetVisualization" class="btn small">Zurücksetzen</button>
+          <button id="focusOnChanges" class="btn small">Auf Änderungen fokussieren</button>
+        </div>
+      </div>
     </div>
   </div>
 

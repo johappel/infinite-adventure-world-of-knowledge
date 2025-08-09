@@ -9,6 +9,7 @@
  
 import { createPatchKitAPI } from './patchkit-wiring.js';
 import { PatchUI } from './patch-ui.js';
+import { ThreeJSManager } from './three-js-manager.js';
  
 export class PresetEditor {
   constructor(opts = {}) {
@@ -19,9 +20,7 @@ export class PresetEditor {
     this.worldId = null;
     this.patchKit = null;
     this.scene = null; // Platzhalter für Three.js-Szene
-
-    // einfache 3D-Preview-Platzhalterzustände
-    this._three = { initialized: false };
+    this.threeJSManager = null; // Three.js Manager für 3D-Visualisierung
     this._bindBasicEvents();
 
     // Live-Validierung bei Eingabe + Preview-Update
@@ -121,8 +120,8 @@ export class PresetEditor {
         throw new Error('PatchKit API nicht verfügbar (Ajv/IO prüfen).');
       }
 
-      // 5) Three.js Preview initialisieren (Platzhalter)
-      this._initThreePreview();
+      // 5) Three.js Preview initialisieren
+      await this._initThreePreview();
 
       this._setStatus('Bereit.', 'info');
     } catch (err) {
@@ -152,6 +151,68 @@ export class PresetEditor {
     
     const savePatchBtn = document.getElementById('savePatchBtn');
     if (savePatchBtn) savePatchBtn.addEventListener('click', () => this.saveAsPatch());
+    
+    // Render-Button
+    const renderBtn = document.getElementById('renderBtn');
+    if (renderBtn) renderBtn.addEventListener('click', () => this.renderWorld());
+    
+    // Reset-Button
+    const resetBtn = document.getElementById('resetBtn');
+    if (resetBtn) resetBtn.addEventListener('click', () => this.resetWorld());
+    
+    // Patch-Visualisierungs-Event-Listener
+    this._bindPatchVisualizationEvents();
+    
+    // Fenstergrößenänderung behandeln
+    window.addEventListener('resize', () => this._handleWindowResize());
+  }
+  
+  _bindPatchVisualizationEvents() {
+    // Toggle-Button für Patch-Visualisierung
+    const toggleBtn = document.getElementById('togglePatchVisualization');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => this._togglePatchVisualization());
+    }
+    
+    // Visualisierungsmodus
+    const visualizationMode = document.getElementById('visualizationMode');
+    if (visualizationMode) {
+      visualizationMode.addEventListener('change', () => this._updateVisualizationMode());
+    }
+    
+    // Animationsmodus
+    const animationMode = document.getElementById('animationMode');
+    if (animationMode) {
+      animationMode.addEventListener('change', () => this._updateAnimationMode());
+    }
+    
+    // Animationsgeschwindigkeit
+    const animationSpeed = document.getElementById('animationSpeed');
+    if (animationSpeed) {
+      animationSpeed.addEventListener('input', () => this._updateAnimationSpeed());
+    }
+    
+    // Transparenz
+    const transparency = document.getElementById('transparency');
+    if (transparency) {
+      transparency.addEventListener('input', () => this._updateTransparency());
+    }
+    
+    // Aktions-Buttons
+    const startAnimation = document.getElementById('startAnimation');
+    if (startAnimation) {
+      startAnimation.addEventListener('click', () => this._startVisualizationAnimation());
+    }
+    
+    const resetVisualization = document.getElementById('resetVisualization');
+    if (resetVisualization) {
+      resetVisualization.addEventListener('click', () => this._resetVisualization());
+    }
+    
+    const focusOnChanges = document.getElementById('focusOnChanges');
+    if (focusOnChanges) {
+      focusOnChanges.addEventListener('click', () => this._focusOnChanges());
+    }
   }
  
   _setStatus(msg, type = 'info') {
@@ -1066,22 +1127,30 @@ objects:
     return { metadata, operations };
   }
 
-  _initThreePreview() {
+  async _initThreePreview() {
     try {
       const canvas = this.canvas;
       if (!canvas) return;
-      this._three.initialized = true;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, canvas.width || 400, canvas.height || 300);
-        ctx.fillStyle = '#0f0';
-        ctx.font = '14px monospace';
-        ctx.fillText('Preview bereit', 10, 20);
+      
+      // Erstelle den Three.js Manager
+      this.threeJSManager = new ThreeJSManager(canvas);
+      
+      // Initialisiere Three.js
+      const initialized = await this.threeJSManager.init();
+      if (!initialized) {
+        console.error('Three.js Manager konnte nicht initialisiert werden');
+        return;
       }
+      
+      // Verstecke den Ladeindikator
       const loading = document.getElementById('loadingIndicator');
       if (loading) loading.style.display = 'none';
-    } catch {}
+      
+      this._setStatus('Three.js initialisiert - Bereit zum Visualisieren', 'success');
+    } catch (error) {
+      console.error('Fehler bei der Three.js Initialisierung:', error);
+      this._setStatus('Three.js Initialisierung fehlgeschlagen: ' + error.message, 'error');
+    }
   }
 
   async updatePreviewFromYaml() {
@@ -1103,40 +1172,290 @@ objects:
       const oc = document.getElementById('objectCount');
       if (oc) oc.textContent = count + ' Objekte';
 
-      if (this.canvas) {
-        const ctx = this.canvas.getContext('2d');
-        if (ctx) {
-          // Hintergrund
-          ctx.clearRect(0, 0, this.canvas.width || 400, this.canvas.height || 300);
-          ctx.fillStyle = '#111';
-          ctx.fillRect(0, 0, this.canvas.width || 400, this.canvas.height || 300);
+      // Wenn der Three.js Manager verfügbar ist, verwende ihn für die 3D-Visualisierung
+      if (this.threeJSManager && this.threeJSManager.initialized) {
+        // Setze die Szene für den Three.js Manager
+        this.scene = this.threeJSManager.scene;
+        
+        // Rendere die Welt mit dem Three.js Manager
+        await this.threeJSManager.renderWorld(genesisLike);
+        
+        this._setStatus('3D-Visualisierung aktualisiert', 'success');
+      } else {
+        // Fallback auf 2D-Canvas, wenn Three.js nicht verfügbar ist
+        if (this.canvas) {
+          const ctx = this.canvas.getContext('2d');
+          if (ctx) {
+            // Hintergrund
+            ctx.clearRect(0, 0, this.canvas.width || 400, this.canvas.height || 300);
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, this.canvas.width || 400, this.canvas.height || 300);
 
-          // Gültigkeit für Preview: Entities vorhanden?
-          const isValid = Object.keys(entities).some(k => Object.keys(entities[k] || {}).length > 0);
-          ctx.fillStyle = isValid ? '#00e676' : '#ff5252';
-          ctx.font = 'bold 14px monospace';
-          ctx.fillText((isValid ? 'Objekte: ' + count : 'YAML ungültig'), 10, 20);
+            // Gültigkeit für Preview: Entities vorhanden?
+            const isValid = Object.keys(entities).some(k => Object.keys(entities[k] || {}).length > 0);
+            ctx.fillStyle = isValid ? '#00e676' : '#ff5252';
+            ctx.font = 'bold 14px monospace';
+            ctx.fillText((isValid ? 'Objekte: ' + count : 'YAML ungültig'), 10, 20);
 
-          if (isValid) {
-            // sehr einfache "Renderpunkte" pro Objekt
-            ctx.fillStyle = '#40c4ff';
-            ctx.font = '12px monospace';
-            let x = 10, y = 40;
-            for (const typeName of Object.keys(entities)) {
-              const bucket = entities[typeName] || {};
-              for (const id of Object.keys(bucket)) {
-                ctx.fillRect(x, y, 6, 6);
-                ctx.fillStyle = '#ddd';
-                ctx.fillText(typeName + ':' + id, x + 10, y + 6);
-                y += 14;
-                ctx.fillStyle = '#40c4ff';
-                if (y > (this.canvas.height || 300) - 20) { y = 40; x += 140; }
+            if (isValid) {
+              // sehr einfache "Renderpunkte" pro Objekt
+              ctx.fillStyle = '#40c4ff';
+              ctx.font = '12px monospace';
+              let x = 10, y = 40;
+              for (const typeName of Object.keys(entities)) {
+                const bucket = entities[typeName] || {};
+                for (const id of Object.keys(bucket)) {
+                  ctx.fillRect(x, y, 6, 6);
+                  ctx.fillStyle = '#ddd';
+                  ctx.fillText(typeName + ':' + id, x + 10, y + 6);
+                  y += 14;
+                  ctx.fillStyle = '#40c4ff';
+                  if (y > (this.canvas.height || 300) - 20) { y = 40; x += 140; }
+                }
               }
             }
           }
         }
       }
-    } catch {}
+    } catch (error) {
+      console.error('Fehler bei der Vorschau-Aktualisierung:', error);
+      this._setStatus('Vorschau-Aktualisierung fehlgeschlagen: ' + error.message, 'error');
+    }
+  }
+
+  // Methoden für die Patch-Visualisierung
+  async renderWorld() {
+    try {
+      const obj = this.parseYaml();
+      if (!obj) {
+        this._setStatus('Kein YAML-Inhalt zum Rendern.', 'error');
+        return;
+      }
+      
+      const normalized = this.normalizeUserYaml(obj);
+      await this.updatePreviewFromObject(normalized);
+      this._setStatus('Welt gerendert', 'success');
+    } catch (error) {
+      console.error('Fehler beim Rendern der Welt:', error);
+      this._setStatus('Fehler beim Rendern: ' + error.message, 'error');
+    }
+  }
+
+  async resetWorld() {
+    try {
+      if (this.threeJSManager && this.threeJSManager.initialized) {
+        await this.threeJSManager.resetScene();
+        this._setStatus('Szene zurückgesetzt', 'success');
+      } else {
+        this._setStatus('Three.js nicht initialisiert', 'error');
+      }
+    } catch (error) {
+      console.error('Fehler beim Zurücksetzen der Szene:', error);
+      this._setStatus('Fehler beim Zurücksetzen: ' + error.message, 'error');
+    }
+  }
+
+  async _togglePatchVisualization() {
+    try {
+      const toggleBtn = document.getElementById('togglePatchVisualization');
+      if (!toggleBtn) return;
+      
+      const isEnabled = toggleBtn.checked;
+      
+      if (isEnabled) {
+        await this._visualizeCurrentPatch();
+        this._setStatus('Patch-Visualisierung aktiviert', 'success');
+      } else {
+        if (this.threeJSManager && this.threeJSManager.initialized) {
+          await this.threeJSManager.clearHighlights();
+          this._setStatus('Patch-Visualisierung deaktiviert', 'info');
+        }
+      }
+    } catch (error) {
+      console.error('Fehler beim Umschalten der Patch-Visualisierung:', error);
+      this._setStatus('Fehler: ' + error.message, 'error');
+    }
+  }
+
+  async _visualizeCurrentPatch() {
+    try {
+      if (!this.worldId) {
+        this._setStatus('Keine World ID für Patch-Visualisierung', 'error');
+        return;
+      }
+      
+      const yamlText = this.getYamlText();
+      const parsedYaml = this.parseYaml();
+      
+      if (!parsedYaml) {
+        this._setStatus('Kein YAML-Inhalt für Patch-Visualisierung', 'error');
+        return;
+      }
+      
+      // Normalisiere das YAML-Objekt für die Patch-Erstellung
+      const normalizedPatch = this.normalizePatchYaml(parsedYaml);
+      
+      if (this.threeJSManager && this.threeJSManager.initialized) {
+        // Erstelle ein Patch-Objekt für die Visualisierung
+        const patch = {
+          metadata: normalizedPatch.metadata,
+          operations: normalizedPatch.operations
+        };
+        
+        // Visualisiere den Patch
+        await this.threeJSManager.visualizePatch(patch);
+        this._setStatus('Patch visualisiert', 'success');
+      }
+    } catch (error) {
+      console.error('Fehler bei der Patch-Visualisierung:', error);
+      this._setStatus('Fehler bei der Visualisierung: ' + error.message, 'error');
+    }
+  }
+
+  _updateVisualizationMode() {
+    try {
+      const modeSelect = document.getElementById('visualizationMode');
+      if (!modeSelect || !this.threeJSManager) return;
+      
+      const mode = modeSelect.value;
+      this.threeJSManager.setVisualizationMode(mode);
+      this._setStatus('Visualisierungsmodus geändert: ' + mode, 'info');
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren des Visualisierungsmodus:', error);
+      this._setStatus('Fehler: ' + error.message, 'error');
+    }
+  }
+
+  _updateAnimationMode() {
+    try {
+      const modeSelect = document.getElementById('animationMode');
+      if (!modeSelect || !this.threeJSManager) return;
+      
+      const mode = modeSelect.value;
+      this.threeJSManager.setAnimationMode(mode);
+      this._setStatus('Animationsmodus geändert: ' + mode, 'info');
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren des Animationsmodus:', error);
+      this._setStatus('Fehler: ' + error.message, 'error');
+    }
+  }
+
+  _updateAnimationSpeed() {
+    try {
+      const speedSlider = document.getElementById('animationSpeed');
+      if (!speedSlider || !this.threeJSManager) return;
+      
+      const speed = parseFloat(speedSlider.value);
+      this.threeJSManager.setAnimationSpeed(speed);
+      this._setStatus('Animationsgeschwindigkeit geändert: ' + speed, 'info');
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren der Animationsgeschwindigkeit:', error);
+      this._setStatus('Fehler: ' + error.message, 'error');
+    }
+  }
+
+  _updateTransparency() {
+    try {
+      const transparencySlider = document.getElementById('transparency');
+      if (!transparencySlider || !this.threeJSManager) return;
+      
+      const transparency = parseFloat(transparencySlider.value);
+      this.threeJSManager.setTransparency(transparency);
+      this._setStatus('Transparenz geändert: ' + transparency, 'info');
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren der Transparenz:', error);
+      this._setStatus('Fehler: ' + error.message, 'error');
+    }
+  }
+
+  async _startVisualizationAnimation() {
+    try {
+      if (this.threeJSManager && this.threeJSManager.initialized) {
+        await this.threeJSManager.startAnimation();
+        this._setStatus('Animation gestartet', 'success');
+      } else {
+        this._setStatus('Three.js nicht initialisiert', 'error');
+      }
+    } catch (error) {
+      console.error('Fehler beim Starten der Animation:', error);
+      this._setStatus('Fehler: ' + error.message, 'error');
+    }
+  }
+
+  async _resetVisualization() {
+    try {
+      if (this.threeJSManager && this.threeJSManager.initialized) {
+        await this.threeJSManager.resetVisualization();
+        this._setStatus('Visualisierung zurückgesetzt', 'success');
+      } else {
+        this._setStatus('Three.js nicht initialisiert', 'error');
+      }
+    } catch (error) {
+      console.error('Fehler beim Zurücksetzen der Visualisierung:', error);
+      this._setStatus('Fehler: ' + error.message, 'error');
+    }
+  }
+
+  async _focusOnChanges() {
+    try {
+      if (this.threeJSManager && this.threeJSManager.initialized) {
+        await this.threeJSManager.focusOnChanges();
+        this._setStatus('Fokus auf Änderungen', 'success');
+      } else {
+        this._setStatus('Three.js nicht initialisiert', 'error');
+      }
+    } catch (error) {
+      console.error('Fehler beim Fokussieren auf Änderungen:', error);
+      this._setStatus('Fehler: ' + error.message, 'error');
+    }
+  }
+
+  _handleWindowResize() {
+    try {
+      if (this.threeJSManager && this.threeJSManager.initialized) {
+        this.threeJSManager.handleResize();
+      }
+    } catch (error) {
+      console.error('Fehler bei der Fenstergrößenänderung:', error);
+    }
+  }
+
+  // Konvertiert Patch-Operationen in das für die Visualisierung erwartete Format
+  convertOperationsToPatchFormat(operations) {
+    if (!Array.isArray(operations)) {
+      console.warn('Keine gültigen Operationen zur Konvertierung:', operations);
+      return { metadata: {}, operations: [] };
+    }
+    
+    const convertedOperations = operations.map(op => {
+      // Stelle sicher, dass jede Operation die erforderlichen Felder hat
+      const convertedOp = {
+        type: op.type || 'add',
+        entity_type: op.entity_type || op.entityType || 'object',
+        entity_id: op.entity_id || op.entityId || 'unknown',
+        payload: op.payload || op.changes || {}
+      };
+      
+      // Wenn es Changes statt Payload gibt, konvertiere sie
+      if (op.changes && !op.payload) {
+        convertedOp.payload = { ...op.changes };
+      }
+      
+      return convertedOp;
+    });
+    
+    return {
+      metadata: {
+        schema_version: 'patchkit/1.0',
+        id: 'patch_' + Math.random().toString(36).slice(2, 10),
+        name: 'Konvertierter Patch',
+        description: 'Aus Operationen konvertierter Patch',
+        author_npub: 'npub0',
+        created_at: Math.floor(Date.now() / 1000),
+        targets_world: this.worldId || ''
+      },
+      operations: convertedOperations
+    };
   }
 }
  

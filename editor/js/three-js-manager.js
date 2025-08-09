@@ -1,0 +1,598 @@
+// ThreeJSManager - Verwaltung der Three.js-Szene und Rendering-Funktionalität
+import * as THREE from 'three';
+import { resolveWorldSpec } from '../../js/world-generation/resolve.js';
+import { buildZoneFromSpec } from '../../js/world-generation/index.js';
+
+export class ThreeJSManager {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.currentZone = null;
+        this.animationId = null;
+        this.initialized = false;
+        this.highlightedEntities = new Map();
+        this.originalMaterials = new Map();
+    }
+
+    async init() {
+        try {
+            // Scene
+            this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(0x87ceeb);
+
+            // Make scene globally available for environment fog
+            window.worldEditor = { scene: this.scene };
+
+            // Camera
+            this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 1000);
+            this.camera.position.set(15, 15, 15);
+            this.camera.lookAt(0, 0, 0);
+
+            // Renderer
+            this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+            this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            if (THREE.sRGBEncoding) {
+                this.renderer.outputEncoding = THREE.sRGBEncoding;
+            }
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            this.scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            directionalLight.castShadow = true;
+            this.scene.add(directionalLight);
+
+            this.initialized = true;
+            this.animate();
+            return true;
+        } catch (error) {
+            console.error('THREE.js Initialisierung fehlgeschlagen:', error);
+            return false;
+        }
+    }
+
+    async renderWorld(worldData) {
+        if (!this.initialized) await this.init();
+        
+        try {
+            this.resetScene();
+            
+            // Konvertiere das Genesis-Format in das für die Weltgenerierung erwartete Format
+            const convertedWorldData = this.convertGenesisToWorldFormat(worldData);
+            
+            const spec = resolveWorldSpec(convertedWorldData);
+            const rng = Math.random;
+            
+            // Zone OHNE Umgebung bauen (nur Geometrie)
+            const zoneInfo = buildZoneFromSpec(spec, { rng, skipEnvironment: true });
+            this.currentZone = zoneInfo;
+            this.scene.add(this.currentZone.group);
+            
+            // Umgebung (Skybox, Lichter, Nebel) auf die Hauptszene anwenden
+            if (spec.environment) {
+                const { applyEnvironment } = await import('../../js/world-generation/environment.js');
+                applyEnvironment(spec.environment, this.scene);
+            }
+            
+            return zoneInfo;
+        } catch (error) {
+            console.error('World Rendering Error:', error);
+            throw error;
+        }
+    }
+
+    resetScene() {
+        // Entfernt die aktuelle Zone (group) komplett
+        if (this.currentZone) {
+            this.scene.remove(this.currentZone.group);
+            this.currentZone.group.traverse(o => {
+                if (o.geometry) o.geometry.dispose();
+                if (o.material) {
+                    if (Array.isArray(o.material)) {
+                        o.material.forEach(m => m.dispose());
+                    } else {
+                        o.material.dispose();
+                    }
+                }
+            });
+            this.currentZone = null;
+        }
+
+        // Entfernt alle Skybox-Objekte aus der Szene
+        const skyboxesToRemove = [];
+        this.scene.traverse(obj => {
+            if (obj.userData?.isSkybox) {
+                skyboxesToRemove.push(obj);
+            }
+        });
+        skyboxesToRemove.forEach(skybox => this.scene.remove(skybox));
+
+        // Setzt den Nebel der Szene zurück
+        this.scene.fog = null;
+
+        // Setzt alle Hervorhebungen zurück
+        this.resetHighlights();
+    }
+
+    animate() {
+        this.animationId = requestAnimationFrame(() => this.animate());
+        
+        // Einfache Kamerafahrt für die Vorschau
+        if (this.currentZone) {
+            const time = Date.now() * 0.0005;
+            this.camera.position.x = Math.cos(time) * 20;
+            this.camera.position.z = Math.sin(time) * 20;
+            this.camera.lookAt(0, 0, 0);
+        }
+
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    // Methoden für die Patch-Visualisierung
+    highlightEntities(entities, color = 0xff0000, intensity = 0.7) {
+        if (!Array.isArray(entities)) {
+            entities = [entities];
+        }
+
+        for (const entity of entities) {
+            const entityKey = `${entity.type}_${entity.id}`;
+            
+            // Finde das 3D-Objekt in der Szene
+            const object = this.findObjectByEntity(entity);
+            if (object) {
+                // Speichere das Original-Material
+                if (!this.originalMaterials.has(entityKey)) {
+                    if (object.material) {
+                        if (Array.isArray(object.material)) {
+                            this.originalMaterials.set(entityKey, object.material.map(m => m.clone()));
+                        } else {
+                            this.originalMaterials.set(entityKey, object.material.clone());
+                        }
+                    }
+                }
+
+                // Erstelle ein neues Material mit Hervorhebung
+                const highlightMaterial = this.createHighlightMaterial(object, color, intensity);
+                object.material = highlightMaterial;
+                
+                // Speichere die Hervorhebung
+                this.highlightedEntities.set(entityKey, { object, originalMaterial: this.originalMaterials.get(entityKey) });
+            }
+        }
+    }
+
+    createHighlightMaterial(object, color, intensity) {
+        let material;
+        
+        if (object.material) {
+            if (Array.isArray(object.material)) {
+                material = object.material.map(m => {
+                    const newMaterial = m.clone();
+                    newMaterial.emissive = new THREE.Color(color);
+                    newMaterial.emissiveIntensity = intensity;
+                    return newMaterial;
+                });
+            } else {
+                material = object.material.clone();
+                material.emissive = new THREE.Color(color);
+                material.emissiveIntensity = intensity;
+            }
+        } else {
+            // Standardmaterial, wenn kein Material vorhanden
+            material = new THREE.MeshLambertMaterial({ 
+                color: 0xffffff,
+                emissive: new THREE.Color(color),
+                emissiveIntensity: intensity
+            });
+        }
+        
+        return material;
+    }
+
+    findObjectByEntity(entity) {
+        if (!this.scene || !entity) return null;
+        
+        let foundObject = null;
+        
+        this.scene.traverse(child => {
+            if (foundObject) return; // Bereits gefunden
+            
+            // Prüfe, ob das Kind eine Entity-ID im userData hat
+            if (child.userData && child.userData.entityId === entity.id) {
+                foundObject = child;
+                return;
+            }
+            
+            // Prüfe, ob der Name des Objekts mit der Entity-ID übereinstimmt
+            if (child.name && child.name.includes(entity.id)) {
+                foundObject = child;
+                return;
+            }
+            
+            // Prüfe, ob der Typ des Objekts mit dem Entity-Typ übereinstimmt
+            if (child.userData && child.userData.entityType === entity.type) {
+                // Wenn mehrere Objekte des gleichen Typs existieren,
+                // nimm das erste, das noch nicht zugeordnet wurde
+                if (!foundObject) {
+                    foundObject = child;
+                }
+            }
+        });
+        
+        return foundObject;
+    }
+
+    resetHighlights() {
+        // Setze alle Hervorhebungen auf die Original-Materialien zurück
+        for (const [entityKey, highlightInfo] of this.highlightedEntities.entries()) {
+            if (highlightInfo.object && highlightInfo.originalMaterial) {
+                highlightInfo.object.material = highlightInfo.originalMaterial;
+            }
+        }
+        
+        this.highlightedEntities.clear();
+        this.originalMaterials.clear();
+    }
+
+    // Kamera-Steuerung
+    resetCamera() {
+        this.camera.position.set(15, 15, 15);
+        this.camera.lookAt(0, 0, 0);
+    }
+
+    focusOnObjects(objects) {
+        if (!objects || objects.length === 0) return;
+        
+        // Berechne den Mittelpunkt der Objekte
+        const center = new THREE.Vector3();
+        const box = new THREE.Box3();
+        
+        objects.forEach(obj => {
+            if (obj) {
+                box.expandByObject(obj);
+            }
+        });
+        
+        box.getCenter(center);
+        
+        // Positioniere die Kamera
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const distance = maxDim * 2;
+        
+        this.camera.position.set(
+            center.x + distance,
+            center.y + distance,
+            center.z + distance
+        );
+        this.camera.lookAt(center);
+    }
+
+    // Fenstergrößenänderung behandeln
+    handleResize() {
+        if (!this.camera || !this.renderer) return;
+        
+        const width = this.canvas.clientWidth;
+        const height = this.canvas.clientHeight;
+        
+        this.camera.aspect = width / height;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(width, height);
+    }
+
+    // Cleanup
+    dispose() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+        }
+        
+        this.resetScene();
+        
+        if (this.renderer) {
+            this.renderer.dispose();
+        }
+        
+        this.initialized = false;
+    }
+
+    // Konvertiert das Genesis-Format in das für die Weltgenerierung erwartete Format
+    convertGenesisToWorldFormat(genesisData) {
+        if (!genesisData) return {};
+        
+        const worldData = {
+            name: genesisData.metadata?.name || 'Unbenannte Welt',
+            description: genesisData.metadata?.description || '',
+            zone_id: genesisData.metadata?.id || 'default_zone'
+        };
+        
+        const entities = genesisData.entities || {};
+        
+        // Environment
+        if (entities.environment) {
+            const envKeys = Object.keys(entities.environment);
+            if (envKeys.length > 0) {
+                worldData.environment = entities.environment[envKeys[0]];
+            }
+        }
+        
+        // Terrain
+        if (entities.terrain) {
+            const terrainKeys = Object.keys(entities.terrain);
+            if (terrainKeys.length > 0) {
+                worldData.terrain = entities.terrain[terrainKeys[0]];
+            }
+        }
+        
+        // Objects
+        if (entities.object) {
+            worldData.objects = Object.values(entities.object);
+        }
+        
+        // Personas
+        if (entities.persona) {
+            worldData.personas = Object.values(entities.persona);
+        }
+        
+        // Portals
+        if (entities.portal) {
+            worldData.portals = Object.values(entities.portal);
+        }
+        
+        // Extensions
+        if (entities.extension) {
+            worldData.extensions = {};
+            for (const [key, extension] of Object.entries(entities.extension)) {
+                if (extension.name) {
+                    worldData.extensions[extension.name] = extension.value !== undefined ? extension.value : extension;
+                }
+            }
+        }
+        
+        // Camera
+        if (entities.camera) {
+            const cameraKeys = Object.keys(entities.camera);
+            if (cameraKeys.length > 0) {
+                worldData.camera = entities.camera[cameraKeys[0]];
+            }
+        }
+        
+        return worldData;
+    }
+
+    // Methode zur Visualisierung von Patches
+    visualizePatch(patchData, options = {}) {
+        if (!patchData || !this.currentZone) {
+            console.warn('Keine Patch-Daten oder keine aktuelle Zone vorhanden');
+            return;
+        }
+
+        const {
+            addedColor = 0x00ff00,    // Grün für hinzugefügte Entities
+            modifiedColor = 0xffff00, // Gelb für modifizierte Entities
+            removedColor = 0xff0000,  // Rot für entfernte Entities
+            intensity = 0.7
+        } = options;
+
+        // Setze vorherige Hervorhebungen zurück
+        this.resetHighlights();
+
+        // Verarbeite hinzugefügte Entities
+        if (patchData.added) {
+            for (const [type, entities] of Object.entries(patchData.added)) {
+                const entityList = Array.isArray(entities) ? entities : Object.values(entities);
+                for (const entity of entityList) {
+                    this.highlightEntities({ type, id: entity.id || entity }, addedColor, intensity);
+                }
+            }
+        }
+
+        // Verarbeite modifizierte Entities
+        if (patchData.modified) {
+            for (const [type, entities] of Object.entries(patchData.modified)) {
+                const entityList = Array.isArray(entities) ? entities : Object.values(entities);
+                for (const entity of entityList) {
+                    this.highlightEntities({ type, id: entity.id || entity }, modifiedColor, intensity);
+                }
+            }
+        }
+
+        // Verarbeite entfernte Entities (durch Durchsuchen der Szene)
+        if (patchData.removed) {
+            for (const [type, entities] of Object.entries(patchData.removed)) {
+                const entityList = Array.isArray(entities) ? entities : Object.values(entities);
+                for (const entity of entityList) {
+                    // Für entfernte Entities, versuchen wir, sie in der Szene zu finden
+                    // und sie mit einer anderen Visualisierung zu markieren
+                    const object = this.findObjectByEntity({ type, id: entity.id || entity });
+                    if (object) {
+                        // Erstelle ein spezielles Material für entfernte Objekte
+                        const removedMaterial = this.createHighlightMaterial(object, removedColor, intensity);
+                        // Mache das Objekt halbtransparent
+                        if (Array.isArray(removedMaterial)) {
+                            removedMaterial.forEach(m => { m.transparent = true; m.opacity = 0.5; });
+                        } else {
+                            removedMaterial.transparent = true;
+                            removedMaterial.opacity = 0.5;
+                        }
+                        object.material = removedMaterial;
+                        
+                        const entityKey = `${type}_${entity.id || entity}`;
+                        this.highlightedEntities.set(entityKey, {
+                            object,
+                            originalMaterial: this.originalMaterials.get(entityKey)
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Methode zur schrittweisen Anwendung eines Patches
+    async applyPatchStepByStep(patchData, options = {}) {
+        if (!patchData) {
+            console.warn('Keine Patch-Daten vorhanden');
+            return;
+        }
+
+        const {
+            stepDelay = 1000, // Verzögerung zwischen den Schritten in Millisekunden
+            onStepComplete = null, // Callback nach jedem Schritt
+            onComplete = null // Callback nach Abschluss
+        } = options;
+
+        // Setze vorherige Hervorhebungen zurück
+        this.resetHighlights();
+
+        // Schritt 1: Zeige hinzugefügte Entities
+        if (patchData.added) {
+            for (const [type, entities] of Object.entries(patchData.added)) {
+                const entityList = Array.isArray(entities) ? entities : Object.values(entities);
+                for (const entity of entityList) {
+                    this.highlightEntities({ type, id: entity.id || entity }, 0x00ff00, 0.7);
+                }
+            }
+            if (onStepComplete) onStepComplete('added');
+            await new Promise(resolve => setTimeout(resolve, stepDelay));
+        }
+
+        // Schritt 2: Zeige modifizierte Entities
+        if (patchData.modified) {
+            this.resetHighlights();
+            for (const [type, entities] of Object.entries(patchData.modified)) {
+                const entityList = Array.isArray(entities) ? entities : Object.values(entities);
+                for (const entity of entityList) {
+                    this.highlightEntities({ type, id: entity.id || entity }, 0xffff00, 0.7);
+                }
+            }
+            if (onStepComplete) onStepComplete('modified');
+            await new Promise(resolve => setTimeout(resolve, stepDelay));
+        }
+
+        // Schritt 3: Zeige entfernte Entities
+        if (patchData.removed) {
+            this.resetHighlights();
+            for (const [type, entities] of Object.entries(patchData.removed)) {
+                const entityList = Array.isArray(entities) ? entities : Object.values(entities);
+                for (const entity of entityList) {
+                    const object = this.findObjectByEntity({ type, id: entity.id || entity });
+                    if (object) {
+                        const removedMaterial = this.createHighlightMaterial(object, 0xff0000, 0.7);
+                        if (Array.isArray(removedMaterial)) {
+                            removedMaterial.forEach(m => { m.transparent = true; m.opacity = 0.5; });
+                        } else {
+                            removedMaterial.transparent = true;
+                            removedMaterial.opacity = 0.5;
+                        }
+                        object.material = removedMaterial;
+                        
+                        const entityKey = `${type}_${entity.id || entity}`;
+                        this.highlightedEntities.set(entityKey, {
+                            object,
+                            originalMaterial: this.originalMaterials.get(entityKey)
+                        });
+                    }
+                }
+            }
+            if (onStepComplete) onStepComplete('removed');
+            await new Promise(resolve => setTimeout(resolve, stepDelay));
+        }
+
+        // Abschluss
+        if (onComplete) onComplete();
+    }
+
+    // Methode zur Visualisierung von Konflikten
+    visualizeConflicts(conflicts, options = {}) {
+        if (!conflicts || conflicts.length === 0) {
+            console.warn('Keine Konflikte vorhanden');
+            return;
+        }
+
+        const {
+            conflictColor = 0xff00ff, // Magenta für Konflikte
+            intensity = 0.9
+        } = options;
+
+        // Setze vorherige Hervorhebungen zurück
+        this.resetHighlights();
+
+        // Verarbeite jeden Konflikt
+        for (const conflict of conflicts) {
+            // Markiere die betroffenen Entities
+            if (conflict.entities) {
+                for (const entity of conflict.entities) {
+                    this.highlightEntities(entity, conflictColor, intensity);
+                }
+            }
+        }
+    }
+
+    // Zusätzliche Methoden für die Patch-Visualisierung
+    setVisualizationMode(mode) {
+        this.visualizationMode = mode;
+        console.log('Visualisierungsmodus gesetzt auf:', mode);
+    }
+
+    setAnimationMode(mode) {
+        this.animationMode = mode;
+        console.log('Animationsmodus gesetzt auf:', mode);
+    }
+
+    setAnimationSpeed(speed) {
+        this.animationSpeed = speed;
+        console.log('Animationsgeschwindigkeit gesetzt auf:', speed);
+    }
+
+    setTransparency(transparency) {
+        this.transparency = transparency;
+        console.log('Transparenz gesetzt auf:', transparency);
+    }
+
+    async startAnimation() {
+        if (!this.currentPatch) {
+            console.warn('Kein Patch für Animation vorhanden');
+            return;
+        }
+        
+        if (this.animationMode === 'step') {
+            await this.applyPatchStepByStep(this.currentPatch, {
+                stepDelay: 1000 / this.animationSpeed
+            });
+        } else if (this.animationMode === 'continuous') {
+            // Kontinuierliche Animation implementieren
+            console.log('Kontinuierliche Animation gestartet');
+        }
+    }
+
+    async resetVisualization() {
+        this.resetHighlights();
+        console.log('Visualisierung zurückgesetzt');
+    }
+
+    async focusOnChanges() {
+        if (!this.highlightedEntities || this.highlightedEntities.size === 0) {
+            console.warn('Keine hervorgehobenen Entitäten zum Fokussieren');
+            return;
+        }
+        
+        const objects = Array.from(this.highlightedEntities.values()).map(info => info.object);
+        this.focusOnObjects(objects);
+        console.log('Fokus auf Änderungen gesetzt');
+    }
+
+    async clearHighlights() {
+        this.resetHighlights();
+        console.log('Hervorhebungen gelöscht');
+    }
+
+    // Aktuellen Patch speichern für spätere Animationen
+    setCurrentPatch(patch) {
+        this.currentPatch = patch;
+    }
+}
