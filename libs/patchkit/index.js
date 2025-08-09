@@ -222,7 +222,8 @@ function ensureValidators() {
 // 5) Public API: genesis
 export const genesis = {
   async create(input, options = {}) {
-    const id = generateUniqueId(12);
+    // Wenn eine ID im Input übergeben wird, verwende diese, ansonsten generiere eine neue
+    const id = input?.id || generateUniqueId(12);
     const created_at = (options.clock && typeof options.clock.now === "function") ? options.clock.now() : nowEpoch();
     const g = {
       metadata: {

@@ -138,6 +138,19 @@ export class PresetEditor {
  
     const btnLoad = document.getElementById('btn-load');
     if (btnLoad) btnLoad.addEventListener('click', () => this.loadByWorldIdPrompt());
+    
+    // Buttons aus world-editor.html
+    const newWorldBtn = document.getElementById('newWorldBtn');
+    if (newWorldBtn) newWorldBtn.addEventListener('click', () => this.createNewWorld());
+    
+    const loadWorldBtn = document.getElementById('loadWorldBtn');
+    if (loadWorldBtn) loadWorldBtn.addEventListener('click', () => this.loadWorldByIdFromInput());
+    
+    const saveGenesisBtn = document.getElementById('saveGenesisBtn');
+    if (saveGenesisBtn) saveGenesisBtn.addEventListener('click', () => this.saveCurrent());
+    
+    const savePatchBtn = document.getElementById('savePatchBtn');
+    if (savePatchBtn) savePatchBtn.addEventListener('click', () => this.saveAsPatch());
   }
  
   _setStatus(msg, type = 'info') {
@@ -285,6 +298,151 @@ export class PresetEditor {
       this._setStatus('Fehler beim Laden: ' + e.message, 'error');
     }
   }
+
+  async createNewWorld() {
+    try {
+      // Ermittle author_npub aus aktiver Identität
+      let author_npub = 'npub0';
+      try {
+        // Versuche 1: Über den nostrService des Editors
+        if (this.nostrService && typeof this.nostrService.getIdentity === 'function') {
+          const ident = await this.nostrService.getIdentity();
+          if (ident?.pubkey) author_npub = ident.pubkey;
+        }
+        
+        // Versuche 2: Über die NostrServiceFactory, falls der erste Versuch fehlschlägt
+        if (author_npub === 'npub0' && window.NostrServiceFactory) {
+          try {
+            const factoryService = await window.NostrServiceFactory.getNostrService();
+            if (factoryService && typeof factoryService.getIdentity === 'function') {
+              const ident = await factoryService.getIdentity();
+              if (ident?.pubkey) author_npub = ident.pubkey;
+            }
+          } catch (e) {
+            console.warn('Fehler bei der Identitätsabfrage über NostrServiceFactory:', e);
+          }
+        }
+      } catch (e) {
+        console.error('Fehler bei der Autor-Identifikation:', e);
+      }
+      
+      const g = await this.patchKit.genesis.create({
+        name: 'Neue Welt',
+        author_npub,
+        initialEntities: {},
+        rules: {}
+      });
+      
+      // Füge ein leeres originalYaml-Feld für neue Welten hinzu
+      g.originalYaml = '';
+      
+      const signed = await this.patchKit.genesis.sign(g);
+      const saved = await this.patchKit.io.genesisPort.save(signed);
+      this.worldId = saved?.worldId || g?.metadata?.id || null;
+      const wInput = document.getElementById('worldIdInput');
+      if (wInput) wInput.value = this.worldId || '';
+      
+      // Setze einen leeren YAML-Content im Editor
+      const yamlEditor = document.getElementById('yaml-editor');
+      if (yamlEditor) {
+        yamlEditor.value = `# Neue Welt
+name: "Neue Welt"
+description: "Beschreibung hier einfügen"
+
+environment:
+  skybox: "sunset"
+  ambient_light: 0.6
+  sun_intensity: 0.8
+
+terrain:
+  type: "flat"
+  size: [20, 20]
+  color: "#4a4a4a"
+
+objects:
+  - type: "tree"
+    position: [0, 0, 0]
+    scale: [1, 1.5, 1]
+    color: "#1a4a1a"
+`;
+      }
+      
+      if (window.showToast) window.showToast('success', 'Neue Welt erstellt: ' + (this.worldId || 'unbekannt'));
+      this._setStatus('Neue Welt erstellt: ' + (this.worldId || 'unbekannt'), 'success');
+    } catch (e) {
+      console.error(e);
+      if (window.showToast) window.showToast('error', 'Neu-Erstellung fehlgeschlagen: ' + e.message);
+      this._setStatus('Neu-Erstellung fehlgeschlagen: ' + e.message, 'error');
+    }
+  }
+
+  async loadWorldByIdFromInput() {
+    const w = document.getElementById('worldIdInput')?.value?.trim();
+    if (w) {
+      await this.loadWorldById(w);
+    } else {
+      if (window.showToast) window.showToast('info', 'Bitte eine World ID eingeben.');
+      this._setStatus('Bitte eine World ID eingeben.', 'info');
+    }
+  }
+
+  async saveAsPatch() {
+    try {
+      if (!this.worldId) {
+        if (window.showToast) window.showToast('info', 'Keine World ID gesetzt. Speichere zunächst eine Genesis.');
+        this._setStatus('Keine World ID gesetzt. Speichere zunächst eine Genesis.', 'info');
+        return;
+      }
+      
+      // Ermittle author_npub aus aktiver Identität
+      let author_npub = 'npub0';
+      try {
+        // Versuche 1: Über den nostrService des Editors
+        if (this.nostrService && typeof this.nostrService.getIdentity === 'function') {
+          const ident = await this.nostrService.getIdentity();
+          if (ident?.pubkey) author_npub = ident.pubkey;
+        }
+        
+        // Versuche 2: Über die NostrServiceFactory, falls der erste Versuch fehlschlägt
+        if (author_npub === 'npub0' && window.NostrServiceFactory) {
+          try {
+            const factoryService = await window.NostrServiceFactory.getNostrService();
+            if (factoryService && typeof factoryService.getIdentity === 'function') {
+              const ident = await factoryService.getIdentity();
+              if (ident?.pubkey) author_npub = ident.pubkey;
+            }
+          } catch (e) {
+            console.warn('Fehler bei der Identitätsabfrage über NostrServiceFactory:', e);
+          }
+        }
+      } catch (e) {
+        console.error('Fehler bei der Autor-Identifikation:', e);
+      }
+      
+      const p = await this.patchKit.patch.create({
+        targets_world: this.worldId,
+        author_npub,
+        operations: []
+      });
+      
+      // Speichere den aktuellen YAML-Text im Patch-Objekt
+      p.originalYaml = this.getYamlText();
+      
+      const res = await this.patchKit.patch.validate(p);
+      if (!(res?.valid === true || res === true)) {
+        const errors = Array.isArray(res?.errors) ? res.errors : [];
+        throw new Error('Patch ungültig: ' + JSON.stringify(errors));
+      }
+      const signed = await this.patchKit.patch.sign(p);
+      await this.patchKit.io.patchPort.save(signed);
+      if (window.showToast) window.showToast('success', 'Patch gespeichert.');
+      this._setStatus('Patch gespeichert.', 'success');
+    } catch (e) {
+      console.error(e);
+      if (window.showToast) window.showToast('error', 'Speichern (Patch) fehlgeschlagen: ' + e.message);
+      this._setStatus('Speichern (Patch) fehlgeschlagen: ' + e.message, 'error');
+    }
+  }
  
   async saveCurrent() {
     if (!this.patchKit) {
@@ -303,34 +461,189 @@ export class PresetEditor {
       // Ermittle author_npub aus aktiver Identität
       let author_npub = 'npub0';
       try {
-        const ident = this.nostrService && typeof this.nostrService.getIdentity === 'function'
-          ? await this.nostrService.getIdentity()
-          : null;
-        if (ident?.pubkey) author_npub = ident.pubkey;
-      } catch {}
-      // MVP: Immer als Patch speichern, wenn worldId existiert, sonst Genesis
-      if (this.worldId) {
-        const p = await this.patchKit.patch.create({
-          targets_world: this.worldId,
-          author_npub,
-          operations: []
-        });
-        
-        // Speichere den ursprünglichen YAML-Text im Patch-Objekt
-        p.originalYaml = yamlText;
-        
-        // Optional: Daten in operations verpacken (abhängig vom konkreten Datenmodell)
-        const res = await this.patchKit.patch.validate(p);
-        const valid = res?.valid === true || res === true;
-        if (!valid) {
-          const errors = Array.isArray(res?.errors) ? res.errors : [];
-          throw new Error('Patch ungültig: ' + JSON.stringify(errors));
+        // Versuche 1: Über den nostrService des Editors
+        if (this.nostrService && typeof this.nostrService.getIdentity === 'function') {
+          const ident = await this.nostrService.getIdentity();
+          if (ident?.pubkey) author_npub = ident.pubkey;
         }
-        const signed = await this.patchKit.patch.sign(p);
-        await this.patchKit.io.patchPort.save(signed);
-        this._setStatus('Patch gespeichert.', 'success');
+        
+        // Versuche 2: Über die NostrServiceFactory, falls der erste Versuch fehlschlägt
+        if (author_npub === 'npub0' && window.NostrServiceFactory) {
+          try {
+            const factoryService = await window.NostrServiceFactory.getNostrService();
+            if (factoryService && typeof factoryService.getIdentity === 'function') {
+              const ident = await factoryService.getIdentity();
+              if (ident?.pubkey) author_npub = ident.pubkey;
+            }
+          } catch (e) {
+            console.warn('Fehler bei der Identitätsabfrage über NostrServiceFactory:', e);
+          }
+        }
+        
+        // Debug-Informationen
+        console.log('Autor-Identifikation:', {
+          currentAuthorNpub: author_npub,
+          nostrServiceAvailable: !!this.nostrService,
+          nostrServiceFactoryAvailable: !!window.NostrServiceFactory
+        });
+      } catch (e) {
+        console.error('Fehler bei der Autor-Identifikation:', e);
+      }
+      
+      // Prüfe, ob wir eine vorhandene Welt aktualisieren oder eine neue erstellen
+      if (this.worldId) {
+        // Versuche zuerst, die vorhandene Genesis zu laden und zu aktualisieren
+        try {
+          const existingGenesis = await this.patchKit.io.genesisPort.getById(this.worldId);
+          
+          if (existingGenesis) {
+            // Prüfe, ob der aktuelle Benutzer der Autor ist
+            // Versuche verschiedene mögliche Speicherorte der Autoreninformation
+            const existingAuthor =
+              existingGenesis.metadata?.author_npub ||
+              existingGenesis.author_npub ||
+              existingGenesis.author ||
+              existingGenesis.pubkey;
+              
+            const isAuthor = existingAuthor === author_npub;
+            
+            // Debug-Informationen
+            console.log('Autorenschaft-Prüfung:', {
+              existingAuthor,
+              currentAuthor: author_npub,
+              isAuthor,
+              worldId: this.worldId,
+              genesisMetadata: existingGenesis.metadata,
+              genesisKeys: Object.keys(existingGenesis),
+              fullGenesis: existingGenesis
+            });
+            
+            if (isAuthor) {
+              // Aktualisiere die vorhandene Genesis
+              const normalized = this.normalizeUserYaml(stripped);
+              const updatedGenesis = await this.patchKit.genesis.create({
+                id: this.worldId, // Behalte die vorhandene ID bei
+                name: normalized?.name || stripped?.name || existingGenesis.metadata?.name || 'Unbenannte Welt',
+                description: normalized?.description || stripped?.description || existingGenesis.metadata?.description || '',
+                author_npub,
+                initialEntities: normalized?.entities || stripped?.entities || {},
+                rules: normalized?.rules || stripped?.rules || {}
+              });
+              
+              // Behalte created_at von der ursprünglichen Genesis bei
+              if (existingGenesis.metadata?.created_at) {
+                updatedGenesis.metadata.created_at = existingGenesis.metadata.created_at;
+              }
+              
+              // Speichere den ursprünglichen YAML-Text im Genesis-Objekt
+              updatedGenesis.originalYaml = yamlText;
+              
+              // Erstelle eine Kopie für die Validierung, ohne das originalYaml-Feld
+              const gForValidation = { ...updatedGenesis };
+              delete gForValidation.originalYaml;
+              
+              const res = await this.patchKit.genesis.validate(gForValidation);
+              const valid = res?.valid === true || res === true;
+              if (!valid) {
+                const errors = Array.isArray(res?.errors) ? res.errors : [];
+                throw new Error('Genesis ungültig: ' + JSON.stringify(errors));
+              }
+              const signed = await this.patchKit.genesis.sign(updatedGenesis);
+              await this.patchKit.io.genesisPort.save(signed);
+              // toast
+              window.showToast('success', 'Genesis erfolgreich aktualisiert');
+        
+              this._setStatus('Genesis aktualisiert.', 'success');
+            } else {
+              // Nicht der Autor - frage, ob eine Kopie erstellt werden soll
+              const confirmCopy = window.confirm('Sie sind nicht der Autor dieser Welt. Möchten Sie eine Kopie als neue Welt erstellen?');
+              if (!confirmCopy) {
+                this._setStatus('Speichern abgebrochen.', 'info');
+                return;
+              }
+              
+              // Erstelle eine neue Genesis mit neuer ID
+              const normalized = this.normalizeUserYaml(stripped);
+              const g = await this.patchKit.genesis.create({
+                name: normalized?.name || stripped?.name || 'Unbenannte Welt (Kopie)',
+                description: normalized?.description || stripped?.description || '',
+                author_npub,
+                initialEntities: normalized?.entities || stripped?.entities || {},
+                rules: normalized?.rules || stripped?.rules || {}
+              });
+              
+              // Speichere den ursprünglichen YAML-Text im Genesis-Objekt
+              g.originalYaml = yamlText;
+              
+              // Erstelle eine Kopie für die Validierung, ohne das originalYaml-Feld
+              const gForValidation = { ...g };
+              delete gForValidation.originalYaml;
+              
+              const res = await this.patchKit.genesis.validate(gForValidation);
+              const valid = res?.valid === true || res === true;
+              if (!valid) {
+                const errors = Array.isArray(res?.errors) ? res.errors : [];
+                throw new Error('Genesis ungültig: ' + JSON.stringify(errors));
+              }
+              const signed = await this.patchKit.genesis.sign(g);
+              const saved = await this.patchKit.io.genesisPort.save(signed);
+              this.worldId = saved?.worldId || g?.metadata?.id || null;
+              this._setStatus('Kopie als neue Genesis gespeichert. World ID gesetzt.', 'success');
+            }
+          } else {
+            // Genesis nicht gefunden - erstelle eine neue
+            const normalized = this.normalizeUserYaml(stripped);
+            const g = await this.patchKit.genesis.create({
+              name: normalized?.name || stripped?.name || 'Unbenannte Welt',
+              description: normalized?.description || stripped?.description || '',
+              author_npub,
+              initialEntities: normalized?.entities || stripped?.entities || {},
+              rules: normalized?.rules || stripped?.rules || {}
+            });
+            
+            // Speichere den ursprünglichen YAML-Text im Genesis-Objekt
+            g.originalYaml = yamlText;
+            
+            // Erstelle eine Kopie für die Validierung, ohne das originalYaml-Feld
+            const gForValidation = { ...g };
+            delete gForValidation.originalYaml;
+            
+            const res = await this.patchKit.genesis.validate(gForValidation);
+            const valid = res?.valid === true || res === true;
+            if (!valid) {
+              const errors = Array.isArray(res?.errors) ? res.errors : [];
+              throw new Error('Genesis ungültig: ' + JSON.stringify(errors));
+            }
+            const signed = await this.patchKit.genesis.sign(g);
+            const saved = await this.patchKit.io.genesisPort.save(signed);
+            this.worldId = saved?.worldId || g?.metadata?.id || null;
+            this._setStatus('Neue Genesis gespeichert. World ID gesetzt.', 'success');
+          }
+        } catch (error) {
+          // Fehler beim Laden der Genesis - erstelle einen Patch als Fallback
+          console.warn('Fehler beim Aktualisieren der Genesis, erstelle Patch:', error);
+          
+          const p = await this.patchKit.patch.create({
+            targets_world: this.worldId,
+            author_npub,
+            operations: []
+          });
+          
+          // Speichere den ursprünglichen YAML-Text im Patch-Objekt
+          p.originalYaml = yamlText;
+          
+          const res = await this.patchKit.patch.validate(p);
+          const valid = res?.valid === true || res === true;
+          if (!valid) {
+            const errors = Array.isArray(res?.errors) ? res.errors : [];
+            throw new Error('Patch ungültig: ' + JSON.stringify(errors));
+          }
+          const signed = await this.patchKit.patch.sign(p);
+          await this.patchKit.io.patchPort.save(signed);
+          this._setStatus('Patch gespeichert.', 'success');
+        }
       } else {
-        // Nutzer-YAML darf simplified sein: vor create() auf Genesis-Struktur normalisieren
+        // Keine worldId - erstelle eine neue Genesis
         const normalized = this.normalizeUserYaml(stripped);
         const g = await this.patchKit.genesis.create({
           name: normalized?.name || stripped?.name || 'Unbenannte Welt',
@@ -358,6 +671,7 @@ export class PresetEditor {
         this.worldId = saved?.worldId || g?.metadata?.id || null;
         this._setStatus('Genesis gespeichert. World ID gesetzt.', 'success');
       }
+      
       // Nach Speichern Vorschau neu aufbauen
       const parsedAfterSave = this.parseYaml();
       if (parsedAfterSave) await this.updatePreviewFromObject(this.normalizeUserYaml(parsedAfterSave));

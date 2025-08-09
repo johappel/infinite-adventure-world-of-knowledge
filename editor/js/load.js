@@ -553,8 +553,53 @@ export function setupPresetSelect(editor) {
   });
 }
 
+// Setup für die Render- und Reset-Buttons
+export function setupRenderResetButtons(editor) {
+  const renderBtn = document.getElementById('renderBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  
+  if (renderBtn) {
+    renderBtn.addEventListener('click', async () => {
+      try {
+        if (editor && typeof editor.updatePreviewFromYaml === 'function') {
+          await editor.updatePreviewFromYaml();
+          if (window.showToast) window.showToast('success', 'Vorschau aktualisiert.');
+        }
+      } catch (e) {
+        console.error('Fehler beim Rendern:', e);
+        if (window.showToast) window.showToast('error', 'Rendern fehlgeschlagen: ' + e.message);
+      }
+    });
+  }
+  
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      try {
+        const yamlEditor = document.getElementById('yaml-editor');
+        const worldIdInput = document.getElementById('worldIdInput');
+        
+        if (yamlEditor) yamlEditor.value = '';
+        if (worldIdInput) worldIdInput.value = '';
+        
+        if (editor) {
+          editor.worldId = null;
+          if (typeof editor.updatePreviewFromYaml === 'function') {
+            editor.updatePreviewFromYaml();
+          }
+        }
+        
+        if (window.showToast) window.showToast('info', 'Editor zurückgesetzt.');
+      } catch (e) {
+        console.error('Fehler beim Zurücksetzen:', e);
+        if (window.showToast) window.showToast('error', 'Zurücksetzen fehlgeschlagen: ' + e.message);
+      }
+    });
+  }
+}
+
 // Hauptfunktion zum Initialisieren der Load-Funktionalität
 export async function initLoadFunctionality(editor, nostrService) {
   setupWorldSearch(editor, nostrService);
   setupPresetSelect(editor);
+  setupRenderResetButtons(editor);
 }
