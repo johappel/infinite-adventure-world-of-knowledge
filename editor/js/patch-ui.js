@@ -89,6 +89,222 @@ export class PatchUI {
     return p;
   }
 
+  // Erstellt einen Patch aus YAML-Änderungen
+  async createPatchFromYamlChanges(originalYaml, modifiedYaml, worldId) {
+    try {
+      // Parse beide YAML-Dateien
+      const original = this.parseYaml(originalYaml);
+      const modified = this.parseYaml(modifiedYaml);
+      
+      // Erstelle Operationen aus den Änderungen
+      const operations = this.createPatchOperations(original, modified);
+      
+      // Erstelle das Patch-Objekt
+      const patch = await this.patchKit.patch.create({
+        name: "Editor-Änderungen",
+        description: "Änderungen aus dem YAML-Editor",
+        author_npub: await this.getAuthorNpub(),
+        targets_world: worldId,
+        operations
+      });
+      
+      // Speichere den ursprünglichen YAML-Text
+      patch.originalYaml = modifiedYaml;
+      
+      // Validiere und speichere
+      const res = await this.patchKit.patch.validate(patch);
+      if (!res.valid) throw new Error('Patch ungültig');
+      
+      const signed = await this.patchKit.patch.sign(patch);
+      await this.patchKit.io.patchPort.save(signed);
+      
+      return patch;
+    } catch (e) {
+      console.error('Fehler beim Erstellen des Patches aus YAML-Änderungen:', e);
+      throw e;
+    }
+  }
+
+  // Parse YAML-Text
+  parseYaml(yamlText) {
+    if (!yamlText) return {};
+    try {
+      return jsyaml.load(yamlText) || {};
+    } catch (e) {
+      console.error('YAML Parse-Fehler:', e);
+      return {};
+    }
+  }
+
+  // Erstellt Operationen aus den Änderungen zwischen zwei YAML-Objekten
+  createPatchOperations(original, modified) {
+    const operations = [];
+    
+    // Vergleiche Arrays von Objekten
+    const compareArrays = (originalArray, modifiedArray, entityType) => {
+      const originalMap = new Map();
+      const modifiedMap = new Map();
+      
+      // Erstelle Maps für einfachen Vergleich
+      if (Array.isArray(originalArray)) {
+        originalArray.forEach((item, index) => {
+          const key = item.id || `${entityType}_${index}`;
+          originalMap.set(key, item);
+        });
+      }
+      
+      if (Array.isArray(modifiedArray)) {
+        modifiedArray.forEach((item, index) => {
+          const key = item.id || `${entityType}_${index}`;
+          modifiedMap.set(key, item);
+        });
+      }
+      
+      // Finde hinzugefügte Objekte
+      for (const [key, item] of modifiedMap) {
+        if (!originalMap.has(key)) {
+          // Vereinheitliche Attributnamen: type → kind
+          const payload = { ...item };
+          if (payload.type && !payload.kind) payload.kind = payload.type;
+          delete payload.type;
+          
+          operations.push({
+            type: 'add',
+            entity_type: entityType.slice(0, -1), // Entferne das 's' am Ende
+            entity_id: key,
+            payload
+          });
+        }
+      }
+      
+      // Finde gelöschte Objekte
+      for (const [key, item] of originalMap) {
+        if (!modifiedMap.has(key)) {
+          operations.push({
+            type: 'delete',
+            entity_type: entityType.slice(0, -1), // Entferne das 's' am Ende
+            entity_id: key
+          });
+        }
+      }
+      
+      // Finde aktualisierte Objekte
+      for (const [key, originalItem] of originalMap) {
+        if (modifiedMap.has(key)) {
+          const modifiedItem = modifiedMap.get(key);
+          const changes = {};
+          
+          // Vergleiche Eigenschaften
+          for (const [prop, value] of Object.entries(modifiedItem)) {
+            if (originalItem[prop] !== value) {
+              changes[prop] = value;
+            }
+          }
+          
+          if (Object.keys(changes).length > 0) {
+            operations.push({
+              type: 'update',
+              entity_type: entityType.slice(0, -1), // Entferne das 's' am Ende
+              entity_id: key,
+              changes
+            });
+          }
+        }
+      }
+    };
+    
+    // Vergleiche Objekte
+    const compareObjects = (originalObj, modifiedObj, entityType, entityId) => {
+      const changes = {};
+      
+      for (const [prop, value] of Object.entries(modifiedObj || {})) {
+        if (originalObj?.[prop] !== value) {
+          changes[prop] = value;
+        }
+      }
+      
+      if (Object.keys(changes).length > 0) {
+        operations.push({
+          type: 'update',
+          entity_type: entityType,
+          entity_id: entityId,
+          changes
+        });
+      }
+    };
+    
+    // Vergleiche die verschiedenen Entity-Typen
+    compareArrays(original.objects, modified.objects, 'objects');
+    compareArrays(original.portals, modified.portals, 'portals');
+    compareArrays(original.personas, modified.personas, 'personas');
+    
+    compareObjects(original.environment, modified.environment, 'environment', 'env1');
+    compareObjects(original.terrain, modified.terrain, 'terrain', 't1');
+    compareObjects(original.camera, modified.camera, 'camera', 'cam1');
+    
+    // Vergleiche Extensions
+    if (original.extensions || modified.extensions) {
+      const originalExtensions = original.extensions || {};
+      const modifiedExtensions = modified.extensions || {};
+      
+      // Finde hinzugefügte oder aktualisierte Extensions
+      for (const [key, value] of Object.entries(modifiedExtensions)) {
+        if (originalExtensions[key] !== value) {
+          const payload = typeof value === 'object' ? { ...value, name: key } : { name: key, value };
+          
+          operations.push({
+            type: originalExtensions[key] ? 'update' : 'add',
+            entity_type: 'extension',
+            entity_id: `extension_${key}`,
+            payload
+          });
+        }
+      }
+      
+      // Finde gelöschte Extensions
+      for (const key of Object.keys(originalExtensions)) {
+        if (!modifiedExtensions[key]) {
+          operations.push({
+            type: 'delete',
+            entity_type: 'extension',
+            entity_id: `extension_${key}`
+          });
+        }
+      }
+    }
+    
+    return operations;
+  }
+
+  // Ermittelt die aktuelle Autor-Npub
+  async getAuthorNpub() {
+    let author_npub = 'npub0';
+    try {
+      // Versuche 1: Über den nostrService des Editors
+      if (this.nostrService && typeof this.nostrService.getIdentity === 'function') {
+        const ident = await this.nostrService.getIdentity();
+        if (ident?.pubkey) author_npub = ident.pubkey;
+      }
+      
+      // Versuche 2: Über die NostrServiceFactory, falls der erste Versuch fehlschlägt
+      if (author_npub === 'npub0' && window.NostrServiceFactory) {
+        try {
+          const factoryService = await window.NostrServiceFactory.getNostrService();
+          if (factoryService && typeof factoryService.getIdentity === 'function') {
+            const ident = await factoryService.getIdentity();
+            if (ident?.pubkey) author_npub = ident.pubkey;
+          }
+        } catch (e) {
+          console.warn('Fehler bei der Identitätsabfrage über NostrServiceFactory:', e);
+        }
+      }
+    } catch (e) {
+      console.error('Fehler bei der Autor-Identifikation:', e);
+    }
+    
+    return author_npub;
+  }
+
   async _computeOrderMarkCycles() {
     // computeOrder erwartet vollständige Patch-Objekte (mit metadata.id/depends_on)
     const { ordered, cycles } = await this.patchKit.world.computeOrder(this.patches, { onCycle: 'mark' });

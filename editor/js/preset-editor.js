@@ -8,6 +8,7 @@
  */
  
 import { createPatchKitAPI } from './patchkit-wiring.js';
+import { PatchUI } from './patch-ui.js';
  
 export class PresetEditor {
   constructor(opts = {}) {
@@ -289,7 +290,9 @@ export class PresetEditor {
       } else {
         // Andernfalls parse den YAML-Inhalt wie bisher
         const worldObj = this.patchKit.genesis.parse(genesisEvt?.yaml || genesisEvt);
-        const text = this.serializeYaml(this.stripWorldId(worldObj));
+        // Denormalisiere das Weltobjekt für die Anzeige im YAML-Editor
+        const denormalized = this.denormalizeUserYaml(worldObj);
+        const text = this.serializeYaml(denormalized);
         this.setYamlText(text);
         this._setStatus('World geladen und in YAML eingefügt.', 'success');
         await this.updatePreviewFromObject(worldObj);
@@ -419,14 +422,30 @@ objects:
         console.error('Fehler bei der Autor-Identifikation:', e);
       }
       
+      // Parse den aktuellen YAML-Text
+      const yamlText = this.getYamlText();
+      const parsedYaml = this.parseYaml();
+      
+      if (!parsedYaml) {
+        if (window.showToast) window.showToast('info', 'Kein YAML-Inhalt zum Speichern.');
+        this._setStatus('Kein YAML-Inhalt zum Speichern.', 'info');
+        return;
+      }
+      
+      // Normalisiere das YAML-Objekt für die Patch-Erstellung
+      const normalizedPatch = this.normalizePatchYaml(parsedYaml);
+      
+      // Erstelle das Patch-Objekt
       const p = await this.patchKit.patch.create({
-        targets_world: this.worldId,
+        name: normalizedPatch.metadata.name,
+        description: normalizedPatch.metadata.description,
         author_npub,
-        operations: []
+        targets_world: this.worldId,
+        operations: normalizedPatch.operations
       });
       
-      // Speichere den aktuellen YAML-Text im Patch-Objekt
-      p.originalYaml = this.getYamlText();
+      // Speichere den ursprünglichen YAML-Text im Patch-Objekt
+      p.originalYaml = yamlText;
       
       const res = await this.patchKit.patch.validate(p);
       if (!(res?.valid === true || res === true)) {
@@ -623,23 +642,20 @@ objects:
           // Fehler beim Laden der Genesis - erstelle einen Patch als Fallback
           console.warn('Fehler beim Aktualisieren der Genesis, erstelle Patch:', error);
           
-          const p = await this.patchKit.patch.create({
-            targets_world: this.worldId,
-            author_npub,
-            operations: []
-          });
-          
-          // Speichere den ursprünglichen YAML-Text im Patch-Objekt
-          p.originalYaml = yamlText;
-          
-          const res = await this.patchKit.patch.validate(p);
-          const valid = res?.valid === true || res === true;
-          if (!valid) {
-            const errors = Array.isArray(res?.errors) ? res.errors : [];
-            throw new Error('Patch ungültig: ' + JSON.stringify(errors));
+          // Lade die aktuelle Genesis, um die Änderungen zu vergleichen
+          let originalYaml = '';
+          try {
+            const currentGenesis = await this.patchKit.io.genesisPort.getById(this.worldId);
+            originalYaml = currentGenesis.originalYaml || this.serializeYaml(this.denormalizeUserYaml(currentGenesis));
+          } catch (e) {
+            console.warn('Konnte aktuelle Genesis nicht laden, erstelle Patch aus vollen YAML:', e);
+            originalYaml = '';
           }
-          const signed = await this.patchKit.patch.sign(p);
-          await this.patchKit.io.patchPort.save(signed);
+          
+          // Erstelle einen Patch aus den Änderungen
+          const patchUI = new PatchUI({ patchKit: this.patchKit, worldId: this.worldId });
+          const patch = await patchUI.createPatchFromYamlChanges(originalYaml, yamlText, this.worldId);
+          
           this._setStatus('Patch gespeichert.', 'success');
         }
       } else {
@@ -783,6 +799,62 @@ objects:
       }
     }
 
+    // portals → entities.portal.portalN
+    if (Array.isArray(obj.portals)) {
+      entities.portal = entities.portal || {};
+      let i = 1;
+      for (const item of obj.portals) {
+        const id = 'portal' + (i++);
+        if (item && typeof item === 'object') {
+          // Vereinheitliche Attributnamen: type/preset → kind
+          const copy = { ...item };
+          if (copy.type && !copy.kind) copy.kind = copy.type;
+          delete copy.type;
+          entities.portal[id] = copy;
+        } else if (typeof item === 'string') {
+          entities.portal[id] = { kind: item };
+        }
+      }
+    }
+
+    // personas → entities.persona.personaN
+    if (Array.isArray(obj.personas)) {
+      entities.persona = entities.persona || {};
+      let i = 1;
+      for (const item of obj.personas) {
+        const id = 'persona' + (i++);
+        if (item && typeof item === 'object') {
+          // Vereinheitliche Attributnamen: type/preset → kind
+          const copy = { ...item };
+          if (copy.type && !copy.kind) copy.kind = copy.type;
+          delete copy.type;
+          entities.persona[id] = copy;
+        } else if (typeof item === 'string') {
+          entities.persona[id] = { kind: item };
+        }
+      }
+    }
+
+    // extensions → entities.extension.extensionN
+    if (obj.extensions && typeof obj.extensions === 'object') {
+      entities.extension = entities.extension || {};
+      let i = 1;
+      for (const [key, value] of Object.entries(obj.extensions)) {
+        const id = 'extension' + (i++);
+        if (typeof value === 'object') {
+          entities.extension[id] = { ...value, name: key };
+        } else {
+          entities.extension[id] = { name: key, value };
+        }
+      }
+    }
+
+    // camera → entities.camera.cam1
+    if (obj.camera && typeof obj.camera === 'object') {
+      entities.camera = entities.camera || {};
+      entities.camera.cam1 = { ...obj.camera };
+    }
+
     // Fallback, falls leer
     if (!Object.keys(entities).length) {
       out.entities = { misc: { item1: obj } };
@@ -793,6 +865,205 @@ objects:
     if (obj.description) out.metadata.description = obj.description;
 
     return out;
+  }
+
+  // Denormalisiert das interne PatchKit-Format zurück in das benutzerfreundliche YAML-Format
+  denormalizeUserYaml(normalized) {
+    if (!normalized || typeof normalized !== 'object') return {};
+
+    const out = {};
+
+    // Metadaten übernehmen
+    if (normalized.metadata) {
+      if (normalized.metadata.name) out.name = normalized.metadata.name;
+      if (normalized.metadata.description) out.description = normalized.metadata.description;
+      if (normalized.metadata.id) out.id = normalized.metadata.id;
+    }
+
+    // Entities verarbeiten
+    if (normalized.entities && typeof normalized.entities === 'object') {
+      // environment ← entities.environment.env1
+      if (normalized.entities.environment) {
+        const envKeys = Object.keys(normalized.entities.environment);
+        if (envKeys.length > 0) {
+          out.environment = { ...normalized.entities.environment[envKeys[0]] };
+        }
+      }
+
+      // terrain ← entities.terrain.t1
+      if (normalized.entities.terrain) {
+        const terrainKeys = Object.keys(normalized.entities.terrain);
+        if (terrainKeys.length > 0) {
+          out.terrain = { ...normalized.entities.terrain[terrainKeys[0]] };
+        }
+      }
+
+      // objects ← entities.object.objN
+      if (normalized.entities.object) {
+        out.objects = [];
+        for (const [id, obj] of Object.entries(normalized.entities.object)) {
+          if (obj && typeof obj === 'object') {
+            // Vereinheitliche Attributnamen: kind → type
+            const copy = { ...obj };
+            if (copy.kind && !copy.type) copy.type = copy.kind;
+            delete copy.kind;
+            out.objects.push(copy);
+          }
+        }
+      }
+
+      // portals ← entities.portal.portalN
+      if (normalized.entities.portal) {
+        out.portals = [];
+        for (const [id, portal] of Object.entries(normalized.entities.portal)) {
+          if (portal && typeof portal === 'object') {
+            // Vereinheitliche Attributnamen: kind → type
+            const copy = { ...portal };
+            if (copy.kind && !copy.type) copy.type = copy.kind;
+            delete copy.kind;
+            out.portals.push(copy);
+          }
+        }
+      }
+
+      // personas ← entities.persona.personaN
+      if (normalized.entities.persona) {
+        out.personas = [];
+        for (const [id, persona] of Object.entries(normalized.entities.persona)) {
+          if (persona && typeof persona === 'object') {
+            // Vereinheitliche Attributnamen: kind → type
+            const copy = { ...persona };
+            if (copy.kind && !copy.type) copy.type = copy.kind;
+            delete copy.kind;
+            out.personas.push(copy);
+          }
+        }
+      }
+
+      // extensions ← entities.extension.extensionN
+      if (normalized.entities.extension) {
+        out.extensions = {};
+        for (const [id, extension] of Object.entries(normalized.entities.extension)) {
+          if (extension && typeof extension === 'object') {
+            if (extension.name) {
+              const name = extension.name;
+              const copy = { ...extension };
+              delete copy.name;
+              out.extensions[name] = copy.value !== undefined ? copy.value : copy;
+            }
+          }
+        }
+      }
+
+      // camera ← entities.camera.cam1
+      if (normalized.entities.camera) {
+        const cameraKeys = Object.keys(normalized.entities.camera);
+        if (cameraKeys.length > 0) {
+          out.camera = { ...normalized.entities.camera[cameraKeys[0]] };
+        }
+      }
+    }
+
+    // Rules übernehmen
+    if (normalized.rules && typeof normalized.rules === 'object') {
+      out.rules = { ...normalized.rules };
+    }
+
+    return out;
+  }
+
+  // Normalisiert ein YAML-Objekt für die Patch-Erstellung
+  normalizePatchYaml(obj) {
+    if (!obj || typeof obj !== 'object') return { metadata: {}, operations: [] };
+
+    // Bereits Patch-ähnlich?
+    if (obj.operations && Array.isArray(obj.operations)) {
+      return { ...obj };
+    }
+
+    const operations = [];
+    const metadata = {
+      schema_version: 'patchkit/1.0',
+      id: obj.id || 'patch_' + Math.random().toString(36).slice(2, 10),
+      name: obj.name || 'Patch',
+      description: obj.description || '',
+      author_npub: obj.author_npub || 'npub0',
+      created_at: Math.floor(Date.now() / 1000),
+      targets_world: obj.targets_world || this.worldId || ''
+    };
+
+    // Konvertiere die flache YAML-Struktur in Operationen
+    const entityTypes = ['objects', 'portals', 'personas'];
+    
+    for (const entityType of entityTypes) {
+      if (Array.isArray(obj[entityType])) {
+        let i = 1;
+        for (const item of obj[entityType]) {
+          const entityTypeName = entityType.slice(0, -1); // Entferne das 's' am Ende
+          const entityId = entityTypeName + (i++);
+          
+          // Vereinheitliche Attributnamen: type → kind
+          const payload = { ...item };
+          if (payload.type && !payload.kind) payload.kind = payload.type;
+          delete payload.type;
+          
+          operations.push({
+            type: 'add',
+            entity_type: entityTypeName,
+            entity_id: entityId,
+            payload
+          });
+        }
+      }
+    }
+
+    // Behandele environment als Update-Operation
+    if (obj.environment && typeof obj.environment === 'object') {
+      operations.push({
+        type: 'update',
+        entity_type: 'environment',
+        entity_id: 'env1',
+        changes: obj.environment
+      });
+    }
+
+    // Behandele terrain als Update-Operation
+    if (obj.terrain && typeof obj.terrain === 'object') {
+      operations.push({
+        type: 'update',
+        entity_type: 'terrain',
+        entity_id: 't1',
+        changes: obj.terrain
+      });
+    }
+
+    // Behandele extensions als Add-Operationen
+    if (obj.extensions && typeof obj.extensions === 'object') {
+      let i = 1;
+      for (const [key, value] of Object.entries(obj.extensions)) {
+        const entityId = 'extension' + (i++);
+        const payload = typeof value === 'object' ? { ...value, name: key } : { name: key, value };
+        
+        operations.push({
+          type: 'add',
+          entity_type: 'extension',
+          entity_id: entityId,
+          payload
+        });
+      }
+    }
+
+    // Behandele camera als Update-Operation
+    if (obj.camera && typeof obj.camera === 'object') {
+      operations.push({
+        type: 'update',
+        entity_type: 'camera',
+        entity_id: 'cam1',
+        changes: obj.camera
+      });
+    }
+
+    return { metadata, operations };
   }
 
   _initThreePreview() {

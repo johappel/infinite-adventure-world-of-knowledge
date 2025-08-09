@@ -80,7 +80,7 @@ objects:
 | `stone_circle` | Steinkreis | Torus |
 | `crystal_knowledge` | Wissenskristall | Großer Octahedron |
 
-### Portale (`portales`)
+### Portale (`portals`)
 
 ```yaml
 portals:

@@ -15,8 +15,65 @@ Validierungstools
 - TS-Inferenz: Zod (Entwicklerfreundlichkeit)
 - YAML-Parser: yaml (eemeli) mit Limits (maxDepth, aliasCount=0, size)
 
-Genesis-Schema (Auszug, patchkit/1.0)
-- Datei: [schemas/genesis-1.0.json](schemas/genesis-1.0.json:1)
+## Genesis-Schema (Auszug, patchkit/1.0)
+
+Das Genesis-Schema unterstützt zwei Formate:
+
+### Format 1: Flache YAML-Struktur (benutzerfreundlich)
+
+```yaml
+name: "Weltname"                 # Anzeigename der Welt
+description: "Beschreibung..."   # Beschreibung für UI und Logs
+id: "zone-id"                   # Eindeutige Zone-ID
+
+environment:
+  skybox: "clear_day"           # Himmel-Typ
+  time_of_day: 0.5             # 0.0-1.0 (Mitternacht bis Mitternacht)
+  ambient_light: 0.6           # Umgebungslicht-Stärke
+  sun_intensity: 0.8           # Sonnen-Stärke
+  fog_distance: 100            # Sichtweite
+  ambient_sound: "birds"       # Hintergrundgeräusche
+
+terrain:
+  type: "flat"                 # flat, hills, mountains
+  size: [50, 50]              # [Breite, Tiefe] in Einheiten
+  color: "#4a7c1e"            # Farbe des Bodens
+  texture: "grass"            # Textur-Hint
+
+objects:
+  - type: "rock"
+    position: [5, 0, 3]
+    scale: [1.2, 0.8, 1.1]
+    color: "#8b7355"
+    interactive: true
+
+portals:
+  - id: "to-forest"
+    name: "Zum Mystischen Wald"
+    position: [-10, 1, 0]
+    size: [2, 3, 0.5]
+    destination: "zone-forest"
+    color: "#9370db"
+
+personas:
+  - name: "Lehrmeister Aelion"
+    position: [0, 0, 5]
+    appearance:
+      color: "#ff6b6b"
+      height: 1.8
+      type: "humanoid"
+
+extensions:
+  weather: "sunny"
+  season: "spring"
+  scripts_enabled: true
+  ambient_particles: "fireflies"
+  special_lighting: "warm"
+  multiplayer_spawn: [0, 0, 0]
+```
+
+### Format 2: Interne Struktur (PatchKit)
+
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -64,8 +121,24 @@ Genesis-Schema (Auszug, patchkit/1.0)
 }
 ```
 
-Patch-Schema (Auszug, patchkit/1.0)
-- Datei: [schemas/patch-1.0.json](schemas/patch-1.0.json:1)
+## Patch-Schema (Auszug, patchkit/1.0)
+
+Das Patch-Schema unterstützt zwei Formate:
+
+### Format 1: Flache YAML-Struktur (benutzerfreundlich)
+
+```yaml
+name: "Wegweiser"
+description: "Fügt Wegweiser an den Eingängen hinzu"
+objects:
+  - type: box
+    position: [0, 1, 30]
+    scale: [0.3, 2, 0.3]
+    color: "#654321"
+```
+
+### Format 2: Operations-Format (für komplexe Änderungen)
+
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -160,7 +233,7 @@ Patch-Schema (Auszug, patchkit/1.0)
 }
 ```
 
-WorldState-Schema (leicht)
+## WorldState-Schema (leicht)
 - Datei: [schemas/worldstate-1.0.json](schemas/worldstate-1.0.json:1)
 ```json
 {
@@ -186,53 +259,111 @@ WorldState-Schema (leicht)
 }
 ```
 
-Validierungsregeln (zusätzlich zur Schema-Prüfung)
+## Normalisierung und Denormalisierung
+
+Die Bibliothek stellt Funktionen zur Konvertierung zwischen den Formaten bereit:
+
+### Normalisierung
+
+Die `normalizeUserYaml`-Funktion konvertiert das benutzerfreundliche YAML-Format in das interne PatchKit-Format:
+
+```javascript
+const yamlText = `
+name: "Testwelt"
+objects:
+  - type: box
+    position: [0, 0, 0]
+`;
+
+const parsed = yaml.parse(yamlText);
+const normalized = normalizeUserYaml(parsed);
+// Ergebnis: { metadata: {...}, entities: { object: { obj1: { type: "box", position: [0, 0, 0] } } }, rules: {} }
+```
+
+### Denormalisierung
+
+Die `denormalizeUserYaml`-Funktion konvertiert das interne PatchKit-Format zurück in das benutzerfreundliche YAML-Format:
+
+```javascript
+const normalized = {
+  metadata: { name: "Testwelt" },
+  entities: { object: { obj1: { type: "box", position: [0, 0, 0] } } }
+};
+
+const denormalized = denormalizeUserYaml(normalized);
+// Ergebnis: { name: "Testwelt", objects: [{ type: "box", position: [0, 0, 0] }] }
+```
+
+## Beispiel: Gültige Genesis (YAML)
+
+```yaml
+name: "Base World"
+description: "Eine einfache Testwelt"
+id: "gen_XYZ123"
+
+environment:
+  skybox: "clear_day"
+  time_of_day: 0.5
+  ambient_light: 0.6
+  sun_intensity: 0.8
+
+terrain:
+  type: "flat"
+  size: [50, 50]
+  color: "#4a7c1e"
+
+objects:
+  - type: "rock"
+    position: [5, 0, 3]
+    scale: [1.2, 0.8, 1.1]
+    color: "#8b7355"
+```
+
+## Beispiel: Gültiger Patch (YAML)
+
+```yaml
+name: "Biome Desert"
+description: "Fügt eine Wüste hinzu"
+objects:
+  - type: "cactus"
+    position: [10, 0, 10]
+    scale: [1, 2, 1]
+    color: "#2d5016"
+```
+
+## Beispiel: Gültiger Patch (Operations-Format)
+
+```yaml
+metadata:
+  schema_version: "patchkit/1.0"
+  id: "a1B2c3D4e5"
+  name: "Biome Desert"
+  author_npub: "npub1xyz..."
+  created_at: 1733600000
+  targets_world: "gen_XYZ123"
+operations:
+  - type: add
+    entity_type: object
+    entity_id: cactus1
+    payload:
+      type: cactus
+      position: [10, 0, 10]
+      scale: [1, 2, 1]
+      color: "#2d5016"
+```
+
+## Validierungsregeln (zusätzlich zur Schema-Prüfung)
 - Referenzintegrität: update/delete benötigen vorhandene Entities; optional streng mit Option strictRefIntegrity.
 - Zyklendetektion: depends_on darf keine Zyklen bilden; Fehler mit Zykluspfad.
 - Größen-/Komplexitätslimits: maxEntities, maxProps pro Entity, konfigurierbar.
 - Signaturprüfung: author_npub muss mit Signatur pubkey übereinstimmen (falls aktiviert).
 
-Linting und Auto-Fix
+## Linting und Auto-Fix
 - Fehlende Felder: leere Listen/Maps als Defaults.
 - Normalisierung: Kleinschreibung für Keys nach Policy (optional).
 - Suggestions: z. B. entity_id aus payload ableiten, wenn eindeutig.
 
-Beispiel: Gültige Genesis (YAML)
-- Datei: [examples/genesis.yaml](examples/genesis.yaml:1)
-```yaml
-metadata:
-  schema_version: patchkit/1.0
-  id: gen_XYZ123
-  name: Base World
-  author_npub: npub1abc...
-  created_at: 1733600000
-entities:
-  biome:
-    forest:
-      temp: 20
-      humidity: 0.6
-```
-
-Beispiel: Gültiger Patch (YAML)
-- Datei: [examples/patch-desert.yaml](examples/patch-desert.yaml:1)
-```yaml
-metadata:
-  schema_version: patchkit/1.0
-  id: a1B2c3D4e5
-  name: Biome Desert
-  author_npub: npub1xyz...
-  created_at: 1733600000
-  targets_world: gen_XYZ123
-operations:
-  - type: add
-    entity_type: biome
-    entity_id: desert
-    payload:
-      temp: 40
-      humidity: 0.1
-```
-
-Hinweise zur Migration
+## Hinweise zur Migration
 - 1.0 → 1.1 (Beispiel-Ideen):
   - Umbenennung metadata.version → metadata.content_version
   - Einführung entities.*.*._deleted Flag statt delete-Operation (optional)
