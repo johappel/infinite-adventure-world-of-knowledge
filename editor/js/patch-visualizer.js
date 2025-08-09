@@ -69,17 +69,76 @@ export class PatchVisualizer {
         // Importiere die PatchKit-API
         const { createPatchKitAPI } = await import('./patchkit-wiring.js');
         
-        // Erstelle eine Nostr-Service-Instanz für die Patch-Anwendung
-        const nostrService = window.NostrServiceFactory?.create() || window.NostrService;
-        if (!nostrService) {
-            throw new Error('NostrService nicht verfügbar');
+        // Versuche, den NostrService aus dem PresetEditor zu bekommen
+        let nostrService = null;
+        let patchKit = null;
+        
+        // Debug-Informationen
+        console.log('[DEBUG] applyPatchesForVisualization aufgerufen');
+        console.log('[DEBUG] window.presetEditor verfügbar:', !!window.presetEditor);
+        console.log('[DEBUG] window.NostrServiceFactory verfügbar:', !!window.NostrServiceFactory);
+        console.log('[DEBUG] window.NostrService verfügbar:', !!window.NostrService);
+        
+        // Versuche 1: Hole den NostrService aus dem PresetEditor (falls verfügbar)
+        try {
+            if (window.presetEditor && window.presetEditor.nostrService) {
+                nostrService = window.presetEditor.nostrService;
+                console.log('[DEBUG] NostrService aus PresetEditor verwendet:', nostrService);
+            } else {
+                console.log('[DEBUG] Kein NostrService im PresetEditor gefunden');
+            }
+        } catch (e) {
+            console.warn('Konnte NostrService nicht aus PresetEditor holen:', e);
+        }
+        
+        // Versuche 2: Hole den NostrService aus der Factory
+        if (!nostrService && window.NostrServiceFactory) {
+            try {
+                console.log('[DEBUG] Versuche NostrService über Factory zu erhalten');
+                if (typeof window.NostrServiceFactory.create === 'function') {
+                    nostrService = window.NostrServiceFactory.create();
+                    console.log('[DEBUG] NostrService über Factory.create erstellt:', nostrService);
+                } else if (typeof window.NostrServiceFactory.getNostrService === 'function') {
+                    const maybe = window.NostrServiceFactory.getNostrService();
+                    nostrService = (maybe && typeof maybe.then === 'function') ? await maybe : maybe;
+                    console.log('[DEBUG] NostrService über Factory.getNostrService erhalten:', nostrService);
+                } else {
+                    console.log('[DEBUG] Factory hat weder create noch getNostrService Methode');
+                }
+            } catch (e) {
+                console.warn('Konnte NostrService nicht über Factory erstellen:', e);
+            }
+        }
+        
+        // Versuche 3: Direkter Zugriff auf window.NostrService
+        if (!nostrService && window.NostrService) {
+            nostrService = window.NostrService;
+            console.log('[DEBUG] NostrService direkt von window verwendet:', nostrService);
+        }
+        
+        // Versuche 4: Verwende die PatchKit-API aus dem PresetEditor (falls verfügbar)
+        if (!patchKit && window.presetEditor && window.presetEditor.patchKit) {
+            patchKit = window.presetEditor.patchKit;
+            console.log('[DEBUG] PatchKit-API aus PresetEditor verwendet:', patchKit);
+        }
+        
+        // Erstelle die PatchKit-API, falls noch nicht vorhanden
+        if (!patchKit) {
+            if (!nostrService) {
+                console.error('[DEBUG] Kein NostrService gefunden nach allen Versuchen');
+                console.error('[DEBUG] Verfügbare globale Objekte:', Object.keys(window).filter(key => key.includes('Nostr') || key.includes('patch')));
+                throw new Error('NostrService nicht verfügbar');
+            }
+            
+            console.log('[DEBUG] Erstelle PatchKit-API mit NostrService');
+            patchKit = await createPatchKitAPI(nostrService);
+            console.log('[DEBUG] PatchKit-API über createPatchKitAPI erstellt:', patchKit);
         }
 
-        // Erstelle die PatchKit-API
-        const patchKit = await createPatchKitAPI(nostrService);
-
         // Wende die Patches an
+        console.log('[DEBUG] Wende Patches an mit genesisData:', genesisData, 'und patches:', patches);
         const result = await patchKit.world.applyPatches(genesisData, patches);
+        console.log('[DEBUG] Patch-Anwendungsergebnis:', result);
         
         return result;
     }

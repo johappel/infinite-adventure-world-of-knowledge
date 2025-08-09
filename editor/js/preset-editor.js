@@ -14,7 +14,9 @@ import { PatchVisualizer } from './patch-visualizer.js';
  
 export class PresetEditor {
   constructor(opts = {}) {
-    this.textarea = opts.textarea || document.getElementById('world-yaml-editor');
+    this.worldTextarea = opts.textarea || document.getElementById('world-yaml-editor');
+    this.patchTextarea = document.getElementById('patch-yaml-editor');
+    this.textarea = this.worldTextarea; // Standardmäßig den World-Editor verwenden
     this.statusEl = opts.statusEl || document.getElementById('status-bar');
     this.canvas = opts.canvas || document.getElementById('preview-canvas');
     this.nostrFactory = opts.nostrFactory || window.NostrServiceFactory;
@@ -31,37 +33,100 @@ export class PresetEditor {
     this.patchYamlText = '';
     
     this._bindBasicEvents();
-
-    // Live-Validierung bei Eingabe + Preview-Update
-    const ta = this.textarea;
+    this._bindInputEvents();
+  }
+  
+  _bindInputEvents() {
+    // Live-Validierung bei Eingabe + Preview-Update für beide Editoren
     let vTimer = null;
-    ta?.addEventListener('input', () => {
+    
+    // Event-Listener für World-Editor
+    this.worldTextarea?.addEventListener('input', () => {
       clearTimeout(vTimer);
       vTimer = setTimeout(async () => {
-        try {
-          const raw = this.getYamlText();
-          const obj = this.parseYaml();
-          if (!obj) return;
-          const normalized = this.normalizeUserYaml(obj);
-          const res = this.patchKit?.genesis?.validate
-            ? await this.patchKit.genesis.validate(normalized)
-            : { valid: true, errors: [] };
-          const valid = res?.valid === true || res === true;
-          if (valid) {
-            this._setStatus('YAML gültig', 'success');
-            this._setValidationErrorsUI([]);
-            await this.updatePreviewFromObject(normalized);
-          } else {
-            const errors = Array.isArray(res?.errors) ? res.errors : [];
-            this._setStatus('YAML ungültig – Details unten.', 'error');
-            this._setValidationErrorsUI(errors, raw);
-          }
-        } catch (e) {
-          console.error('[YAML Live-Validation] Fehler:', e);
-          this._setStatus('YAML ungültig – Details unten.', 'error');
+        if (this.activeTab === 'world') {
+          await this._processYamlInput();
         }
       }, 300);
     });
+    
+    // Event-Listener für Patch-Editor
+    this.patchTextarea?.addEventListener('input', () => {
+      clearTimeout(vTimer);
+      vTimer = setTimeout(async () => {
+        if (this.activeTab === 'patch') {
+          await this._processYamlInput();
+        }
+      }, 300);
+    });
+  }
+  
+  async _processYamlInput() {
+    try {
+      const raw = this.getYamlText();
+      console.log('[DEBUG] YAML-Eingabe im Tab:', this.activeTab, 'Inhalt:', raw);
+      
+      const obj = this.parseYaml();
+      console.log('[DEBUG] Geparstes YAML-Objekt:', obj);
+      
+      if (!obj) return;
+      
+      // Unterschiedliche Verarbeitung je nach aktiven Tab
+      if (this.activeTab === 'world') {
+        const normalized = this.normalizeUserYaml(obj);
+        console.log('[DEBUG] Normalisierte Welt-Daten:', normalized);
+        
+        const res = this.patchKit?.genesis?.validate
+          ? await this.patchKit.genesis.validate(normalized)
+          : { valid: true, errors: [] };
+        const valid = res?.valid === true || res === true;
+        if (valid) {
+          this._setStatus('YAML gültig', 'success');
+          this._setValidationErrorsUI([]);
+          await this.updatePreviewFromObject(normalized);
+        } else {
+          const errors = Array.isArray(res?.errors) ? res.errors : [];
+          this._setStatus('YAML ungültig – Details unten.', 'error');
+          this._setValidationErrorsUI(errors, raw);
+        }
+      } else if (this.activeTab === 'patch') {
+        console.log('[DEBUG] Patch-Tab aktiv, verarbeite Patch-Daten');
+        const normalizedPatch = this.normalizePatchYaml(obj);
+        console.log('[DEBUG] Normalisierte Patch-Daten:', normalizedPatch);
+        
+        // Validiere den Patch
+        if (this.patchKit && this.patchKit.patch && typeof this.patchKit.patch.validate === 'function') {
+          try {
+            const patchValidation = await this.patchKit.patch.validate(normalizedPatch);
+            console.log('[DEBUG] Patch-Validierungsergebnis:', patchValidation);
+            
+            if (patchValidation?.valid === true || patchValidation === true) {
+              this._setStatus('Patch gültig', 'success');
+              this._setValidationErrorsUI([]);
+              
+              // Aktualisiere die Patch-Vorschau
+              await this._updatePatchPreview(normalizedPatch);
+            } else {
+              const errors = Array.isArray(patchValidation?.errors) ? patchValidation.errors : [];
+              this._setStatus('Patch ungültig – Details unten.', 'error');
+              this._setValidationErrorsUI(errors, raw);
+            }
+          } catch (validationError) {
+            console.error('[DEBUG] Fehler bei der Patch-Validierung:', validationError);
+            this._setStatus('Patch-Validierungsfehler: ' + validationError.message, 'error');
+          }
+        } else {
+          console.warn('[DEBUG] Keine Patch-Validierungsfunktion verfügbar');
+          this._setStatus('Patch-Validierung nicht verfügbar', 'info');
+          
+          // Aktualisiere trotzdem die Vorschau
+          await this._updatePatchPreview(normalizedPatch);
+        }
+      }
+    } catch (e) {
+      console.error('[DEBUG] Fehler bei der YAML-Verarbeitung:', e);
+      this._setStatus('YAML ungültig – Details unten.', 'error');
+    }
   }
  
   async init() {
@@ -282,11 +347,22 @@ export class PresetEditor {
   }
  
   getYamlText() {
-    return this.textarea ? this.textarea.value : '';
+    // Verwende den richtigen Editor basierend auf dem aktiven Tab
+    if (this.activeTab === 'world') {
+      return this.worldTextarea ? this.worldTextarea.value : '';
+    } else if (this.activeTab === 'patch') {
+      return this.patchTextarea ? this.patchTextarea.value : '';
+    }
+    return '';
   }
  
   setYamlText(text) {
-    if (this.textarea) this.textarea.value = text;
+    // Verwende den richtigen Editor basierend auf dem aktiven Tab
+    if (this.activeTab === 'world') {
+      if (this.worldTextarea) this.worldTextarea.value = text;
+    } else if (this.activeTab === 'patch') {
+      if (this.patchTextarea) this.patchTextarea.value = text;
+    }
   }
   
   // Tab-System Methoden
@@ -302,6 +378,13 @@ export class PresetEditor {
     
     // Wechsle den Tab
     this.activeTab = tabType;
+    
+    // Aktualisiere die aktive Textarea-Referenz
+    if (tabType === 'world') {
+      this.textarea = this.worldTextarea;
+    } else if (tabType === 'patch') {
+      this.textarea = this.patchTextarea;
+    }
     
     // Aktualisiere die UI
     this._updateTabUI();
@@ -334,11 +417,11 @@ export class PresetEditor {
     const patchTabContent = document.getElementById('patchTabContent');
     
     if (worldTabContent) {
-      worldTabContent.style.display = this.activeTab === 'world' ? 'block' : 'none';
+      worldTabContent.classList.toggle('active', this.activeTab === 'world');
     }
     
     if (patchTabContent) {
-      patchTabContent.style.display = this.activeTab === 'patch' ? 'block' : 'none';
+      patchTabContent.classList.toggle('active', this.activeTab === 'patch');
     }
     
     // Save-Buttons aktualisieren
@@ -729,6 +812,7 @@ description: "Beschreibung hier einfügen"
   async loadByWorldIdPrompt() {
     const id = prompt('World ID eingeben:');
     if (!id) return;
+    console.log('🌍 [Integrationstest] Lade Welt über Prompt mit ID:', id);
     this.worldId = id;
     await this.loadWorldById(id);
   }
@@ -766,6 +850,13 @@ description: "Beschreibung hier einfügen"
         console.log('🔄 [Integrationstest] Parse für Vorschau');
         const worldObj = this.parseYaml();
         await this.updatePreviewFromObject(this.normalizeUserYaml(worldObj));
+        
+        // Aktualisiere den Tab-Namen mit dem Welt-Namen
+        const worldName = worldObj?.metadata?.name || worldObj?.name || 'Welt';
+        console.log('🏷️ [Integrationstest] Aktualisiere Welt-Tab-Name mit:', worldName);
+        this._updateWorldTabName(worldName);
+        // Setze auch den Welt-Namen im Editor
+        this.worldName = worldName;
       } else {
         console.log('🔄 [Integrationstest] Verarbeite YAML-Inhalt');
         // Andernfalls parse den YAML-Inhalt wie bisher
@@ -807,6 +898,11 @@ description: "Beschreibung hier einfügen"
         
         console.log('🎬 [Integrationstest] Aktualisiere Vorschau');
         await this.updatePreviewFromObject(worldObj);
+        
+        // Aktualisiere den Tab-Namen mit dem Welt-Namen
+        const worldName = worldObj?.metadata?.name || worldObj?.name || 'Welt';
+        console.log('🏷️ [Integrationstest] Aktualisiere Welt-Tab-Name mit:', worldName);
+        this._updateWorldTabName(worldName);
       }
     } catch (e) {
       console.error('❌ [Integrationstest] Fehler beim Laden der Welt:', e);
@@ -928,6 +1024,10 @@ objects:
       if (window.showToast) window.showToast('success', 'Neue Welt erstellt: ' + (this.worldId || 'unbekannt'));
       this._setStatus('Neue Welt erstellt: ' + (this.worldId || 'unbekannt'), 'success');
       console.log('🎉 [Integrationstest] Neue Welt erfolgreich erstellt');
+      
+      // Aktualisiere den Tab-Namen mit dem Welt-Namen
+      console.log('🏷️ [Integrationstest] Aktualisiere Welt-Tab-Name mit: Neue Welt');
+      this._updateWorldTabName('Neue Welt');
     } catch (e) {
       console.error('❌ [Integrationstest] Fehler beim Erstellen der neuen Welt:', e);
       if (window.showToast) window.showToast('error', 'Neu-Erstellung fehlgeschlagen: ' + e.message);
@@ -938,6 +1038,7 @@ objects:
   async loadWorldByIdFromInput() {
     const w = document.getElementById('worldIdInput')?.value?.trim();
     if (w) {
+      console.log('🌍 [Integrationstest] Lade Welt über Eingabefeld mit ID:', w);
       await this.loadWorldById(w);
     } else {
       if (window.showToast) window.showToast('info', 'Bitte eine World ID eingeben.');
@@ -947,6 +1048,14 @@ objects:
 
   async saveAsPatch() {
     try {
+      // Prüfe, ob worldId aus dem worldIdInput-Feld ermittelt werden kann
+      if (!this.worldId) {
+        const worldIdInput = document.getElementById('worldIdInput');
+        if (worldIdInput && worldIdInput.value.trim()) {
+          this.worldId = worldIdInput.value.trim();
+        }
+      }
+      
       if (!this.worldId) {
         if (window.showToast) window.showToast('info', 'Keine World ID gesetzt. Speichere zunächst eine Genesis.');
         this._setStatus('Keine World ID gesetzt. Speichere zunächst eine Genesis.', 'info');
@@ -1000,19 +1109,37 @@ objects:
         operations: normalizedPatch.operations
       });
       
-      // Speichere den ursprünglichen YAML-Text im Patch-Objekt
-      p.originalYaml = yamlText;
+      // Erstelle ein sauberes Patch-Objekt für die Validierung und Speicherung
+      const cleanPatch = {
+        name: p.name,
+        description: p.description,
+        author_npub: p.author_npub,
+        targets_world: p.targets_world,
+        operations: p.operations,
+        metadata: {
+          schema_version: p.metadata?.schema_version,
+          id: p.metadata?.id,
+          name: p.metadata?.name,
+          description: p.metadata?.description,
+          author_npub: p.metadata?.author_npub,
+          created_at: p.metadata?.created_at,
+          targets_world: p.metadata?.targets_world
+        }
+      };
       
-      const res = await this.patchKit.patch.validate(p);
+      // Speichere den ursprünglichen YAML-Text separat, nicht im Patch-Objekt selbst
+      const originalYaml = yamlText;
+      
+      const res = await this.patchKit.patch.validate(cleanPatch);
       if (!(res?.valid === true || res === true)) {
         const errors = Array.isArray(res?.errors) ? res.errors : [];
         throw new Error('Patch ungültig: ' + JSON.stringify(errors));
       }
-      const signed = await this.patchKit.patch.sign(p);
+      const signed = await this.patchKit.patch.sign(cleanPatch);
       await this.patchKit.io.patchPort.save(signed);
       
       // Aktualisiere die Patch-ID
-      this.currentPatchId = signed?.patchId || p?.metadata?.id || this.currentPatchId;
+      this.currentPatchId = signed?.patchId || cleanPatch?.metadata?.id || this.currentPatchId;
       
       // Aktualisiere den Tab-Namen
       this._updatePatchTabName(normalizedPatch.metadata.name || 'Patch');
@@ -1027,9 +1154,9 @@ objects:
   }
   
   _updatePatchTabName(patchName) {
-    const patchTabBtn = document.getElementById('patchTabBtn');
-    if (patchTabBtn) {
-      patchTabBtn.textContent = `Patch: ${patchName}`;
+    const patchNameSpan = document.getElementById('patchName');
+    if (patchNameSpan) {
+      patchNameSpan.textContent = patchName;
     }
   }
  
@@ -1290,6 +1417,14 @@ objects:
   
   async _savePatch() {
     try {
+      // Prüfe, ob worldId aus dem worldIdInput-Feld ermittelt werden kann
+      if (!this.worldId) {
+        const worldIdInput = document.getElementById('worldIdInput');
+        if (worldIdInput && worldIdInput.value.trim()) {
+          this.worldId = worldIdInput.value.trim();
+        }
+      }
+      
       if (!this.worldId) {
         if (window.showToast) window.showToast('info', 'Keine World ID gesetzt. Speichere zunächst eine Genesis.');
         this._setStatus('Keine World ID gesetzt. Speichere zunächst eine Genesis.', 'info');
@@ -1343,19 +1478,37 @@ objects:
         operations: normalizedPatch.operations
       });
       
-      // Speichere den ursprünglichen YAML-Text im Patch-Objekt
-      p.originalYaml = yamlText;
+      // Erstelle ein sauberes Patch-Objekt für die Validierung und Speicherung
+      const cleanPatch = {
+        name: p.name,
+        description: p.description,
+        author_npub: p.author_npub,
+        targets_world: p.targets_world,
+        operations: p.operations,
+        metadata: {
+          schema_version: p.metadata?.schema_version,
+          id: p.metadata?.id,
+          name: p.metadata?.name,
+          description: p.metadata?.description,
+          author_npub: p.metadata?.author_npub,
+          created_at: p.metadata?.created_at,
+          targets_world: p.metadata?.targets_world
+        }
+      };
       
-      const res = await this.patchKit.patch.validate(p);
+      // Speichere den ursprünglichen YAML-Text separat, nicht im Patch-Objekt selbst
+      const originalYaml = yamlText;
+      
+      const res = await this.patchKit.patch.validate(cleanPatch);
       if (!(res?.valid === true || res === true)) {
         const errors = Array.isArray(res?.errors) ? res.errors : [];
         throw new Error('Patch ungültig: ' + JSON.stringify(errors));
       }
-      const signed = await this.patchKit.patch.sign(p);
+      const signed = await this.patchKit.patch.sign(cleanPatch);
       await this.patchKit.io.patchPort.save(signed);
       
       // Aktualisiere die Patch-ID
-      this.currentPatchId = signed?.patchId || p?.metadata?.id || this.currentPatchId;
+      this.currentPatchId = signed?.patchId || cleanPatch?.metadata?.id || this.currentPatchId;
       
       // Aktualisiere den Tab-Namen
       this._updatePatchTabName(normalizedPatch.metadata.name || 'Patch');
@@ -1398,9 +1551,9 @@ objects:
   }
   
   _updateWorldTabName(worldName) {
-    const worldTabBtn = document.getElementById('worldTabBtn');
-    if (worldTabBtn) {
-      worldTabBtn.textContent = `Welt: ${worldName}`;
+    const worldNameSpan = document.getElementById('worldName');
+    if (worldNameSpan) {
+      worldNameSpan.textContent = worldName;
     }
   }
 
@@ -1683,6 +1836,8 @@ objects:
   // Normalisiert ein YAML-Objekt für die Patch-Erstellung
   normalizePatchYaml(obj) {
     if (!obj || typeof obj !== 'object') return { metadata: {}, operations: [] };
+    
+    console.log('[DEBUG] normalizePatchYaml aufgerufen mit:', obj);
 
     // Bereits Patch-ähnlich?
     if (obj.operations && Array.isArray(obj.operations)) {
@@ -1700,11 +1855,14 @@ objects:
       targets_world: obj.targets_world || this.worldId || ''
     };
 
+    console.log('[DEBUG] Erstelle Basis-Struktur für Patch:', { metadata, operations: [] });
+
     // Konvertiere die flache YAML-Struktur in Operationen
     const entityTypes = ['objects', 'portals', 'personas'];
     
     for (const entityType of entityTypes) {
       if (Array.isArray(obj[entityType])) {
+        console.log(`[DEBUG] Verarbeite ${entityType}:`, obj[entityType]);
         let i = 1;
         for (const item of obj[entityType]) {
           const entityTypeName = entityType.slice(0, -1); // Entferne das 's' am Ende
@@ -1727,6 +1885,7 @@ objects:
 
     // Behandele environment als Update-Operation
     if (obj.environment && typeof obj.environment === 'object') {
+      console.log('[DEBUG] Verarbeite environment als Update-Operation:', obj.environment);
       operations.push({
         type: 'update',
         entity_type: 'environment',
@@ -1737,6 +1896,7 @@ objects:
 
     // Behandele terrain als Update-Operation
     if (obj.terrain && typeof obj.terrain === 'object') {
+      console.log('[DEBUG] Verarbeite terrain als Update-Operation:', obj.terrain);
       operations.push({
         type: 'update',
         entity_type: 'terrain',
@@ -1747,6 +1907,7 @@ objects:
 
     // Behandele extensions als Add-Operationen
     if (obj.extensions && typeof obj.extensions === 'object') {
+      console.log('[DEBUG] Verarbeite extensions als Add-Operationen:', obj.extensions);
       let i = 1;
       for (const [key, value] of Object.entries(obj.extensions)) {
         const entityId = 'extension' + (i++);
@@ -1763,6 +1924,7 @@ objects:
 
     // Behandele camera als Update-Operation
     if (obj.camera && typeof obj.camera === 'object') {
+      console.log('[DEBUG] Verarbeite camera als Update-Operation:', obj.camera);
       operations.push({
         type: 'update',
         entity_type: 'camera',
@@ -1771,7 +1933,23 @@ objects:
       });
     }
 
-    return { metadata, operations };
+    // Spezialbehandlung für "action" Feld
+    if (obj.action && typeof obj.action === 'string') {
+      console.log('[DEBUG] Verarbeite Action-Feld:', obj.action);
+      // Wenn eine Action angegeben ist, aber keine Operationen, erstelle eine Standard-Operation
+      if (operations.length === 0) {
+        operations.push({
+          type: obj.action,
+          entity_type: 'object',
+          entity_id: 'object_' + Math.random().toString(36).slice(2, 8),
+          payload: {}
+        });
+      }
+    }
+
+    const result = { metadata, operations };
+    console.log('[DEBUG] Normalisiertes Patch-Objekt:', result);
+    return result;
   }
 
   async _initThreePreview() {
@@ -1914,19 +2092,128 @@ objects:
   // Methoden für die Patch-Visualisierung
   async renderWorld() {
     try {
-      const obj = this.parseYaml();
-      if (!obj) {
-        this._setStatus('Kein YAML-Inhalt zum Rendern.', 'error');
+      // Hole den YAML-Inhalt basierend auf dem aktiven Tab
+      let yamlText;
+      let obj;
+      
+      if (this.activeTab === 'world') {
+        // Welt-Tab: Verwende den Welt-Editor
+        yamlText = this.getYamlText();
+        obj = this.parseYaml();
+      } else if (this.activeTab === 'patch') {
+        // Patch-Tab: Verwende den Patch-Editor
+        const patchEditor = document.getElementById('patch-yaml-editor');
+        if (!patchEditor) {
+          this._setStatus('Patch-Editor nicht gefunden.', 'error');
+          return;
+        }
+        yamlText = patchEditor.value;
+        if (!yamlText || yamlText.trim() === '') {
+          this._setStatus('Kein YAML-Inhalt zum Rendern.', 'error');
+          return;
+        }
+        try {
+          obj = jsyaml.load(yamlText);
+        } catch (e) {
+          this._setStatus('YAML Parse-Fehler: ' + e.message, 'error');
+          return;
+        }
+      } else {
+        this._setStatus('Kein aktiver Tab zum Rendern.', 'error');
         return;
       }
       
-      const normalized = this.normalizeUserYaml(obj);
+      if (!obj) {
+        this._setStatus('Kein gültiger YAML-Inhalt zum Rendern.', 'error');
+        return;
+      }
+      
+      console.log('🎬 [Rendering] Rendere Inhalt für Tab:', this.activeTab, 'Objekt:', obj);
+      
+      // Normalisiere basierend auf dem Tab-Typ
+      let normalized;
+      if (this.activeTab === 'world') {
+        normalized = this.normalizeUserYaml(obj);
+      } else if (this.activeTab === 'patch') {
+        normalized = this.normalizePatchYaml(obj);
+        // Für Patches: Wende die Operationen auf die aktuelle Welt an
+        if (this.worldId) {
+          try {
+            const genesisData = await this._getCurrentGenesisData();
+            if (genesisData) {
+              // Erstelle ein temporäres Weltobjekt mit den Patch-Operationen
+              const patchObj = {
+                metadata: normalized.metadata,
+                operations: normalized.operations
+              };
+              
+              // Visualisiere den Patch
+              if (this.patchVisualizer) {
+                await this.visualizePatch(patchObj, {
+                  highlightChanges: true,
+                  showConflicts: false
+                });
+                this._setStatus('Patch gerendert', 'success');
+                return;
+              }
+            }
+          } catch (patchError) {
+            console.warn('Konnte Patch nicht auf Welt anwenden, zeige nur Patch-Inhalt:', patchError);
+          }
+        }
+        // Fallback: Zeige den Patch-Inhalt als Welt an
+        normalized = this._convertPatchToGenesisFormat(normalized);
+      }
+      
       await this.updatePreviewFromObject(normalized);
-      this._setStatus('Welt gerendert', 'success');
+      this._setStatus(this.activeTab === 'world' ? 'Welt gerendert' : 'Patch gerendert', 'success');
     } catch (error) {
-      console.error('Fehler beim Rendern der Welt:', error);
+      console.error('Fehler beim Rendern:', error);
       this._setStatus('Fehler beim Rendern: ' + error.message, 'error');
     }
+  }
+  
+  /**
+   * Konvertiert ein normalisiertes Patch-Objekt in ein Genesis-Format für die Anzeige
+   * @param {Object} normalizedPatch - Das normalisierte Patch-Objekt
+   * @returns {Object} - Ein Genesis-ähnliches Objekt
+   */
+  _convertPatchToGenesisFormat(normalizedPatch) {
+    const genesisLike = {
+      metadata: {
+        name: normalizedPatch.metadata?.name || 'Patch-Vorschau',
+        description: normalizedPatch.metadata?.description || 'Vorschau des Patch-Inhalts',
+        schema_version: 'patchkit/1.0'
+      },
+      entities: {},
+      rules: {}
+    };
+    
+    if (!normalizedPatch.operations || !Array.isArray(normalizedPatch.operations)) {
+      return genesisLike;
+    }
+    
+    // Konvertiere Operationen in Entitäten
+    for (const op of normalizedPatch.operations) {
+      if (op.type === 'add' && op.entity_type && op.payload) {
+        const entityType = op.entity_type + 's'; // Plural form
+        if (!genesisLike.entities[entityType]) {
+          genesisLike.entities[entityType] = {};
+        }
+        
+        // Generiere eine eindeutige ID für die Entität
+        const entityId = op.entity_id || entityType.slice(0, -1) + '_' + Math.random().toString(36).slice(2, 8);
+        
+        // Vereinheitliche Attributnamen: kind → type
+        const payload = { ...op.payload };
+        if (payload.kind && !payload.type) payload.type = payload.kind;
+        delete payload.kind;
+        
+        genesisLike.entities[entityType][entityId] = payload;
+      }
+    }
+    
+    return genesisLike;
   }
 
   async resetWorld() {
@@ -2414,6 +2701,67 @@ objects:
   }
   
   /**
+   * Aktualisiert die Patch-Vorschau basierend auf den normalisierten Patch-Daten
+   * @param {Object} normalizedPatch - Die normalisierten Patch-Daten
+   */
+  async _updatePatchPreview(normalizedPatch) {
+    try {
+      console.log('[DEBUG] _updatePatchPreview aufgerufen mit:', normalizedPatch);
+      
+      if (!normalizedPatch || !normalizedPatch.operations) {
+        console.warn('[DEBUG] Keine gültigen Patch-Operationen gefunden');
+        return;
+      }
+      
+      // Wenn der Three.js Manager verfügbar ist, versuche die Patch-Visualisierung
+      if (this.threeJSManager && this.threeJSManager.initialized) {
+        console.log('[DEBUG] Three.js Manager ist verfügbar, versuche Patch-Visualisierung');
+        
+        // Erstelle ein Patch-Objekt für die Visualisierung
+        const patchForVisualization = {
+          metadata: normalizedPatch.metadata,
+          operations: normalizedPatch.operations
+        };
+        
+        console.log('[DEBUG] Patch-Objekt für Visualisierung erstellt:', patchForVisualization);
+        
+        // Versuche, den Patch zu visualisieren
+        try {
+          if (this.patchVisualizer) {
+            console.log('[DEBUG] Patch-Visualizer ist verfügbar, rufe visualizePatch auf');
+            await this.visualizePatch(patchForVisualization, {
+              highlightChanges: true,
+              showConflicts: false
+            });
+            console.log('[DEBUG] Patch-Visualisierung erfolgreich');
+            this._setStatus('Patch-Vorschau aktualisiert', 'success');
+          } else {
+            console.warn('[DEBUG] Patch-Visualizer nicht verfügbar');
+            // Fallback: Konvertiere den Patch in ein Genesis-Format und zeige ihn als Welt an
+            const genesisFormat = this._convertPatchToGenesisFormat(normalizedPatch);
+            console.log('[DEBUG] Fallback: Zeige Patch als Welt an:', genesisFormat);
+            await this.updatePreviewFromObject(genesisFormat);
+            this._setStatus('Patch als Welt-Vorschau angezeigt', 'info');
+          }
+        } catch (visualizationError) {
+          console.error('[DEBUG] Fehler bei der Patch-Visualisierung:', visualizationError);
+          // Fallback: Konvertiere den Patch in ein Genesis-Format und zeige ihn als Welt an
+          const genesisFormat = this._convertPatchToGenesisFormat(normalizedPatch);
+          console.log('[DEBUG] Fallback nach Fehler: Zeige Patch als Welt an:', genesisFormat);
+          await this.updatePreviewFromObject(genesisFormat);
+          this._setStatus('Patch-Vorschau mit Fallback angezeigt', 'info');
+        }
+      } else {
+        console.warn('[DEBUG] Three.js Manager nicht initialisiert');
+        this._setStatus('3D-Visualisierung nicht verfügbar', 'info');
+      }
+    } catch (error) {
+      console.error('[DEBUG] Fehler in _updatePatchPreview:', error);
+      this._setStatus('Fehler bei der Patch-Vorschau: ' + error.message, 'error');
+    }
+  }
+  
+  /**
    * Aktualisiert die Pulsier-Animationen für Konflikt-Materialien
    */
   updatePatchVisualizationAnimations() {
@@ -2460,4 +2808,16 @@ export async function bootstrapPresetEditor() {
  
 try {
   window.bootstrapPresetEditor = bootstrapPresetEditor;
+  
+  // Mache den PresetEditor global verfügbar, damit andere Module darauf zugreifen können
+  window.addEventListener('load', () => {
+    if (window.bootstrapPresetEditor) {
+      window.bootstrapPresetEditor().then(editor => {
+        window.presetEditor = editor;
+        console.log('[DEBUG] PresetEditor global verfügbar gemacht');
+      }).catch(err => {
+        console.error('[DEBUG] Fehler beim globalen Verfügbar machen des PresetEditors:', err);
+      });
+    }
+  });
 } catch {}

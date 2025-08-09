@@ -84,29 +84,65 @@
       
       <!-- Tab-Navigation -->
       <div class="tab-navigation">
-        <button class="tab-button active" data-tab="world">Welt: <span id="worldName">Unbenannt</span></button>
-        <button class="tab-button" data-tab="patch">Patch: <span id="patchName">Neuer Patch</span></button>
+        <button id="worldTabBtn" class="tab-button active" data-tab="world">Welt: <span id="worldName">Unbenannt</span></button>
+        <button id="patchTabBtn" class="tab-button" data-tab="patch">Patch: <span id="patchName">Neuer Patch</span></button>
       </div>
       
       <!-- Tab-Inhalte -->
-      <div class="tab-content active" id="world-tab">
+      <div class="tab-content active" id="worldTabContent">
         <textarea class="yaml-editor" id="world-yaml-editor" placeholder="# Deine YAML-Welt hier eingeben...
 name: 'Test World'
 description: 'Eine Test-Welt für Presets'
 "></textarea>
       </div>
-      <div class="tab-content" id="patch-tab">
-        <textarea class="yaml-editor" id="patch-yaml-editor" placeholder="# Deinen YAML-Patch hier eingeben...
-metadata:
-  name: 'Mein Patch'
-  description: 'Beschreibung des Patches'
-operations:
-  - type: add
-    entity_type: objects
-    entity_id: 'new_object'
-    payload:
-      name: 'Neues Objekt'
+      <div class="tab-content" id="patchTabContent">
+        <textarea class="yaml-editor" id="patch-yaml-editor" placeholder="# Neuen Patch erstellen
+# Ein Patch beschreibt Änderungen an einer bestehenden Welt
+# Dieses Format ähnelt dem Genesis-Format, fügt aber nur Änderungen hinzu
+
+name: "Mein erster Patch"
+description: "Beschreibe hier, was dieser Patch macht"
+
+# Entitäten, die zur Welt hinzugefügt werden sollen
+entities:
+  objects:
+    baum_1:
+      type: "tree"
       position: [0, 0, 0]
+      scale: [1, 1, 1]
+      color: "#1a4a1a"
+    
+    felsen_1:
+      type: "rock"
+      position: [5, 0, 3]
+      scale: [0.8, 0.8, 0.8]
+      color: "#808080"
+  
+  portals:
+    tür_1:
+      type: "door"
+      position: [10, 0, 10]
+      rotation: [0, 0, 0]
+      scale: [1, 2, 0.1]
+      color: "#4a148c"
+      destination: "ziel_welt_id"
+  
+  personas:
+    npc_1:
+      type: "npc"
+      position: [-5, 0, -5]
+      rotation: [0, 45, 0]
+      scale: [1, 1, 1]
+      color: "#ff9800"
+      dialog: "Hallo! Willkommen in meiner Welt."
+
+# Regeln, die zur Welt hinzugefügt werden sollen
+rules:
+  interactions:
+    begruessung:
+      trigger: "npc_1"
+      action: "dialog"
+      response: "Hallo! Willkommen in meiner Welt."
 "></textarea>
       </div>
     </div>
