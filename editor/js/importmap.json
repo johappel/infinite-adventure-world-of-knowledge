@@ -1,0 +1,20 @@
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/",
+    "js-yaml": "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js",
+    "preset-editor/core": "./js/preset-editor/core.js",
+    "preset-editor/yaml-processor": "./js/preset-editor/yaml-processor.js",
+    "preset-editor/world-manager": "./js/preset-editor/world-manager.js",
+    "preset-editor/patch-manager": "./js/preset-editor/patch-manager.js",
+    "preset-editor/preview-renderer": "./js/preset-editor/preview-renderer.js",
+    "preset-editor/ui-manager": "./js/preset-editor/ui-manager.js",
+    "preset-editor": "./js/preset-editor/index.js",
+    "three-js-manager": "./js/three-js-manager.js",
+    "patch-visualizer": "./js/patch-visualizer.js",
+    "patch-ui": "./js/patch-ui.js",
+    "toast": "./js/toast.js",
+    "patchkit-wiring": "./js/patchkit-wiring.js",
+    "load": "./js/load.js"
+  }
+}

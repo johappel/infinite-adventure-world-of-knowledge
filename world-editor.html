@@ -6,12 +6,27 @@
 
   <title>World Editor</title>
 
-  <!-- Importmap (Three.js) -->
+  <!-- Importmap (Three.js und lokale Module) -->
   <script type="importmap">
   {
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/",
+      "js-yaml": "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js",
+      "patchkit": "./libs/patchkit/index.js",
+      "preset-editor/core": "./editor/js/preset-editor/core.js",
+      "preset-editor/yaml-processor": "./editor/js/preset-editor/yaml-processor.js",
+      "preset-editor/world-manager": "./editor/js/preset-editor/world-manager.js",
+      "preset-editor/patch-manager": "./editor/js/preset-editor/patch-manager.js",
+      "preset-editor/preview-renderer": "./editor/js/preset-editor/preview-renderer.js",
+      "preset-editor/ui-manager": "./editor/js/preset-editor/ui-manager.js",
+      "preset-editor": "./editor/js/preset-editor/index.js",
+      "three-js-manager": "./editor/js/three-js-manager.js",
+      "patch-visualizer": "./editor/js/patch-visualizer.js",
+      "patch-ui": "./editor/js/patch-ui.js",
+      "toast": "./editor/js/toast.js",
+      "patchkit-wiring": "./editor/js/patchkit-wiring.js",
+      "load": "./editor/js/load.js"
     }
   }
   </script>
@@ -53,28 +68,36 @@
   <div class="header">
     <h1>🎯 World Editor</h1>
     <div class="controls">
-      <input class="preset-selector" id="worldSearchInput" placeholder="🔎 gespeicherte Welt suchen (ID, Name, npub…)" title="Suche in lokal gespeicherten Welt-Genesis (Dexie)">
-      <div id="worldSearchResults" class="search-results" style="display:none;"></div>
-      <!-- Hinweis: Preset/World-Dropdown wird clientseitig gefüllt; IDs müssen mit JS übereinstimmen -->
-
-      <select class="preset-selector" id="presetSelect" aria-label="Preset Template auswählen">
-        <option value="">Wähle Preset Template...</option>
-        <optgroup label="Lokale Presets (eingebaut)" id="localPresetsGroup">
-          <!-- Wird dynamisch befüllt -->
-        </optgroup>
-        <optgroup label="Worlds aus /worlds (*.yaml)" id="worldFilesGroup">
-          <option value="" disabled>(wird geladen …)</option>
-        </optgroup>
-      </select>
-
-      <input class="preset-selector" id="worldIdInput" placeholder="worldId (z.B. demo-world)" title="Welt-ID (NIP-33 d=worldId)">
-      <button class="btn" id="newWorldBtn" title="Neue leere Welt mit eindeutiger WORLD_ID">➕ Neu</button>
-      <button class="btn" id="loadWorldBtn" title="Genesis 30311 laden">🌐 Laden</button>
-      <button class="btn success" id="saveGenesisBtn" title="Als Genesis 30311 speichern">💾 Speichern (Genesis)</button>
-      <button class="btn" id="savePatchBtn" title="Als Patch 30312 speichern" style="display: none;">🧩 Speichern (Patch)</button>
-
-      <button class="btn success" id="renderBtn">🎬 Rendern</button>
-      <button class="btn" id="resetBtn">🔄 Reset</button>
+      <!-- Haupt-Aktionsgruppe -->
+      <div class="control-group main-actions">
+        <input class="preset-selector" id="worldIdInput" placeholder="Welt-ID (z.B. demo-world)" title="Welt-ID (NIP-33 d=worldId)">
+        <button class="btn" id="newWorldBtn" title="Neue leere Welt mit eindeutiger ID erstellen">➕ Neu</button>
+        <button class="btn" id="loadWorldBtn" title="Welt anhand der ID laden">🌐 Laden</button>
+        <button class="btn success" id="saveGenesisBtn" title="Aktuelle Welt als Genesis speichern">💾 Speichern</button>
+      </div>
+      
+      <!-- Sekundäre-Aktionsgruppe -->
+      <div class="control-group secondary-actions">
+        <select class="preset-selector" id="presetSelect" aria-label="Preset Template auswählen">
+          <option value="">Vorlage auswählen...</option>
+          <optgroup label="Lokale Vorlagen" id="localPresetsGroup">
+            <!-- Wird dynamisch befüllt -->
+          </optgroup>
+          <optgroup label="Worlds aus /worlds" id="worldFilesGroup">
+            <option value="" disabled>(wird geladen …)</option>
+          </optgroup>
+        </select>
+        
+        <input class="preset-selector search-input" id="worldSearchInput" placeholder="🔎 Welt suchen..." title="Suche in gespeicherten Welten">
+        <div id="worldSearchResults" class="search-results" style="display:none;"></div>
+      </div>
+      
+      <!-- Vorschau-Aktionsgruppe -->
+      <div class="control-group preview-actions">
+        <button class="btn success" id="renderBtn" title="3D-Vorschau aktualisieren">🎬 Vorschau aktualisieren</button>
+        <button class="btn" id="resetBtn" title="3D-Vorschau zurücksetzen">🔄 Zurücksetzen</button>
+        <button class="btn" id="savePatchBtn" title="Als Patch speichern" style="display: none;">🧩 Patch speichern</button>
+      </div>
     </div>
   </div>
 
@@ -84,18 +107,26 @@
       
       <!-- Tab-Navigation -->
       <div class="tab-navigation">
-        <button id="worldTabBtn" class="tab-button active" data-tab="world">Welt: <span id="worldName">Unbenannt</span></button>
-        <button id="patchTabBtn" class="tab-button" data-tab="patch">Patch: <span id="patchName">Neuer Patch</span></button>
+        <button id="world-tab" class="tab-button active" data-tab="world" title="Welt-Editor für die Grundkonfiguration">
+          <span class="tab-icon">🌍</span>
+          <span class="tab-text">Welt</span>
+          <span class="tab-name" id="worldName">Unbenannt</span>
+        </button>
+        <button id="patch-tab" class="tab-button" data-tab="patch" title="Patch-Editor für Änderungen und Erweiterungen">
+          <span class="tab-icon">🧩</span>
+          <span class="tab-text">Patch</span>
+          <span class="tab-name" id="patchName">Neuer Patch</span>
+        </button>
       </div>
       
       <!-- Tab-Inhalte -->
-      <div class="tab-content active" id="worldTabContent">
+      <div class="tab-content active" id="world-editor">
         <textarea class="yaml-editor" id="world-yaml-editor" placeholder="# Deine YAML-Welt hier eingeben...
 name: 'Test World'
 description: 'Eine Test-Welt für Presets'
 "></textarea>
       </div>
-      <div class="tab-content" id="patchTabContent">
+      <div class="tab-content" id="patch-editor">
         <textarea class="yaml-editor" id="patch-yaml-editor" placeholder="# Neuen Patch erstellen
 # Ein Patch beschreibt Änderungen an einer bestehenden Welt
 # Dieses Format ähnelt dem Genesis-Format, fügt aber nur Änderungen hinzu
@@ -165,103 +196,138 @@ rules:
       <div class="patch-visualization-controls" id="patchVisualizationControls" style="display: none;">
         <div class="controls-header">
           <h3>🎨 Patch-Visualisierung</h3>
-          <button id="togglePatchVisualization" class="btn small">Visualisierung ein/aus</button>
+          <button id="togglePatchVisualization" class="btn small" title="Visualisierung ein- oder ausschalten">👁️ Ein/Aus</button>
         </div>
         
         <div class="visualization-options">
-          <div class="option-group">
-            <label>Visualisierungsmodus:</label>
-            <select id="visualizationMode">
-              <option value="all">Alle Änderungen</option>
-              <option value="added">Nur hinzugefügt</option>
-              <option value="modified">Nur modifiziert</option>
-              <option value="removed">Nur entfernt</option>
-              <option value="conflicts">Nur Konflikte</option>
-            </select>
+          <div class="option-row">
+            <div class="option-group">
+              <label for="visualizationMode">Anzeigemodus:</label>
+              <select id="visualizationMode" title="Legt fest, welche Änderungen angezeigt werden">
+                <option value="all">Alle Änderungen</option>
+                <option value="added">Nur Hinzufügungen</option>
+                <option value="modified">Nur Änderungen</option>
+                <option value="removed">Nur Entfernungen</option>
+                <option value="conflicts">Nur Konflikte</option>
+              </select>
+            </div>
+            
+            <div class="option-group">
+              <label for="animationMode">Animation:</label>
+              <select id="animationMode" title="Legt den Animationsstil fest">
+                <option value="none">Keine Animation</option>
+                <option value="step">Schrittweise</option>
+                <option value="continuous">Fließend</option>
+              </select>
+            </div>
           </div>
           
-          <div class="option-group">
-            <label>Animationsmodus:</label>
-            <select id="animationMode">
-              <option value="none">Keine Animation</option>
-              <option value="step">Schrittweise</option>
-              <option value="continuous">Kontinuierlich</option>
-            </select>
-          </div>
-          
-          <div class="option-group">
-            <label>Animationsgeschwindigkeit:</label>
-            <input type="range" id="animationSpeed" min="0.5" max="5" step="0.5" value="1">
-            <span id="speedValue">1x</span>
-          </div>
-          
-          <div class="option-group">
-            <label>Transparenz:</label>
-            <input type="range" id="transparency" min="0.1" max="1" step="0.1" value="0.7">
-            <span id="transparencyValue">70%</span>
+          <div class="option-row">
+            <div class="option-group">
+              <label for="animationSpeed">Geschwindigkeit:</label>
+              <div class="slider-container">
+                <input type="range" id="animationSpeed" min="0.5" max="5" step="0.5" value="1" title="Animationsgeschwindigkeit einstellen">
+                <span id="speedValue">1x</span>
+              </div>
+            </div>
+            
+            <div class="option-group">
+              <label for="transparency">Transparenz:</label>
+              <div class="slider-container">
+                <input type="range" id="transparency" min="0.1" max="1" step="0.1" value="0.7" title="Transparenz der Visualisierung einstellen">
+                <span id="transparencyValue">70%</span>
+              </div>
+            </div>
           </div>
         </div>
         
         <div class="legend">
           <h4>Legende:</h4>
-          <div class="legend-item">
-            <span class="legend-color" style="background-color: #00ff00;"></span>
-            <span>Hinzugefügt</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color" style="background-color: #ffff00;"></span>
-            <span>Modifiziert</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color" style="background-color: #ff0000;"></span>
-            <span>Entfernt</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color" style="background-color: #ff00ff;"></span>
-            <span>Konflikt</span>
+          <div class="legend-grid">
+            <div class="legend-item">
+              <span class="legend-color added"></span>
+              <span>Hinzugefügt</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color modified"></span>
+              <span>Geändert</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color removed"></span>
+              <span>Entfernt</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color conflict"></span>
+              <span>Konflikt</span>
+            </div>
           </div>
         </div>
         
         <div class="action-buttons">
-          <button id="startAnimation" class="btn small">Animation starten</button>
-          <button id="resetVisualization" class="btn small">Zurücksetzen</button>
-          <button id="focusOnChanges" class="btn small">Auf Änderungen fokussieren</button>
+          <button id="startAnimation" class="btn small" title="Startet die Animation der Änderungen">▶️ Animieren</button>
+          <button id="resetVisualization" class="btn small" title="Setzt die Visualisierung zurück">🔄 Zurücksetzen</button>
+          <button id="focusOnChanges" class="btn small" title="Fokussiert die Kamera auf die Änderungen">🔍 Fokussieren</button>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Patch UI v1 -->
-  <section id="patchUIContainer" aria-label="Patch-Verwaltung">
-    <aside id="patchListPanel" aria-label="Patches">
+  <section id="patchUIContainer" aria-label="Patch-Verwaltung" class="patch-management">
+    <aside id="patchListPanel" aria-label="Patches" class="patch-list-panel">
       <header>
-        <strong>Patches</strong>
-        <input id="patchFilter" type="search" placeholder="Filter..." aria-label="Patch-Filter" />
+        <h3>📋 Patch-Liste</h3>
+        <div class="filter-container">
+          <input id="patchFilter" type="search" placeholder="Patches filtern..." aria-label="Patch-Filter" />
+          <button class="btn-icon" id="clearFilter" title="Filter zurücksetzen">✕</button>
+        </div>
       </header>
 
-      <div id="applyUntilContainer">
-        <label for="preview-range" style="white-space:nowrap;">Preview bis:</label>
-        <input id="preview-range" type="range" min="0" max="0" value="0" step="1" />
-        <span id="applyUntilValue">0</span>
+      <div class="preview-controls">
+        <label for="preview-range">Vorschau bis Patch:</label>
+        <div class="range-container">
+          <input id="preview-range" type="range" min="0" max="0" value="0" step="1" />
+          <span id="applyUntilValue">0</span>
+        </div>
       </div>
 
       <div class="list" id="patch-list" role="listbox" aria-label="Patch-Liste"></div>
     </aside>
 
-    <section>
-      <div id="patch-detail" aria-live="polite">
-        <div class="pd-title" id="pd-title">(keine Auswahl)</div>
-        <div class="pd-row" id="pd-id"></div>
-        <div class="pd-row" id="pd-author"></div>
-        <div class="pd-row" id="pd-date"></div>
-        <div class="pd-row" id="pd-deps"></div>
-        <label class="include-toggle"><input type="checkbox" id="pd-include" /> in Preview einbeziehen</label>
+    <section class="patch-details">
+      <div id="patch-detail" aria-live="polite" class="patch-info">
+        <h3 id="pd-title">(kein Patch ausgewählt)</h3>
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="label">ID:</span>
+            <span id="pd-id" class="value">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Autor:</span>
+            <span id="pd-author" class="value">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Erstellt:</span>
+            <span id="pd-date" class="value">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Abhängigkeiten:</span>
+            <span id="pd-deps" class="value">-</span>
+          </div>
+        </div>
+        <div class="patch-actions">
+          <label class="include-toggle">
+            <input type="checkbox" id="pd-include" />
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">In Vorschau einbeziehen</span>
+          </label>
+        </div>
         <div class="pd-warn" id="pd-cycle" style="display:none;"></div>
       </div>
 
-      <section id="conflictsPanel" aria-live="polite">
-        <h3>Konflikte</h3>
-        <div id="conflicts-panel"></div>
+      <section id="conflictsPanel" aria-live="polite" class="conflicts-section">
+        <h3>⚠️ Konflikte</h3>
+        <div id="conflicts-panel" class="conflicts-list"></div>
       </section>
     </section>
   </section>
@@ -271,7 +337,7 @@ rules:
   <script type="module" src="./editor/js/patchkit-wiring.js"></script>
   <script type="module" src="./editor/js/load.js"></script>
   <script type="module">
-    import { bootstrapPresetEditor } from './editor/js/preset-editor.js';
+    import { bootstrapPresetEditor } from './editor/js/preset-editor/index.js';
     import { bootstrapPatchUI } from './editor/js/patch-ui.js';
     import { initLoadFunctionality } from './editor/js/load.js';
 
@@ -293,7 +359,7 @@ rules:
         }
 
         // Button-Event-Listener werden jetzt in den jeweiligen Modulen gehandhabt
-        // - Neu/Laden/Speichern-Buttons: preset-editor.js
+        // - Neu/Laden/Speichern-Buttons: preset-editor/index.js
         // - Preset-Auswahl: load.js
 
         // Identitäts-Hinweis (npub) anzeigen

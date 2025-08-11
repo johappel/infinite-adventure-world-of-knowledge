@@ -5,6 +5,14 @@ import { buildZoneFromSpec } from '../../js/world-generation/index.js';
 
 export class ThreeJSManager {
     constructor(canvas) {
+        console.log('[DEBUG] ThreeJSManager Konstruktor aufgerufen mit canvas:', canvas);
+        console.log('[DEBUG] Canvas-Typ:', typeof canvas);
+        if (canvas) {
+            console.log('[DEBUG] Canvas-Tag-Name:', canvas.tagName);
+            console.log('[DEBUG] Canvas-Client-Width:', canvas.clientWidth);
+            console.log('[DEBUG] Canvas-Client-Height:', canvas.clientHeight);
+            console.log('[DEBUG] Canvas-addEventListener-Funktion:', typeof canvas.addEventListener);
+        }
         this.canvas = canvas;
         this.scene = null;
         this.camera = null;
@@ -18,6 +26,15 @@ export class ThreeJSManager {
 
     async init() {
         try {
+            console.log('[DEBUG] ThreeJSManager.init() aufgerufen');
+            console.log('[DEBUG] Canvas in init():', this.canvas);
+            if (this.canvas) {
+                console.log('[DEBUG] Canvas-Tag-Name in init():', this.canvas.tagName);
+                console.log('[DEBUG] Canvas-Client-Width in init():', this.canvas.clientWidth);
+                console.log('[DEBUG] Canvas-Client-Height in init():', this.canvas.clientHeight);
+                console.log('[DEBUG] Canvas-addEventListener-Funktion in init():', typeof this.canvas.addEventListener);
+            }
+            
             // Scene
             this.scene = new THREE.Scene();
             this.scene.background = new THREE.Color(0x87ceeb);
