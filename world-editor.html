@@ -231,65 +231,8 @@ description: 'Eine Test-Welt für Presets'
     </div>
   </div>
 
-  <!-- Patch UI v1 -->
-  <section id="patchUIContainer" aria-label="Patch-Verwaltung" class="patch-management">
-    <aside id="patchListPanel" aria-label="Patches" class="patch-list-panel">
-      <header>
-        <h3>📋 Patch-Liste</h3>
-        <div class="filter-container">
-          <input id="patchFilter" type="search" placeholder="Patches filtern..." aria-label="Patch-Filter" />
-          <button class="btn-icon" id="clearFilter" title="Filter zurücksetzen">✕</button>
-        </div>
-      </header>
-
-      <div class="preview-controls">
-        <label for="preview-range">Vorschau bis Patch:</label>
-        <div class="range-container">
-          <input id="preview-range" type="range" min="0" max="0" value="0" step="1" />
-          <span id="applyUntilValue">0</span>
-        </div>
-      </div>
-
-      <div class="list" id="patch-list" role="listbox" aria-label="Patch-Liste"></div>
-    </aside>
-
-    <section class="patch-details">
-      <div id="patch-detail" aria-live="polite" class="patch-info">
-        <h3 id="pd-title">(kein Patch ausgewählt)</h3>
-        <div class="info-grid">
-          <div class="info-row">
-            <span class="label">ID:</span>
-            <span id="pd-id" class="value">-</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Autor:</span>
-            <span id="pd-author" class="value">-</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Erstellt:</span>
-            <span id="pd-date" class="value">-</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Abhängigkeiten:</span>
-            <span id="pd-deps" class="value">-</span>
-          </div>
-        </div>
-        <div class="patch-actions">
-          <label class="include-toggle">
-            <input type="checkbox" id="pd-include" />
-            <span class="toggle-slider"></span>
-            <span class="toggle-text">In Vorschau einbeziehen</span>
-          </label>
-        </div>
-        <div class="pd-warn" id="pd-cycle" style="display:none;"></div>
-      </div>
-
-      <section id="conflictsPanel" aria-live="polite" class="conflicts-section">
-        <h3>⚠️ Konflikte</h3>
-        <div id="conflicts-panel" class="conflicts-list"></div>
-      </section>
-    </section>
-  </section>
+  <!-- Das alte PatchUIContainer wurde entfernt, um die Benutzeroberfläche zu vereinfachen. -->
+  <!-- Die Patch-Verwaltung befindet sich jetzt im "Patch"-Tab des YAML-Editors. -->
 
   <!-- App Scripts (modularisiert) -->
   <script type="module" src="./editor/js/toast.js"></script>

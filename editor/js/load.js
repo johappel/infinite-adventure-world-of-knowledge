@@ -353,43 +353,60 @@ export function setupWorldSearch(editor, nostrService) {
         
         div.addEventListener('click', async () => {
           try {
-            // Falls yaml nicht geliefert, nachladen
             let data = it;
-            if (!it.yaml) {
+            // If the search result is just a stub, fetch the full event
+            if (!it.yaml && !it.originalYaml && !it.content) {
               data = await nostr.getById(it.id);
             }
-            if (!data || (!data.yaml && !data.originalYaml)) throw new Error('Kein YAML gefunden');
-            
-            // Prüfe, ob originalYaml vorhanden ist (ursprünglicher YAML-Content)
-            let yamlContent = data.originalYaml || data.yaml;
-            
-            // Wenn originalYaml vorhanden ist, verwende es direkt
+
+            if (!data) throw new Error('Welt nicht gefunden');
+
+            let yamlText;
+            // The best source is originalYaml, if it exists
             if (data.originalYaml) {
-              if (yamlEditor) yamlEditor.value = yamlContent;
+              yamlText = data.originalYaml;
+            }
+            // The next best is a 'yaml' property
+            else if (data.yaml) {
+              yamlText = data.yaml;
+            }
+            // The next best is the nostr event 'content' field
+            else if (data.content && typeof data.content === 'string') {
+              try {
+                // Check if content is JSON or YAML, and dump it back to clean YAML
+                const parsed = safeYamlParse(data.content);
+                yamlText = safeYamlDump(stripRootId(parsed));
+              } catch {
+                // Assume it's already YAML if parsing fails
+                yamlText = data.content;
+              }
+            }
+            // Fallback for objects that are already parsed
+            else if (typeof data === 'object') {
+              const spec = stripRootId(data);
+              yamlText = safeYamlDump(spec);
             } else {
-              // Andernfalls parsen und root.id entfernen, dann Editor setzen
-              let spec = safeYamlParse(yamlContent);
-              spec = stripRootId(spec);
-              if (yamlEditor) yamlEditor.value = safeYamlDump(spec);
+              throw new Error("Konnte keinen YAML-Inhalt aus den Daten extrahieren.");
             }
-            
-            // worldIdInput auf die externe ID setzen
-            if (worldIdInput && data.id) worldIdInput.value = data.id;
-            
-            // Aktualisiere die Welt-ID im Editor
-            if (editor) editor.worldId = data.id;
-            
-            // Aktualisiere die Vorschau
+
+            if (yamlEditor) {
+              yamlEditor.value = yamlText;
+            }
+
+            if (worldIdInput && data.id) {
+              worldIdInput.value = data.id;
+            }
             if (editor) {
-                const spec = safeYamlParse(yamlContent);
-                const normalized = editor.yamlProcessor.normalizeUserYaml(spec);
-                await editor.previewRenderer.updatePreviewFromObject(normalized);
+              editor.worldId = data.id;
+              // Now that the editor has the correct YAML, trigger the processing pipeline
+              await editor._processYamlInput();
             }
-            
+
             hideResults();
             if (window.showToast) window.showToast('success', 'Auswahl geladen.');
           } catch (e) {
             if (window.showToast) window.showToast('error', 'Konnte Ergebnis nicht laden: ' + (e?.message || e));
+            console.error(e);
           }
         });
         
@@ -686,6 +703,5 @@ export function setupRenderResetButtons(editor) {
 // Hauptfunktion zum Initialisieren der Load-Funktionalität
 export async function initLoadFunctionality(editor, nostrService) {
   setupWorldSearch(editor, nostrService);
-  setupPresetSelect(editor);
-  setupRenderResetButtons(editor);
+  // setupPresetSelect und setupRenderResetButtons sind veraltet, da die UI-Elemente entfernt wurden.
 }
