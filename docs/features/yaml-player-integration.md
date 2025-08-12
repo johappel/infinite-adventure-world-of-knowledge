@@ -224,4 +224,4 @@ player:
 4. **Erweiterbarkeit**: System für neue Features vorbereitet
 5. **Konsistenz**: Nutzt bestehende Architektur (Presets, Builders, etc.)
 
-Das System macht aus dem abstrakten "Location Marker" einen lebendigen, konfigurierbaren Avatar, der die Immersion und Personalisierung deutlich verbessert.
+

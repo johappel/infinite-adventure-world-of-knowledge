@@ -184,4 +184,3 @@ player:
 - **Animation Presets**: Vordefinierte Charakter-Typen
 - **Import/Export**: Player-Konfiguration teilen
 
-Das System ist vollständig modular und kann einfach erweitert werden ohne Breaking Changes.

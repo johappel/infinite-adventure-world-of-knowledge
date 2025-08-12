@@ -1,4 +1,4 @@
-# PresetEditor Entwicklerdokumentation
+# Wold Editor Entwicklerdokumentation
 
 ## Übersicht
 
@@ -358,46 +358,38 @@ if (editor.uiManager.showConfirmDialog('Möchten Sie wirklich speichern?')) {
 ## YAML-Schema
 
 ### Genesis-Objekt (Welt)
-
+Metadaten außerhalb des YAML EDITORS
+id: world_id => nostr tags: ["d:world12345"]
+kind: 30311
+created_at: Veröffentlichungsdatum
 ```yaml
-metadata:
-  schema_version: "patchkit/1.0"  # Erforderlich
-  id: "world_12345678"           # Erforderlich, Muster: ^[A-Za-z0-9_-]{8,64}$
-  name: "Meine Welt"             # Optional
-  description: "Beschreibung"     # Optional
-  author_npub: "npub0"            # Optional
-  created_at: 1234567890         # Optional, Unix-Timestamp
+name: "Meine Welt"             # Optional
+description: "Beschreibung"     # Optional
+objects:                        # Optional
+  - type: "tree"               # Erforderlich
+    position: [0, 0, 0]        # Optional, Standard: [0, 0, 0]
+    scale: [1, 1, 1]           # Optional, Standard: [1, 1, 1]
+    color: "#1a4a1a"           # Optional
+    # ... weitere objektspezifische Eigenschaften
 
-entities:
-  objects:                        # Optional
-    obj1:
-      type: "tree"               # Erforderlich
-      position: [0, 0, 0]        # Optional, Standard: [0, 0, 0]
-      scale: [1, 1, 1]           # Optional, Standard: [1, 1, 1]
-      color: "#1a4a1a"           # Optional
-      # ... weitere objektspezifische Eigenschaften
-  
-  portals:                        # Optional
-    portal1:
-      type: "door"               # Erforderlich
-      position: [0, 0, 0]        # Optional, Standard: [0, 0, 0]
-      target: "world_12345678"   # Optional
-      # ... weitere portaspezifische Eigenschaften
-  
-  personas:                       # Optional
-    persona1:
-      type: "npc"                # Erforderlich
-      position: [0, 0, 0]        # Optional, Standard: [0, 0, 0]
-      # ... weitere personaspezifische Eigenschaften
+portals:                        # Optional
+  - id: "door-to-house"         # Erforderlich
+    position: [0, 0, 0]         # Optional, Standard: [0, 0, 0]
+    destination: "world_12348"  # Optional
+    
 
-environment:                      # Optional
-  ambient_light:
-    color: "#ffffff"             # Optional, Standard: "#ffffff"
-    intensity: 0.5               # Optional, Standard: 0.5
-  directional_light:
-    color: "#ffffff"             # Optional, Standard: "#ffffff"
-    intensity: 0.8               # Optional, Standard: 0.8
-    position: [10, 20, 10]       # Optional, Standard: [10, 20, 10]
+personas:                      # Optional
+  - name: "Merlin"             # Erforderlich
+    position: [0, 0, 0]        # Optional, Standard: [0, 0, 0]
+    # ... weitere personaspezifische Eigenschaften
+
+environment:                     # Optional
+  skybox: "clear_day"
+  time_of_day: 0.5
+  ambient_light: 0.6
+  sun_intensity: 0.8
+  fog_distance: 100
+  ambient_sound: "birds"
 
 terrain:                         # Optional
   type: "plane"                 # Optional, Standard: "plane"
@@ -413,34 +405,24 @@ rules:                           # Optional
 ```
 
 ### Patch-Objekt
+**Metadaten außerhalb des YAML Editors**
+id: patch_id => nostr tags: ["a", "30311:PUBKEY_DES_ERSTELLERS:WELT_ID"]
+kind: 30312
+created_at: Datum des patches
+
 
 ```yaml
-metadata:
-  schema_version: "patchkit/1.0"  # Erforderlich
-  id: "patch_12345678"           # Erforderlich, Muster: ^[A-Za-z0-9_-]{8,64}$
-  name: "Mein Patch"             # Optional
-  description: "Beschreibung"     # Optional
-  author_npub: "npub0"            # Optional
-  created_at: 1234567890         # Optional, Unix-Timestamp
-  targets_world: "world_12345678" # Erforderlich
-
-operations:                       # Erforderlich
-  - type: "add"                  # Operationstyp: "add", "update", "delete"
-    entity_type: "object"        # Entitätstyp: "object", "portal", "persona", "extension", "environment", "terrain", "camera"
-    entity_id: "obj1"            # Entitäts-ID, Muster: ^[A-Za-z0-9_-]{1,64}$
-    payload:                     # Für "add"-Operationen
-      type: "tree"               # Entitäts-spezifische Eigenschaften
-      position: [0, 0, 0]
+name: "Eine Box hinzufügen"
+operation: "add"                 # Erforderlich "add", "update", "delete"
+  - type: "tree"                 # entity_id wird automatisch generiert
+    position: [0, 0, 0]
   
-  - type: "update"
-    entity_type: "object"
-    entity_id: "obj1"
-    changes:                     # Für "update"-Operationen
-      color: "#ff0000"
+operation: "update"
+  - entity_id: "obj1"
+    color: "#ff0000"
   
-  - type: "delete"
-    entity_type: "object"
-    entity_id: "obj1"            # Für "delete"-Operationen
+operation: "delete"
+    entity_id: "obj2"            # Für "delete"-Operationen
 ```
 
 ## Best Practices
@@ -575,6 +557,3 @@ const result = yamlProcessor.parseYaml();
 console.assert(result.test === 'value', 'Parse-Test fehlgeschlagen');
 ```
 
-## Zusammenfassung
-
-Der PresetEditor ist ein leistungsstarkes, modulares System zur Erstellung und Bearbeitung von virtuellen Welten. Durch die klare Trennung der Funktionalität in separate Module ist er einfach zu verstehen, zu erweitern und zu warten. Die Integration mit der PatchKit-API ermöglicht eine standardisierte Verarbeitung von Welten und Patches, während die Benutzeroberfläche eine intuitive Bedienung ermöglicht.
