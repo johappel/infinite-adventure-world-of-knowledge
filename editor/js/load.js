@@ -583,11 +583,19 @@ export function setupPresetSelect(editor) {
         
         // Aktualisiere die Vorschau
         console.log('🎬 [Integrationstest] Aktualisiere Vorschau');
-        if (editor && typeof editor.updatePreviewFromYaml === 'function') {
-          await editor.updatePreviewFromYaml();
-          console.log('✅ [Integrationstest] Vorschau aktualisiert');
+        if (editor && editor.previewRenderer && typeof editor.previewRenderer.updatePreviewFromObject === 'function') {
+          // Parse die YAML-Daten und aktualisiere die Vorschau
+          try {
+            const yamlText = yamlEditor.value;
+            const parsedObj = safeYamlParse(yamlText);
+            const normalizedObj = editor.yamlProcessor ? editor.yamlProcessor.normalizeUserYaml(parsedObj) : parsedObj;
+            await editor.previewRenderer.updatePreviewFromObject(normalizedObj);
+            console.log('✅ [Integrationstest] Vorschau aktualisiert');
+          } catch (e) {
+            console.error('❌ [Integrationstest] Fehler bei der Vorschau-Aktualisierung:', e);
+          }
         } else {
-          console.error('❌ [Integrationstest] Editor oder updatePreviewFromYaml nicht verfügbar');
+          console.error('❌ [Integrationstest] Editor, previewRenderer oder updatePreviewFromObject nicht verfügbar');
         }
         
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
@@ -639,11 +647,19 @@ export function setupPresetSelect(editor) {
         
         // Aktualisiere die Vorschau
         console.log('🎬 [Integrationstest] Aktualisiere Vorschau');
-        if (editor && typeof editor.updatePreviewFromYaml === 'function') {
-          await editor.updatePreviewFromYaml();
-          console.log('✅ [Integrationstest] Vorschau aktualisiert');
+        if (editor && editor.previewRenderer && typeof editor.previewRenderer.updatePreviewFromObject === 'function') {
+          // Parse die YAML-Daten und aktualisiere die Vorschau
+          try {
+            const yamlText = yamlEditor.value;
+            const parsedObj = safeYamlParse(yamlText);
+            const normalizedObj = editor.yamlProcessor ? editor.yamlProcessor.normalizeUserYaml(parsedObj) : parsedObj;
+            await editor.previewRenderer.updatePreviewFromObject(normalizedObj);
+            console.log('✅ [Integrationstest] Vorschau aktualisiert');
+          } catch (e) {
+            console.error('❌ [Integrationstest] Fehler bei der Vorschau-Aktualisierung:', e);
+          }
         } else {
-          console.error('❌ [Integrationstest] Editor oder updatePreviewFromYaml nicht verfügbar');
+          console.error('❌ [Integrationstest] Editor, previewRenderer oder updatePreviewFromObject nicht verfügbar');
         }
         
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
@@ -702,6 +718,19 @@ export function setupRenderResetButtons(editor) {
 
 // Hauptfunktion zum Initialisieren der Load-Funktionalität
 export async function initLoadFunctionality(editor, nostrService) {
+  console.log('🔍 [DEBUG] initLoadFunctionality aufgerufen');
   setupWorldSearch(editor, nostrService);
-  // setupPresetSelect und setupRenderResetButtons sind veraltet, da die UI-Elemente entfernt wurden.
+  
+  // Überprüfen, ob das presetSelect-Element existiert
+  const presetSelect = document.getElementById('presetSelect');
+  console.log('🔍 [DEBUG] presetSelect-Element gefunden:', !!presetSelect);
+  
+  if (presetSelect) {
+    console.log('🔍 [DEBUG] presetSelect-Element ist vorhanden, rufe setupPresetSelect auf');
+    setupPresetSelect(editor);
+  } else {
+    console.warn('⚠️ [DEBUG] presetSelect-Element nicht gefunden, setupPresetSelect wird nicht aufgerufen');
+  }
+  
+  // setupRenderResetButtons sind veraltet, da die UI-Elemente entfernt wurden.
 }
