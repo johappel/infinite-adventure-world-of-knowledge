@@ -239,65 +239,52 @@ export class YamlProcessor {
    * @returns {Object|null} - Das normalisierte Objekt oder null bei Fehler
    */
   normalizeUserYaml(userYaml) {
+    if (!userYaml || typeof userYaml !== 'object') {
+      return null;
+    }
+
+    // Wenn das Objekt bereits normalisiert aussieht, gib es direkt zurück.
+    if (userYaml.metadata && userYaml.entities) {
+      return userYaml;
+    }
+
     try {
-      if (!userYaml) {
-        return null;
+      const normalized = {
+        metadata: {
+          schema_version: 'patchkit/1.0',
+          id: userYaml.id || 'world_' + Math.random().toString(36).slice(2, 10),
+          name: userYaml.name || 'Unbenannte Welt',
+          description: userYaml.description || '',
+          author_npub: userYaml.author_npub || 'npub1anonymous', // Fügt Standard-Autor hinzu
+          created_at: userYaml.created_at || Math.floor(Date.now() / 1000), // Fügt Zeitstempel hinzu
+        },
+        entities: {},
+        rules: userYaml.rules || {},
+      };
+
+      // Konvertiere Arrays (benutzerfreundlich) in Objekte mit IDs (intern)
+      const entityTypes = ['objects', 'portals', 'personas'];
+      for (const type of entityTypes) {
+        if (Array.isArray(userYaml[type])) {
+          normalized.entities[type] = {};
+          userYaml[type].forEach((item, index) => {
+            const entityId = item.id || `${type.slice(0, -1)}_${index + 1}`;
+            normalized.entities[type][entityId] = item;
+          });
+        }
       }
-      
-      // Erstelle eine Kopie des Objekts
-      const normalized = JSON.parse(JSON.stringify(userYaml));
-      
-      // Stelle sicher, dass die Metadaten vorhanden sind
-      if (!normalized.metadata) {
-        normalized.metadata = {};
-      }
-      
-      // Setze die Schema-Version
-      normalized.metadata.schema_version = 'patchkit/1.0';
-      
-      // Stelle sicher, dass die Entitäts-Struktur vorhanden ist
-      if (!normalized.entities) {
-        normalized.entities = {};
-      }
-      
-      if (!normalized.entities.objects) {
-        normalized.entities.objects = {};
-      }
-      
-      if (!normalized.entities.portals) {
-        normalized.entities.portals = {};
-      }
-      
-      if (!normalized.entities.personas) {
-        normalized.entities.personas = {};
-      }
-      
-      // Stelle sicher, dass die Umgebung vorhanden ist
-      if (!normalized.environment) {
-        normalized.environment = {
-          ambient_light: { color: '#ffffff', intensity: 0.5 },
-          directional_light: { color: '#ffffff', intensity: 0.8, position: [10, 20, 10] }
-        };
-      }
-      
-      // Stelle sicher, dass das Terrain vorhanden ist
-      if (!normalized.terrain) {
-        normalized.terrain = {
-          type: 'plane',
-          size: [100, 100],
-          color: '#1a4a1a'
-        };
-      }
-      
-      // Stelle sicher, dass die Kamera vorhanden ist
-      if (!normalized.camera) {
-        normalized.camera = {
-          position: [0, 5, 10],
-          target: [0, 0, 0]
-        };
+
+      // Behandle einzelne Entitäten
+      const singleEntityTypes = ['environment', 'terrain', 'camera', 'player', 'extensions'];
+      for (const type of singleEntityTypes) {
+        if (userYaml[type]) {
+          // Diese werden als Objekt mit einer einzigen, bekannten ID gespeichert
+          normalized.entities[type] = { [`${type}_1`]: userYaml[type] };
+        }
       }
       
       return normalized;
+
     } catch (e) {
       console.error('Fehler bei der Normalisierung des YAML:', e);
       this.editor._setStatus('Fehler bei der Normalisierung des YAML: ' + e.message, 'error');

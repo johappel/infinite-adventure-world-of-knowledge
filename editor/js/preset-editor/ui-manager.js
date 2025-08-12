@@ -200,19 +200,10 @@ export class UIManager {
       container.style.display = 'block';
       
       // Erstelle eine lesbare Fehlermeldung
-      let errorText = 'Validierungsfehler:\n';
+      let errorText = 'Validierungsfehler:\n\n';
       for (const error of errors) {
-        errorText += `- ${error.message || error}\n`;
-        
-        // Füge den Pfad hinzu, falls vorhanden
-        if (error.path) {
-          errorText += `  Pfad: ${error.path}\n`;
-        }
-        
-        // Füge den Wert hinzu, falls vorhanden
-        if (error.value !== undefined) {
-          errorText += `  Wert: ${JSON.stringify(error.value)}\n`;
-        }
+        // Nutze JSON.stringify für eine detaillierte, lesbare Ausgabe des Fehlerobjekts
+        errorText += `${JSON.stringify(error, null, 2)}\n\n`;
       }
       
       container.textContent = errorText;
