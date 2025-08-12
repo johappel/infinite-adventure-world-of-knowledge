@@ -26,57 +26,76 @@ export class WorldManager {
   }
 
   /**
-   * Erstellt eine neue Welt mit Standardwerten
+   * Erstellt eine neue Welt mit einer benutzerfreundlichen Vorlage
    * Setzt die World-ID im Editor und aktualisiert die Vorschau
    */
   async createNewWorld() {
     try {
-      // Erstelle eine neue Welt mit Standardwerten
-      const newWorld = {
-        metadata: {
-          schema_version: 'patchkit/1.0',
-          id: 'world_' + Math.random().toString(36).slice(2, 10),
-          name: 'Neue Welt',
-          description: 'Eine neue Welt',
-          author_npub: 'npub0',
-          created_at: Math.floor(Date.now() / 1000)
-        },
-        entities: {
-          objects: {},
-          portals: {},
-          personas: {}
-        },
-        environment: {
-          ambient_light: { color: '#ffffff', intensity: 0.5 },
-          directional_light: { color: '#ffffff', intensity: 0.8, position: [10, 20, 10] }
-        },
-        terrain: {
-          type: 'plane',
-          size: [100, 100],
-          color: '#1a4a1a'
-        },
-        camera: {
-          position: [0, 5, 10],
-          target: [0, 0, 0]
-        }
-      };
-      
-      // Setze die World-ID
-      this.editor.worldId = newWorld.metadata.id;
-      
-      // Konvertiere in das benutzerfreundliche YAML-Format
-      const yamlText = this.editor.yamlProcessor.serializeYaml(
-        this.editor.yamlProcessor.denormalizeUserYaml(newWorld)
-      );
-      
+      const newWorldId = 'world_' + Math.random().toString(36).slice(2, 10);
+      this.editor.worldId = newWorldId;
+
+      const newWorldTemplate = `
+# Basis-Metadaten
+name: "Neue Welt"
+description: "Eine neue, mit dem Editor erstellte Welt."
+id: ${newWorldId}
+
+# Umgebung
+environment:
+  skybox: "clear_day"
+  time_of_day: 0.5
+  ambient_light: 0.6
+  sun_intensity: 0.8
+  fog_distance: 100
+  ambient_sound: "birds"
+
+# Terrain/Boden
+terrain:
+  type: "flat"
+  size: [50, 50]
+  color: "#4a7c1e"
+  texture: "grass"
+
+# Objekte, Portale und Personen können hier hinzugefügt werden
+# Beispiel:
+#
+# objects:
+#   - type: "rock"
+#     position: [5, 0, 3]
+#     scale: [1.2, 0.8, 1.1]
+#     color: "#8b7355"
+#
+# portals:
+#   - id: "to-forest"
+#     name: "Zum Mystischen Wald"
+#     position: [-10, 1, 0]
+#     size: [2, 3, 0.5]
+#     destination: "zone-forest"
+#     color: "#9370db"
+#
+# personas:
+#   - name: "Lehrmeister Aelion"
+#     position: [0, 0, 5]
+#     appearance:
+#       color: "#ff6b6b"
+#       height: 1.8
+#       type: "humanoid"
+`.trim();
+
       // Setze den YAML-Content im Editor
-      this.editor.setYamlText(yamlText);
+      this.editor.setYamlText(newWorldTemplate);
+
+      // Parse den neuen YAML-Text, um ein Objekt für die Vorschau zu erhalten
+      const newWorldObject = this.editor.yamlProcessor.parseYaml();
       
       // Aktualisiere die Vorschau
-      await this.editor.previewRenderer.updatePreviewFromObject(newWorld);
+      if (newWorldObject) {
+        const normalized = this.editor.yamlProcessor.normalizeUserYaml(newWorldObject);
+        await this.editor.previewRenderer.updatePreviewFromObject(normalized);
+      }
       
-      if (window.showToast) window.showToast('success', 'Neue Welt erstellt');
-      this.editor._setStatus('Neue Welt erstellt', 'success');
+      if (window.showToast) window.showToast('success', 'Neue Welt Vorlage geladen');
+      this.editor._setStatus('Neue Welt Vorlage geladen', 'success');
     } catch (e) {
       console.error(e);
       if (window.showToast) window.showToast('error', 'Welt-Erstellung fehlgeschlagen: ' + e.message);
@@ -157,9 +176,9 @@ export class WorldManager {
       await this.editor.previewRenderer.updatePreviewFromObject(genesis);
       
       // Aktualisiere die Patch-UI, falls vorhanden
-      if (this.editor.patchUI) {
+      if (this.editor.uiManager && typeof this.editor.uiManager.updatePatchList === 'function') {
         try {
-          await this.editor.patchUI.load(worldId);
+          await this.editor.uiManager.updatePatchList();
         } catch (error) {
           console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
         }

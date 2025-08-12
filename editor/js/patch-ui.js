@@ -381,6 +381,16 @@ export class PatchUI {
     this.selectedId = id;
     this.renderList();
     this.renderDetail();
+
+    // Lade den Inhalt des Patches in den Editor
+    const patch = this.patches.find(p => p.id === id);
+    if (patch && this.editor && this.editor.patchTextarea) {
+      const yamlContent = patch.originalYaml || this.patchKit.patch.serialize(patch, 'yaml');
+      this.editor.patchTextarea.value = yamlContent;
+
+      // Wechsle zum Patch-Tab
+      this.editor.uiManager.switchTab('patch');
+    }
   }
 
   renderList() {

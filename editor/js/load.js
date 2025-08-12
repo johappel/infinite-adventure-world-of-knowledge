@@ -380,8 +380,10 @@ export function setupWorldSearch(editor, nostrService) {
             if (editor) editor.worldId = data.id;
             
             // Aktualisiere die Vorschau
-            if (editor && typeof editor.updatePreviewFromYaml === 'function') {
-              await editor.updatePreviewFromYaml();
+            if (editor) {
+                const spec = safeYamlParse(yamlContent);
+                const normalized = editor.yamlProcessor.normalizeUserYaml(spec);
+                await editor.previewRenderer.updatePreviewFromObject(normalized);
             }
             
             hideResults();

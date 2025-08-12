@@ -70,40 +70,38 @@
     <div class="controls">
       <!-- Haupt-Aktionsgruppe -->
       <div class="control-group main-actions">
-        <input class="preset-selector" id="worldIdInput" placeholder="Welt-ID (z.B. demo-world)" title="Welt-ID (NIP-33 d=worldId)">
         <button class="btn" id="newWorldBtn" title="Neue leere Welt mit eindeutiger ID erstellen">➕ Neu</button>
         <button class="btn" id="loadWorldBtn" title="Welt anhand der ID laden">🌐 Laden</button>
         <button class="btn success" id="saveGenesisBtn" title="Aktuelle Welt als Genesis speichern">💾 Speichern</button>
       </div>
       
-      <!-- Sekundäre-Aktionsgruppe -->
-      <div class="control-group secondary-actions">
-        <select class="preset-selector" id="presetSelect" aria-label="Preset Template auswählen">
-          <option value="">Vorlage auswählen...</option>
-          <optgroup label="Lokale Vorlagen" id="localPresetsGroup">
-            <!-- Wird dynamisch befüllt -->
-          </optgroup>
-          <optgroup label="Worlds aus /worlds" id="worldFilesGroup">
-            <option value="" disabled>(wird geladen …)</option>
-          </optgroup>
-        </select>
-        
-        <input class="preset-selector search-input" id="worldSearchInput" placeholder="🔎 Welt suchen..." title="Suche in gespeicherten Welten">
-        <div id="worldSearchResults" class="search-results" style="display:none;"></div>
+      <!-- Sekundäre-Aktionsgruppe (wird in Sidebar verschoben) -->
+      <div class="control-group secondary-actions" style="display: none;">
       </div>
       
-      <!-- Vorschau-Aktionsgruppe -->
+      <!-- Vorschau-Aktionsgruppe (vereinfacht) -->
       <div class="control-group preview-actions">
-        <button class="btn success" id="renderBtn" title="3D-Vorschau aktualisieren">🎬 Vorschau aktualisieren</button>
-        <button class="btn" id="resetBtn" title="3D-Vorschau zurücksetzen">🔄 Zurücksetzen</button>
         <button class="btn" id="savePatchBtn" title="Als Patch speichern" style="display: none;">🧩 Patch speichern</button>
       </div>
     </div>
   </div>
 
-  <div class="container">
-    <div class="left-panel">
-      <div class="panel-header">📝 YAML Editor</div>
+  <main class="editor-main-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="panel-header">🔍 Suche</div>
+      <div class="sidebar-content">
+        <input class="preset-selector search-input" id="worldSearchInput" placeholder="Gespeicherte Welten..." title="Suche in gespeicherten Welten">
+        <div id="worldSearchResults" class="search-results" style="display:none;"></div>
+      </div>
+    </aside>
+
+    <!-- YAML Editor Panel -->
+    <div class="yaml-editor-panel">
+      <div class="panel-header-flex">
+        <div class="panel-header-title">📝 YAML Editor</div>
+        <input class="preset-selector" id="worldIdInput" placeholder="Keine Welt geladen" title="Welt-ID (NIP-33 d=worldId)" readonly>
+      </div>
       
       <!-- Tab-Navigation -->
       <div class="tab-navigation">
@@ -127,58 +125,19 @@ description: 'Eine Test-Welt für Presets'
 "></textarea>
       </div>
       <div class="tab-content" id="patch-editor">
-        <textarea class="yaml-editor" id="patch-yaml-editor" placeholder="# Neuen Patch erstellen
-# Ein Patch beschreibt Änderungen an einer bestehenden Welt
-# Dieses Format ähnelt dem Genesis-Format, fügt aber nur Änderungen hinzu
-
-name: "Mein erster Patch"
-description: "Beschreibe hier, was dieser Patch macht"
-
-# Entitäten, die zur Welt hinzugefügt werden sollen
-entities:
-  objects:
-    baum_1:
-      type: "tree"
-      position: [0, 0, 0]
-      scale: [1, 1, 1]
-      color: "#1a4a1a"
-    
-    felsen_1:
-      type: "rock"
-      position: [5, 0, 3]
-      scale: [0.8, 0.8, 0.8]
-      color: "#808080"
-  
-  portals:
-    tür_1:
-      type: "door"
-      position: [10, 0, 10]
-      rotation: [0, 0, 0]
-      scale: [1, 2, 0.1]
-      color: "#4a148c"
-      destination: "ziel_welt_id"
-  
-  personas:
-    npc_1:
-      type: "npc"
-      position: [-5, 0, -5]
-      rotation: [0, 45, 0]
-      scale: [1, 1, 1]
-      color: "#ff9800"
-      dialog: "Hallo! Willkommen in meiner Welt."
-
-# Regeln, die zur Welt hinzugefügt werden sollen
-rules:
-  interactions:
-    begruessung:
-      trigger: "npc_1"
-      action: "dialog"
-      response: "Hallo! Willkommen in meiner Welt."
-"></textarea>
+        <div class="patch-editor-container">
+          <div id="patch-list-container" class="patch-list-panel">
+            <!-- Patch list will be rendered here -->
+            <div class="panel-header">Verfügbare Patches</div>
+            <div class="patch-list-content"></div>
+          </div>
+          <textarea class="yaml-editor" id="patch-yaml-editor" placeholder="# Wähle einen Patch aus oder erstelle einen neuen..."></textarea>
+        </div>
       </div>
     </div>
 
-    <div class="right-panel">
+    <!-- 3D Preview Panel -->
+    <div class="preview-panel">
       <div class="panel-header">🎮 3D Vorschau</div>
       <div class="canvas-container">
         <canvas id="preview-canvas"></canvas>

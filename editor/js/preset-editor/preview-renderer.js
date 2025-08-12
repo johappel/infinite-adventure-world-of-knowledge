@@ -55,18 +55,16 @@ export class PreviewRenderer {
     }
   }
 
-  async updatePreviewFromObject(worldObj) {
+  async updatePreviewFromObject(normalizedWorldObj) {
     try {
       if (!this.editor.threeJSManager || !this.editor.threeJSManager.initialized) {
         console.warn('Three.js Manager nicht initialisiert, überspringe Vorschau');
         return;
       }
       
-      // Stelle sicher, dass worldObj korrekt formatiert ist
-      const normalizedWorld = this.editor.yamlProcessor.normalizeUserYaml(worldObj);
-      
-      // Aktualisiere die Vorschau
-      await this.editor.threeJSManager.renderWorld(normalizedWorld);
+      // Das Objekt sollte bereits normalisiert sein, wenn es hier ankommt.
+      // Direkt an den Three.js Manager weiterleiten.
+      await this.editor.threeJSManager.renderWorld(normalizedWorldObj);
       
       console.log('[DEBUG] Vorschau aktualisiert');
     } catch (error) {
