@@ -396,3 +396,7 @@ body {
   gap: 10px;
   flex-wrap: wrap;
 }
+
+.hidden {
+  display: none;
+}

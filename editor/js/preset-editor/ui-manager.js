@@ -37,14 +37,17 @@ export class UIManager {
       // Importiere die PatchUI
       const { PatchUI } = await import('../patch-ui.js');
       
-      // Initialisiere die Patch-UI
+      // Initialisiere die Patch-UI zeige Liste der Patches an
       this.editor.patchUI = new PatchUI({
         worldId: this.editor.worldId,
         patchKit: this.editor.patchKit,
         container: document.getElementById('patch-list-container')
       });
-      
       console.log('[DEBUG] Patch-UI initialisiert');
+      //if patch-list is not empty
+      if (document.querySelector('#patch-list-container .patch-list-content').childElementCount > 0) {
+        document.getElementById('patch-list-container').classList.remove('hidden');
+      }
     } catch (error) {
       console.error('Fehler bei der Initialisierung der Patch-UI:', error);
       this.editor._setStatus('Patch-UI Initialisierung fehlgeschlagen: ' + error.message, 'error');
@@ -212,9 +215,7 @@ export class UIManager {
     }
   }
 
-  /**
-   * Aktualisiert die Patch-Liste in der UI
-   */
+  
   /**
    * Aktualisiert die Patch-Liste in der UI
    */
@@ -224,7 +225,6 @@ export class UIManager {
         console.warn('Patch-UI nicht initialisiert, überspringe Aktualisierung der Patch-Liste');
         return;
       }
-      
       await this.editor.patchUI.load(this.editor.worldId);
     } catch (error) {
       console.error('Fehler beim Aktualisieren der Patch-Liste:', error);

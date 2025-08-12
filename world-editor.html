@@ -94,6 +94,11 @@
         <input class="preset-selector search-input" id="worldSearchInput" placeholder="Gespeicherte Welten..." title="Suche in gespeicherten Welten">
         <div id="worldSearchResults" class="search-results" style="display:none;"></div>
       </div>
+      <div id="patch-list-container" class="patch-list-panel hidden">
+          <!-- Patch list will be rendered here -->
+          <div class="panel-header">🧩 Patches</div>
+          <div class="patch-list-content"></div>
+      </div>
     </aside>
 
     <!-- YAML Editor Panel -->
@@ -126,11 +131,6 @@ description: 'Eine Test-Welt für Presets'
       </div>
       <div class="tab-content" id="patch-editor">
         <div class="patch-editor-container">
-          <div id="patch-list-container" class="patch-list-panel">
-            <!-- Patch list will be rendered here -->
-            <div class="panel-header">Verfügbare Patches</div>
-            <div class="patch-list-content"></div>
-          </div>
           <textarea class="yaml-editor" id="patch-yaml-editor" placeholder="# Wähle einen Patch aus oder erstelle einen neuen..."></textarea>
         </div>
       </div>
