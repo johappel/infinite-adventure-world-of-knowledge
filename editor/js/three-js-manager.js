@@ -92,8 +92,12 @@ export class ThreeJSManager {
             console.log('✅ [Integrationstest] Konvertierte Daten:', convertedWorldData);
             
             console.log('🔍 [Integrationstest] Rufe resolveWorldSpec auf');
+            console.log('🔍 [Integrationstest] convertedWorldData vor resolveWorldSpec:', JSON.stringify(convertedWorldData, null, 2));
             const spec = resolveWorldSpec(convertedWorldData);
             console.log('✅ [Integrationstest] World-Spec:', spec);
+            console.log('🔍 [Integrationstest] World-Spec objects:', spec.objects);
+            console.log('🔍 [Integrationstest] World-Spec personas:', spec.personas);
+            console.log('🔍 [Integrationstest] World-Spec portals:', spec.portals);
             
             const rng = Math.random;
             
@@ -379,21 +383,51 @@ export class ThreeJSManager {
         }
         
         // Objects
-        if (entities.object) {
-            worldData.objects = Object.values(entities.object);
+        if (entities.objects) {
+            const objectsArray = Object.values(entities.objects);
+            console.log('📦 [Integrationstest] Objects gefunden:', objectsArray);
+            worldData.objects = objectsArray;
             console.log('📦 [Integrationstest] Objects hinzugefügt:', worldData.objects.length, 'Objekte');
+        } else if (entities.object) {
+            // Fallback für altes Format (Singular)
+            const objectsArray = Object.values(entities.object);
+            console.log('📦 [Integrationstest] Objects (Fallback) gefunden:', objectsArray);
+            worldData.objects = objectsArray;
+            console.log('📦 [Integrationstest] Objects (Fallback) hinzugefügt:', worldData.objects.length, 'Objekte');
+        } else {
+            console.log('📦 [Integrationstest] Keine Objects gefunden in entities:', Object.keys(entities));
         }
         
         // Personas
-        if (entities.persona) {
-            worldData.personas = Object.values(entities.persona);
+        if (entities.personas) {
+            const personasArray = Object.values(entities.personas);
+            console.log('👤 [Integrationstest] Personas gefunden:', personasArray);
+            worldData.personas = personasArray;
             console.log('👤 [Integrationstest] Personas hinzugefügt:', worldData.personas.length, 'Personas');
+        } else if (entities.persona) {
+            // Fallback für altes Format (Singular)
+            const personasArray = Object.values(entities.persona);
+            console.log('👤 [Integrationstest] Personas (Fallback) gefunden:', personasArray);
+            worldData.personas = personasArray;
+            console.log('👤 [Integrationstest] Personas (Fallback) hinzugefügt:', worldData.personas.length, 'Personas');
+        } else {
+            console.log('👤 [Integrationstest] Keine Personas gefunden in entities:', Object.keys(entities));
         }
         
         // Portals
-        if (entities.portal) {
-            worldData.portals = Object.values(entities.portal);
+        if (entities.portals) {
+            const portalsArray = Object.values(entities.portals);
+            console.log('🌀 [Integrationstest] Portals gefunden:', portalsArray);
+            worldData.portals = portalsArray;
             console.log('🌀 [Integrationstest] Portals hinzugefügt:', worldData.portals.length, 'Portale');
+        } else if (entities.portal) {
+            // Fallback für altes Format (Singular)
+            const portalsArray = Object.values(entities.portal);
+            console.log('🌀 [Integrationstest] Portals (Fallback) gefunden:', portalsArray);
+            worldData.portals = portalsArray;
+            console.log('🌀 [Integrationstest] Portals (Fallback) hinzugefügt:', worldData.portals.length, 'Portale');
+        } else {
+            console.log('🌀 [Integrationstest] Keine Portals gefunden in entities:', Object.keys(entities));
         }
         
         // Extensions
