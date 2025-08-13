@@ -1,0 +1,10 @@
+# Nur Terrain Test
+name: "Terrain Test"
+id: "test-terrain"
+
+environment:
+  ambient_light: 0.6
+
+terrain:
+  preset: "forest_floor"
+  size: [40, 40]

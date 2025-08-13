@@ -1,0 +1,15 @@
+# Nur NPC Test
+name: "NPC Test"
+id: "test-npc"
+
+environment:
+  ambient_light: 0.6
+
+terrain:
+  preset: "grass_flat"
+  size: [20, 20]
+
+personas:
+  - preset: "npc_plain"
+    name: "Test Character"
+    position: [0, 0, 3]

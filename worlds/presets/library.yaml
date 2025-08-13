@@ -1,0 +1,26 @@
+# Bibliotheks-Zone
+name: "Preset Bibliothek"
+description: "Bibliothek mit Scholar NPCs"
+id: "test-library"
+
+environment:
+  ambient_light: 0.8
+  sun_intensity: 0.0
+
+terrain:
+  preset: "marble_flat"
+
+objects:
+  - preset: "bookshelf"
+    position: [5, 0, 5]
+    
+  - preset: "bookshelf"
+    position: [-5, 0, 5]
+    
+  - preset: "crystal"
+    position: [0, 0, 0]
+
+personas:
+  - preset: "npc_scholar"
+    name: "Bibliothekar"
+    position: [0, 0, 8]

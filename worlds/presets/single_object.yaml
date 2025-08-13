@@ -1,0 +1,15 @@
+# Nur Objekt Test
+name: "Objekt Test"
+id: "test-object"
+
+environment:
+  ambient_light: 0.6
+
+terrain:
+  preset: "grass_flat"
+  size: [20, 20]
+
+objects:
+  - preset: "tree_simple"
+    position: [0, 0, 0]
+    scale: [2, 3, 2]

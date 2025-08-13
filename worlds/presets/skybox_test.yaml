@@ -1,0 +1,30 @@
+# Skybox Test Zone
+name: "Skybox Demo"
+description: "Testet verschiedene Skybox-Presets"
+id: "skybox-test"
+
+environment:
+  skybox: "sunset"
+  time_of_day: 0.8
+  ambient_light: 0.4
+  sun_intensity: 0.6
+
+terrain:
+  type: "flat"
+  size: [20, 20]
+  color: "#4a4a3a"
+
+objects:
+  - type: "crystal"
+    position: [0, 0, 0]
+    scale: [1, 1.5, 1]
+    color: "#ffaa00"
+    
+  - type: "tree"
+    position: [5, 0, 2]
+    scale: [1, 2, 1]
+    color: "#1a3a1a"
+
+# Andere Skybox-Presets zum Testen:
+# sunset, night, storm, mystery_dark, 
+# skyline, ocean, bay, clear_day

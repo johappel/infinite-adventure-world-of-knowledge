@@ -1,0 +1,24 @@
+# Einfache Test-Welt
+name: "Einfache Welt"
+description: "Zum Testen der Presets"
+id: "test-simple"
+
+environment:
+  skybox: "sunset"
+  ambient_light: 0.6
+  sun_intensity: 0.8
+
+terrain:
+  preset: "grass_flat"
+
+objects:
+  - preset: "tree_simple"
+    position: [3, 0, 0]
+  
+  - preset: "rock_small"
+    position: [-3, 0, 0]
+
+personas:
+  - preset: "npc_plain"
+    name: "Test NPC"
+    position: [0, 0, 5]

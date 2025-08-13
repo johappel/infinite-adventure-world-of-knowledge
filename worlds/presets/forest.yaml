@@ -1,0 +1,33 @@
+# Wald-Zone mit Presets
+name: "Preset Wald"
+description: "Wald mit allen Preset-Features"
+id: "test-forest"
+
+environment:
+  skybox: "night"
+  ambient_light: 0.4
+  sun_intensity: 0.3
+
+terrain:
+  preset: "forest_floor"
+
+objects:
+  - preset: "tree_simple"
+    position: [5, 0, 5]
+    scale: [2, 2.5, 2]
+    
+  - preset: "mushroom_small"
+    position: [2, 0, -3]
+    interactive: true
+    
+  - preset: "stone_circle_thin"
+    position: [0, 0, 0]
+
+personas:
+  - preset: "npc_guardian"
+    name: "Waldwächter"
+    position: [-3, 0, 8]
+    
+  - preset: "npc_fairy"
+    name: "Waldfee"
+    position: [3, 0, -5]
