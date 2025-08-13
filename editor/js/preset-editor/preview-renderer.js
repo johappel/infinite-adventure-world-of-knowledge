@@ -73,6 +73,9 @@ export class PreviewRenderer {
       // Das Objekt sollte bereits normalisiert sein, wenn es hier ankommt.
       // Direkt an den Three.js Manager weiterleiten.
       const result = await this.editor.threeJSManager.renderWorld(normalizedWorldObj);
+      if (result) {
+        document.getElementById('objectCount').innerText = `Anzahl Objekte: ${result.objectCount}`;
+      }
       
       // Ladeindikator ausblenden
       const loadingIndicator = document.getElementById('loadingIndicator');

@@ -91,6 +91,7 @@ export class ThreeJSManager {
             
             // Zone OHNE Umgebung bauen (nur Geometrie)
             const zoneInfo = buildZoneFromSpec(spec, { rng, skipEnvironment: true });
+            zoneInfo.objectCount = convertedWorldData.objectCount || 0;
             
             this.currentZone = zoneInfo;
             this.scene.add(this.currentZone.group);
@@ -415,6 +416,10 @@ export class ThreeJSManager {
         } else {
             console.log('🌀 [Integrationstest] Keine Portals gefunden in entities:', Object.keys(entities));
         }
+
+        // Zähle alle Objekte außer Terrain und Environment
+        worldData.objectCount = (worldData.objects?.length || 0) + (worldData.personas?.length || 0) + (worldData.portals?.length || 0);
+        
         
         // Extensions
         if (entities.extension) {
