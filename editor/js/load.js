@@ -600,7 +600,6 @@ export function setupPresetSelect(editor) {
         const yamlContent = safeYamlDump(spec);
         console.log('📝 [Integrationstest] YAML-Content generiert, Länge:', yamlContent.length);
         yamlEditor.value = yamlContent;
-        
         // Aktualisiere die Welt-ID im Editor
         if (editor) {
           editor.worldId = uniqueId;
@@ -622,6 +621,7 @@ export function setupPresetSelect(editor) {
           // Now that the editor has the correct YAML, trigger the processing pipeline
           yamlEditor.value = yamlContent;
           simulateInputEvent(yamlEditor);
+          
           
         } else {
           console.error('❌ [Integrationstest] Editor nicht verfügbar');
@@ -667,11 +667,10 @@ export function setupPresetSelect(editor) {
         const yamlContent = safeYamlDump(spec);
         console.log('📝 [Integrationstest] YAML-Content generiert, Länge:', yamlContent.length);
         yamlEditor.value = yamlContent;
-        simulateInputEvent(yamlEditor);
         // Aktualisiere die Welt-ID im Editor
         if (editor) {
           editor.worldId = uniqueId;
-          console.log('🏷️ [Integrationstest] Welt-ID im Editor gesetzt');
+          console.log('🏷️ [Integrationstest] Welt-ID '+uniqueId+' im Editor gesetzt');
         }
         
         // Aktualisiere die Vorschau - verwende die gleiche Methode wie in setupWorldSearch
@@ -687,7 +686,7 @@ export function setupPresetSelect(editor) {
           });
           
           // Now that the editor has the correct YAML, trigger the processing pipeline
-          await editor._processYamlInput();
+          simulateInputEvent(yamlEditor);
           console.log('[DIAGNOSE] Lade.js - _processYamlInput abgeschlossen (presetSelect - Welt-Datei)');
         } else {
           console.error('❌ [Integrationstest] Editor nicht verfügbar');
