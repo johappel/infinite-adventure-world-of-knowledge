@@ -124,14 +124,14 @@ export class UIManager {
         if (tabName === 'world') {
           worldTab.classList.add('active');
           patchTab.classList.remove('active');
-          worldEditor.style.display = 'block';
+          worldEditor.style.display = 'flex';
           patchEditor.style.display = 'none';
           this.editor.textarea = this.editor.worldTextarea;
         } else if (tabName === 'patch') {
           worldTab.classList.remove('active');
           patchTab.classList.add('active');
           worldEditor.style.display = 'none';
-          patchEditor.style.display = 'block';
+          patchEditor.style.display = 'flex';
           this.editor.textarea = this.editor.patchTextarea;
         }
       }

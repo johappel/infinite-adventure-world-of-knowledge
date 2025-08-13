@@ -65,7 +65,8 @@ export class PreviewRenderer {
       // Das Objekt sollte bereits normalisiert sein, wenn es hier ankommt.
       // Direkt an den Three.js Manager weiterleiten.
       await this.editor.threeJSManager.renderWorld(normalizedWorldObj);
-      
+      // Ladeindikator ausblenden
+      document.getElementById('loadingIndicator').style.display = 'none';
       console.log('[DEBUG] Vorschau aktualisiert');
     } catch (error) {
       console.error('Fehler bei der Aktualisierung der Vorschau:', error);
