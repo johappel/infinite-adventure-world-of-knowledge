@@ -28,6 +28,192 @@ export function deriveCopyId(baseId) {
   return `${sanitized}-${short}`;
 }
 
+/**
+ * Heuristiken für Anzeige-Name und YAML-Extraktion
+ */
+function extractYamlFromContentString(str) {
+  return processStringToYaml(str);
+}
+
+function isFactorySchema(obj) {
+  try {
+    return !!(
+      obj &&
+      typeof obj === 'object' &&
+      obj.metadata &&
+      typeof obj.metadata.schema_version === 'string' &&
+      obj.metadata.schema_version.startsWith('patchkit/')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Konvertiert Factory-/PatchKit-JSON in das vom Autor erwartete YAML-Schema:
+ * - name, description, id (aus metadata)
+ * - environment (erstes Element aus entities.environment)
+ * - terrain (erstes Element aus entities.terrain)
+ * - objects, portals, personas als Arrays (aus den jeweiligen Maps)
+ * - rules nur, wenn nicht leer
+ */
+function factoryToAuthorSpec(obj) {
+  if (!obj || typeof obj !== 'object' || !isFactorySchema(obj)) return null;
+  const md = obj.metadata || {};
+  const entities = obj.entities || {};
+
+  // Erstes Value aus Map (z. B. environment_1, terrain_1)
+  const firstValue = (m) => {
+    if (!m || typeof m !== 'object') return undefined;
+    const vals = Object.values(m);
+    return vals.length ? vals[0] : undefined;
+    };
+
+  // Map -> Array
+  const mapToArray = (m) => {
+    if (!m || typeof m !== 'object') return undefined;
+    const arr = Object.values(m);
+    return arr.length ? arr : undefined;
+  };
+
+  const spec = {
+    name: md.name || '',
+    description: md.description || '',
+    id: md.id || undefined,
+  };
+
+  const environment = firstValue(entities.environment);
+  if (environment && typeof environment === 'object') {
+    spec.environment = environment;
+  }
+
+  const terrain = firstValue(entities.terrain);
+  if (terrain && typeof terrain === 'object') {
+    spec.terrain = terrain;
+  }
+
+  const objects = mapToArray(entities.objects);
+  if (objects) spec.objects = objects;
+
+  const portals = mapToArray(entities.portals);
+  if (portals) spec.portals = portals;
+
+  const personas = mapToArray(entities.personas);
+  if (personas) spec.personas = personas;
+
+  if (obj.rules && typeof obj.rules === 'object' && Object.keys(obj.rules).length) {
+    spec.rules = obj.rules;
+  }
+
+  if (!spec.id) delete spec.id;
+
+  return spec;
+}
+
+/**
+ * Nimmt String entgegen, der JSON (Patch/Factory, Patch payload) oder YAML sein kann.
+ * - Patch-JSON: { payload: "<YAML>" } -> gibt payload (YAML) zurück
+ * - Factory-JSON: in Autor-Schema mappen und YAML dumpen (inkl. id)
+ * - Sonstiges JSON: als YAML dumpen (Autorformat, keine id-Bereinigung)
+ * - YAML: unverändert zurückgeben
+ */
+function processStringToYaml(str) {
+  if (typeof str !== 'string') return null;
+
+  try {
+    const parsed = JSON.parse(str);
+
+    // Patch-Event: payload enthält den ursprünglichen YAML-Text
+    if (parsed && typeof parsed.payload === 'string') {
+      return parsed.payload;
+    }
+
+    // Factory-/Genesis-Objekt im PatchKit-Schema -> in Autor-Schema mappen
+    const mapped = factoryToAuthorSpec(parsed);
+    if (mapped) {
+      return safeYamlDump(mapped);
+    }
+
+    // Fallback: JSON -> YAML (Autorformat)
+    return safeYamlDump(parsed);
+  } catch {
+    // Kein JSON -> vermutlich YAML, unverändert zurückgeben
+    return str;
+  }
+}
+
+// Extrahiert Name aus YAML- oder JSON-String
+function parseNameFromAnyString(str) {
+  if (typeof str !== 'string') return '';
+  // Versuch über YAML
+  try {
+    const spec = window.jsyaml?.load ? window.jsyaml.load(str) : null;
+    if (spec?.name) return spec.name;
+    if (spec?.metadata?.name) return spec.metadata.name;
+  } catch {}
+  // Versuch über JSON
+  try {
+    const obj = JSON.parse(str);
+    return obj?.metadata?.name || obj?.name || '';
+  } catch {
+    return '';
+  }
+}
+
+
+function parseNameFromYamlString(yaml) {
+  try {
+    const spec = window.jsyaml?.load ? window.jsyaml.load(yaml) : null;
+    return spec?.name || spec?.metadata?.name || '';
+  } catch {
+    return '';
+  }
+}
+
+function getDisplayNameFromItem(it) {
+  return (
+    it?.name ||
+    it?.metadata?.name ||
+    (typeof it?.originalYaml === 'string' ? parseNameFromYamlString(processStringToYaml(it.originalYaml) || it.originalYaml) : '') ||
+    (typeof it?.yaml === 'string' ? parseNameFromYamlString(processStringToYaml(it.yaml) || it.yaml) : '') ||
+    (typeof it?.content === 'string' ? parseNameFromYamlString(extractYamlFromContentString(it.content)) : '')
+  );
+}
+
+/**
+ * Wählt den bestmöglichen YAML-Text aus einem Such-/Lade-Resultat.
+ * Bevorzugt: originalYaml > yaml > content(payload) > Objekt (mit Factory‑Mapping)
+ */
+function chooseYamlFromData(data) {
+
+  // Explizite String-Felder bevorzugen und ggf. konvertieren
+  if (data && typeof data === 'object') {
+    if (typeof data.originalYaml === 'string') {
+      const s = processStringToYaml(data.originalYaml);
+      if (s) return s;
+    }
+    if (typeof data.yaml === 'string') {
+      const s = processStringToYaml(data.yaml);
+      if (s) return s;
+    }
+  }
+  // content als String: Genesis (YAML) oder Patch (JSON mit payload)
+  if (data && typeof data?.content === 'string') {
+    const maybe = extractYamlFromContentString(data.content);
+    if (typeof maybe === 'string') return maybe;
+  }
+  // Bereits geparstes Objekt: Factory-Objekt mappen, sonst normal dumpen
+  if (data && typeof data === 'object') {
+    const mapped = jsonFactoryToEditorSpec(data);
+    if (mapped) {
+      try { return safeYamlDump(stripRootId(mapped)); } catch {}
+    } else {
+      try { return safeYamlDump(stripRootId(data)); } catch {}
+    }
+  }
+  throw new Error('Kein YAML-Inhalt verfügbar');
+}
+
 // Funktion zum Simulieren eines Input-Events, welches das Rendern des ThreeJS Canvas auslöst
 export function simulateInputEvent(element) {
   if (!element) return;
@@ -162,12 +348,13 @@ export function setupWorldSearch(editor, nostrService) {
         div.style.padding = '6px 10px';
         div.style.cursor = 'pointer';
         const badge = it.type === 'patch' ? '🧩 Patch' : '🌱 Genesis';
-        div.textContent = `${it.id || '(ohne id)'} — ${it.name || '(ohne Name)'}  [${badge}]`;
+        const displayName = getDisplayNameFromItem(it) || '(ohne Name)';
+        div.textContent = `${it.id || '(ohne id)'} — ${displayName}  [${badge}]`;
         
         div.addEventListener('click', async () => {
           try {
             let data = it;
-            // If the search result is just a stub, fetch the full event
+            // Wenn der Treffer nur ein Stub ist, komplettes Event laden
             if (!it.yaml && !it.originalYaml && !it.content) {
               data = await nostr.getById(it.id);
             }
@@ -175,31 +362,22 @@ export function setupWorldSearch(editor, nostrService) {
             if (!data) throw new Error('Welt nicht gefunden');
 
             let yamlText;
-            // The best source is originalYaml, if it exists
-            if (data.originalYaml) {
-              yamlText = data.originalYaml;
-            }
-            // The next best is a 'yaml' property
-            else if (data.yaml) {
-              yamlText = data.yaml;
-            }
-            // The next best is the nostr event 'content' field
-            else if (data.content && typeof data.content === 'string') {
-              try {
-                // Check if content is JSON or YAML, and dump it back to clean YAML
-                const parsed = safeYamlParse(data.content);
-                yamlText = safeYamlDump(stripRootId(parsed));
-              } catch {
-                // Assume it's already YAML if parsing fails
-                yamlText = data.content;
+            try {
+              yamlText = chooseYamlFromData(data);
+            } catch {
+              // Ultimativer Fallback: content parsen oder Objekt dumpen (nur wenn kein Factory-Schema)
+              if (typeof data?.content === 'string') {
+                try {
+                  const parsed = safeYamlParse(data.content);
+                  yamlText = safeYamlDump(stripRootId(parsed));
+                } catch {}
               }
-            }
-            // Fallback for objects that are already parsed
-            else if (typeof data === 'object') {
-              const spec = stripRootId(data);
-              yamlText = safeYamlDump(spec);
-            } else {
-              throw new Error("Konnte keinen YAML-Inhalt aus den Daten extrahieren.");
+              if (!yamlText && typeof data === 'object' && !isFactorySchema(data)) {
+                try {
+                  yamlText = safeYamlDump(stripRootId(data));
+                } catch {}
+              }
+              if (!yamlText) throw new Error('Konnte keinen YAML-Inhalt aus den Daten extrahieren.');
             }
 
             if (yamlEditor) {
@@ -507,31 +685,22 @@ export async function setupFromId(world_id, editor, nostrService) {
     
     // YAML-Text extrahieren (gleiche Logik wie in setupWorldSearch)
     let yamlText;
-    // The best source is originalYaml, if it exists
-    if (data.originalYaml) {
-      yamlText = data.originalYaml;
-    }
-    // The next best is a 'yaml' property
-    else if (data.yaml) {
-      yamlText = data.yaml;
-    }
-    // The next best is the nostr event 'content' field
-    else if (data.content && typeof data.content === 'string') {
-      try {
-        // Check if content is JSON or YAML, and dump it back to clean YAML
-        const parsed = safeYamlParse(data.content);
-        yamlText = safeYamlDump(stripRootId(parsed));
-      } catch {
-        // Assume it's already YAML if parsing fails
-        yamlText = data.content;
+    try {
+      yamlText = chooseYamlFromData(data);
+    } catch {
+      // Ultimativer Fallback: content parsen oder Objekt dumpen (nur wenn kein Factory-Schema)
+      if (typeof data?.content === 'string') {
+        try {
+          const parsed = safeYamlParse(data.content);
+          yamlText = safeYamlDump(stripRootId(parsed));
+        } catch {}
       }
-    }
-    // Fallback for objects that are already parsed
-    else if (typeof data === 'object') {
-      const spec = stripRootId(data);
-      yamlText = safeYamlDump(spec);
-    } else {
-      throw new Error("Konnte keinen YAML-Inhalt aus den Daten extrahieren.");
+      if (!yamlText && typeof data === 'object' && !isFactorySchema(data)) {
+        try {
+          yamlText = safeYamlDump(stripRootId(data));
+        } catch {}
+      }
+      if (!yamlText) throw new Error('Konnte keinen YAML-Inhalt aus den Daten extrahieren.');
     }
     
     // YAML in den Editor schreiben

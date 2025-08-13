@@ -58,7 +58,7 @@ async function getIdentity() {
 function parseGenesisNameFromYaml(yaml) {
   try {
     const spec = window.jsyaml?.load ? window.jsyaml.load(yaml) : null;
-    return spec?.name || '';
+    return  spec?.metadata?.name || '';
   } catch { return ''; }
 }
 
