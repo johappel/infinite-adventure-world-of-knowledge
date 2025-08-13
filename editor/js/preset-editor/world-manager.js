@@ -57,29 +57,29 @@ terrain:
   texture: "grass"
 
 # Objekte, Portale und Personen können hier hinzugefügt werden
-# Beispiel:
-#
-# objects:
-#   - type: "rock"
-#     position: [5, 0, 3]
-#     scale: [1.2, 0.8, 1.1]
-#     color: "#8b7355"
-#
-# portals:
-#   - id: "to-forest"
-#     name: "Zum Mystischen Wald"
-#     position: [-10, 1, 0]
-#     size: [2, 3, 0.5]
-#     destination: "zone-forest"
-#     color: "#9370db"
-#
-# personas:
-#   - name: "Lehrmeister Aelion"
-#     position: [0, 0, 5]
-#     appearance:
-#       color: "#ff6b6b"
-#       height: 1.8
-#       type: "humanoid"
+
+
+objects:
+  - type: "rock"
+    position: [5, 0, 3]
+    scale: [1.2, 0.8, 1.1]
+    color: "#8b7355"
+
+portals:
+  - id: "to-forest"
+    name: "Zum Mystischen Wald"
+    position: [-10, 1, 0]
+    size: [2, 3, 0.5]
+    destination: "zone-forest"
+    color: "#9370db"
+
+personas:
+  - name: "Lehrmeister Aelion"
+    position: [0, 0, 5]
+    appearance:
+      color: "#ff6b6b"
+      height: 1.8
+      type: "humanoid"
 `.trim();
 
       // Setze den YAML-Content im Editor
