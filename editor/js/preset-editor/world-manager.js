@@ -199,6 +199,7 @@ personas:
    */
   async saveCurrent() {
     try {
+      console.log('[DEBUG] saveCurrent aufgerufen – Start');
       if (!this.editor.worldId) {
         // Neue Welt erstellen, wenn keine ID vorhanden
         await this.createNewWorld();

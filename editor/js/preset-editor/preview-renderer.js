@@ -57,11 +57,7 @@ export class PreviewRenderer {
 
   async updatePreviewFromObject(normalizedWorldObj) {
     try {
-      console.log('[DIAGNOSE] updatePreviewFromObject aufgerufen mit:', normalizedWorldObj);
-      console.log('[DIAGNOSE] ThreeJSManager Status:', {
-        exists: !!this.editor.threeJSManager,
-        initialized: this.editor.threeJSManager?.initialized
-      });
+      
       
       if (!this.editor.threeJSManager || !this.editor.threeJSManager.initialized) {
         console.warn('[DIAGNOSE] Three.js Manager nicht initialisiert, versuche Initialisierung...');
@@ -76,20 +72,14 @@ export class PreviewRenderer {
       
       // Das Objekt sollte bereits normalisiert sein, wenn es hier ankommt.
       // Direkt an den Three.js Manager weiterleiten.
-      console.log('[DIAGNOSE] Rufe renderWorld auf mit Daten:', JSON.stringify(normalizedWorldObj, null, 2));
       const result = await this.editor.threeJSManager.renderWorld(normalizedWorldObj);
-      console.log('[DIAGNOSE] renderWorld Ergebnis:', result);
       
       // Ladeindikator ausblenden
       const loadingIndicator = document.getElementById('loadingIndicator');
       if (loadingIndicator) {
         loadingIndicator.style.display = 'none';
-        console.log('[DIAGNOSE] Ladeindikator ausgeblendet');
       }
       
-      console.log('[DIAGNOSE] Vorschau aktualisiert - prüfe Szenezustand');
-      console.log('[DIAGNOSE] Szene-Objekte:', this.editor.threeJSManager?.scene?.children?.length || 0);
-      console.log('[DIAGNOSE] Aktuelle Zone:', !!this.editor.threeJSManager?.currentZone);
       
       // Prüfe, ob die Zone zur Szene hinzugefügt wurde
       if (this.editor.threeJSManager?.currentZone?.group) {

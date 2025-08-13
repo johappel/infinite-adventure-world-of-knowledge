@@ -114,60 +114,36 @@ export class PresetEditor {
    */
   async _processYamlInput() {
     try {
-      console.log('[DIAGNOSE] _processYamlInput aufgerufen');
-      console.log('[DIAGNOSE] Aktiver Tab:', this.activeTab);
-      console.log('[DIAGNOSE] Editor-Status:', {
-        hasPreviewRenderer: !!this.previewRenderer,
-        hasThreeJSManager: !!this.threeJSManager,
-        threeJSManagerInitialized: this.threeJSManager?.initialized,
-        hasYamlProcessor: !!this.yamlProcessor
-      });
       
       const raw = this.getYamlText();
-      console.log('[DEBUG] YAML-Eingabe im Tab:', this.activeTab, 'Inhalt:', raw);
-      console.log('[DIAGNOSE] YAML-Rohdaten Länge:', raw?.length || 0);
       
       const obj = this.yamlProcessor.parseYaml();
-      console.log('[DEBUG] Geparstes YAML-Objekt:', obj);
-      console.log('[DIAGNOSE] Geparstes Objekt Typ:', typeof obj);
-      console.log('[DIAGNOSE] Geparstes Objekt Keys:', obj ? Object.keys(obj) : 'null');
       
       if (!obj) {
-        console.log('[DIAGNOSE] Kein geparstes Objekt, breche ab');
         return;
       }
       
       // Unterschiedliche Verarbeitung je nach aktiven Tab
       if (this.activeTab === 'world') {
-        console.log('[DIAGNOSE] Verarbeite World-Tab');
         const normalized = this.yamlProcessor.normalizeUserYaml(obj);
         console.log('[DEBUG] Normalisierte Welt-Daten:', normalized);
-        console.log('[DIAGNOSE] Normalisierte Daten Typ:', typeof normalized);
-        console.log('[DIAGNOSE] Normalisierte Daten Keys:', normalized ? Object.keys(normalized) : 'null');
         
         const res = this.patchKit?.genesis?.validate
           ? await this.patchKit.genesis.validate(normalized)
           : { valid: true, errors: [] };
         const valid = res?.valid === true || res === true;
-        console.log('[DIAGNOSE] Validierungsergebnis:', res);
-        console.log('[DIAGNOSE] Valid gültig:', valid);
         
         if (valid) {
           this._setStatus('YAML gültig', 'success');
           this.uiManager._setValidationErrorsUI([]);
-          console.log('[DIAGNOSE] Rufe updatePreviewFromObject auf mit normalisierten Daten');
           await this.previewRenderer.updatePreviewFromObject(normalized);
-          console.log('[DIAGNOSE] updatePreviewFromObject abgeschlossen');
         } else {
           const errors = Array.isArray(res?.errors) ? res.errors : [];
-          console.log('[DIAGNOSE] Validierungsfehler:', errors);
           this._setStatus('YAML ungültig – Details unten.', 'error');
           this.uiManager._setValidationErrorsUI(errors, raw);
         }
       } else if (this.activeTab === 'patch') {
-        console.log('[DEBUG] Patch-Tab aktiv, verarbeite Patch-Daten');
         const normalizedPatch = this.yamlProcessor.normalizePatchYaml(obj);
-        console.log('[DEBUG] Normalisierte Patch-Daten:', normalizedPatch);
         
         // Validiere den Patch
         if (this.patchKit && this.patchKit.patch && typeof this.patchKit.patch.validate === 'function') {
@@ -297,11 +273,12 @@ export class PresetEditor {
    * @private
    */
   _bindBasicEvents() {
+    if (this._basicEventsBound) return;
     const btnValidate = document.getElementById('btn-validate');
     if (btnValidate) btnValidate.addEventListener('click', () => this.yamlProcessor.validateYaml());
 
-    const btnSave = document.getElementById('btn-save');
-    if (btnSave) btnSave.addEventListener('click', () => this.worldManager.saveCurrent());
+    // Entfernt: Der Button 'btn-save' existiert nicht im HTML und führt zu
+    // einem unnötigen zweiten Aufruf von saveCurrent().
 
     const btnLoad = document.getElementById('btn-load');
     if (btnLoad) btnLoad.addEventListener('click', () => this.worldManager.loadByWorldIdPrompt());
@@ -313,8 +290,8 @@ export class PresetEditor {
     const loadWorldBtn = document.getElementById('loadWorldBtn');
     if (loadWorldBtn) loadWorldBtn.addEventListener('click', () => this.worldManager.loadWorldByIdFromInput());
     
-    const saveGenesisBtn = document.getElementById('saveGenesisBtn');
-    if (saveGenesisBtn) saveGenesisBtn.addEventListener('click', () => this.worldManager.saveCurrent());
+    // Idempotente Bindung des Save-Buttons (nur einmal)
+    this._bindSaveButton();
     
     const savePatchBtn = document.getElementById('savePatchBtn');
     if (savePatchBtn) savePatchBtn.addEventListener('click', () => this.patchManager.saveAsPatch());
@@ -343,6 +320,18 @@ export class PresetEditor {
    * @param {string} [type='info'] - Der Typ der Nachricht ('info', 'success', 'error')
    * @private
    */
+  // -------------------------------------------------------------------------
+  // Bindet den Save-Button nur einmalig
+  // -------------------------------------------------------------------------
+  _bindSaveButton() {
+    const saveGenesisBtn = document.getElementById('saveGenesisBtn');
+    if (saveGenesisBtn && !saveGenesisBtn._listenerAdded) {
+      saveGenesisBtn.addEventListener('click', () => this.worldManager.saveCurrent());
+      // Flag setzen, damit nicht erneut gebunden wird
+      saveGenesisBtn._listenerAdded = true;
+    }
+  }
+
   _setStatus(msg, type = 'info') {
     // zentrale Statusbar
     if (this.statusEl) this.statusEl.textContent = msg;

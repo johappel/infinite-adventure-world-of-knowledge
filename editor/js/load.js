@@ -38,10 +38,19 @@ export function simulateInputEvent(element) {
     cancelable: true,
   });
  
-  
   // Löse die Events in der richtigen Reihenfolge aus
   element.dispatchEvent(inputEvent);
-  
+}
+
+// Hilfsfunktion zum Aktualisieren/Entfernen des URL‑Parameters „world“
+export function updateUrlParam(worldId) {
+  const url = new URL(window.location);
+  if (worldId) {
+    url.searchParams.set('world', worldId);
+  } else {
+    url.searchParams.delete('world');
+  }
+  window.history.replaceState({}, '', url);
 }
 
 // Vorlagen-Definitionen werden aus YAML-Dateien geladen
@@ -354,6 +363,9 @@ export async function setupPresetSelect(editor) {
           editor.worldId = uniqueId;
         }
         
+        // URL-Parameter aktualisieren
+        updateUrlParam(uniqueId);
+        
         // Aktualisiere die Vorschau - verwende die gleiche Methode wie in setupWorldSearch
         if (editor) {
           editor.worldId = uniqueId;
@@ -402,6 +414,9 @@ export async function setupPresetSelect(editor) {
         if (editor) {
           editor.worldId = uniqueId;
         }
+        
+        // URL-Parameter aktualisieren
+        updateUrlParam(uniqueId);
         
         // Aktualisiere die Vorschau - verwende die gleiche Methode wie in setupWorldSearch
         if (editor) {
@@ -452,6 +467,8 @@ export function setupRenderResetButtons(editor) {
         
         if (editor) {
           editor.worldId = null;
+          // URL-Parameter entfernen
+          updateUrlParam(null);
           if (typeof editor.updatePreviewFromYaml === 'function') {
             editor.updatePreviewFromYaml();
           }
@@ -542,12 +559,15 @@ export async function setupFromId(world_id, editor, nostrService) {
 
 // Funktion zum Prüfen und Verarbeiten des URL-Query-Parameters
 export function setupUrlParameterHandler(editor, nostrService) {
-  // URL-Parameter auslesen
   const urlParams = new URLSearchParams(window.location.search);
   const worldId = urlParams.get('world');
-  
+
   if (worldId) {
-    // Warte kurz, bis der Editor vollständig initialisiert ist
+    // Wenn die aktuelle Welt bereits geladen ist, nicht erneut laden
+    if (editor && editor.worldId === worldId) {
+      console.log('World already loaded from URL, skipping reload.');
+      return;
+    }
     setTimeout(async () => {
       await setupFromId(worldId, editor, nostrService);
     }, 500);
