@@ -408,6 +408,7 @@ export function setupWorldSearch(editor, nostrService) {
 
             if (yamlEditor) {
               yamlEditor.value = yamlText;
+              simulateInputEvent(yamlEditor);
             }
 
             if (worldIdInput && data.id) {
@@ -686,7 +687,8 @@ export function setupPresetSelect(editor) {
           });
           
           // Now that the editor has the correct YAML, trigger the processing pipeline
-          simulateInputEvent(yamlEditor);
+          //simulateInputEvent(yamlEditor);
+          await editor._processYamlInput();
           console.log('[DIAGNOSE] Lade.js - _processYamlInput abgeschlossen (presetSelect - Welt-Datei)');
         } else {
           console.error('❌ [Integrationstest] Editor nicht verfügbar');
@@ -746,6 +748,109 @@ export function setupRenderResetButtons(editor) {
   }
 }
 
+// Funktion zum Laden einer Welt anhand ihrer ID
+export async function setupFromId(world_id, editor, nostrService) {
+  console.log('🔍 [setupFromId] Lade Welt mit ID:', world_id);
+  
+  const yamlEditor = document.getElementById('world-yaml-editor');
+  const worldIdInput = document.getElementById('worldIdInput');
+  
+  if (!yamlEditor) {
+    console.error('❌ [setupFromId] YAML-Editor nicht gefunden');
+    if (window.showToast) window.showToast('error', 'Editor nicht verfügbar');
+    return;
+  }
+  
+  try {
+    // Nostr-Service abrufen
+    const nostr = nostrService || await window.NostrServiceFactory.getNostrService();
+    
+    // Welt anhand der ID abrufen
+    console.log('📡 [setupFromId] Rufe Welt von Nostr ab...');
+    const data = await nostr.getById(world_id);
+    
+    if (!data) {
+      throw new Error('Welt mit ID ' + world_id + ' nicht gefunden');
+    }
+    
+    console.log('✅ [setupFromId] Welt-Daten erhalten:', data);
+    
+    // YAML-Text extrahieren (gleiche Logik wie in setupWorldSearch)
+    let yamlText;
+    // The best source is originalYaml, if it exists
+    if (data.originalYaml) {
+      yamlText = data.originalYaml;
+    }
+    // The next best is a 'yaml' property
+    else if (data.yaml) {
+      yamlText = data.yaml;
+    }
+    // The next best is the nostr event 'content' field
+    else if (data.content && typeof data.content === 'string') {
+      try {
+        // Check if content is JSON or YAML, and dump it back to clean YAML
+        const parsed = safeYamlParse(data.content);
+        yamlText = safeYamlDump(stripRootId(parsed));
+      } catch {
+        // Assume it's already YAML if parsing fails
+        yamlText = data.content;
+      }
+    }
+    // Fallback for objects that are already parsed
+    else if (typeof data === 'object') {
+      const spec = stripRootId(data);
+      yamlText = safeYamlDump(spec);
+    } else {
+      throw new Error("Konnte keinen YAML-Inhalt aus den Daten extrahieren.");
+    }
+    
+    console.log('📝 [setupFromId] YAML-Content extrahiert, Länge:', yamlText.length);
+    
+    // YAML in den Editor schreiben
+    yamlEditor.value = yamlText;
+    
+    // Welt-ID setzen
+    if (worldIdInput) {
+      worldIdInput.value = world_id;
+    }
+    
+    if (editor) {
+      editor.worldId = world_id;
+      console.log('🏷️ [setupFromId] Welt-ID im Editor gesetzt:', world_id);
+      
+      // Input-Event simulieren, um die Verarbeitung auszulösen
+      simulateInputEvent(yamlEditor);
+      console.log('✅ [setupFromId] Input-Event simuliert, Vorschau sollte aktualisiert werden');
+    }
+    
+    if (window.showToast) window.showToast('success', 'Welt erfolgreich geladen.');
+    console.log('🎉 [setupFromId] Welt erfolgreich geladen und gerendert');
+    
+  } catch (e) {
+    console.error('❌ [setupFromId] Fehler beim Laden der Welt:', e);
+    if (window.showToast) window.showToast('error', 'Welt konnte nicht geladen werden: ' + (e?.message || e));
+  }
+}
+
+// Funktion zum Prüfen und Verarbeiten des URL-Query-Parameters
+export function setupUrlParameterHandler(editor, nostrService) {
+  console.log('🔍 [setupUrlParameterHandler] Prüfe URL-Parameter...');
+  
+  // URL-Parameter auslesen
+  const urlParams = new URLSearchParams(window.location.search);
+  const worldId = urlParams.get('world');
+  
+  if (worldId) {
+    console.log('🌍 [setupUrlParameterHandler] Welt-ID in URL gefunden:', worldId);
+    
+    // Warte kurz, bis der Editor vollständig initialisiert ist
+    setTimeout(async () => {
+      await setupFromId(worldId, editor, nostrService);
+    }, 500);
+  } else {
+    console.log('ℹ️ [setupUrlParameterHandler] Kein Welt-Parameter in URL gefunden');
+  }
+}
 
 // Hauptfunktion zum Initialisieren der Load-Funktionalität
 export async function initLoadFunctionality(editor, nostrService) {
@@ -762,6 +867,9 @@ export async function initLoadFunctionality(editor, nostrService) {
   } else {
     console.warn('⚠️ [DEBUG] presetSelect-Element nicht gefunden, setupPresetSelect wird nicht aufgerufen');
   }
+  
+  // URL-Parameter-Handler einrichten
+  setupUrlParameterHandler(editor, nostrService);
   
   // setupRenderResetButtons sind veraltet, da die UI-Elemente entfernt wurden.
 }
