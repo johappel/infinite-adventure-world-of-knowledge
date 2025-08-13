@@ -57,19 +57,51 @@ export class PreviewRenderer {
 
   async updatePreviewFromObject(normalizedWorldObj) {
     try {
+      console.log('[DIAGNOSE] updatePreviewFromObject aufgerufen mit:', normalizedWorldObj);
+      console.log('[DIAGNOSE] ThreeJSManager Status:', {
+        exists: !!this.editor.threeJSManager,
+        initialized: this.editor.threeJSManager?.initialized
+      });
+      
       if (!this.editor.threeJSManager || !this.editor.threeJSManager.initialized) {
-        console.warn('Three.js Manager nicht initialisiert, überspringe Vorschau');
-        return;
+        console.warn('[DIAGNOSE] Three.js Manager nicht initialisiert, versuche Initialisierung...');
+        if (this.editor.threeJSManager && !this.editor.threeJSManager.initialized) {
+          await this.editor.threeJSManager.init();
+          console.log('[DIAGNOSE] Three.js Manager nachträglich initialisiert');
+        } else {
+          console.warn('[DIAGNOSE] Three.js Manager existiert nicht, überspringe Vorschau');
+          return;
+        }
       }
       
       // Das Objekt sollte bereits normalisiert sein, wenn es hier ankommt.
       // Direkt an den Three.js Manager weiterleiten.
-      await this.editor.threeJSManager.renderWorld(normalizedWorldObj);
+      console.log('[DIAGNOSE] Rufe renderWorld auf mit Daten:', JSON.stringify(normalizedWorldObj, null, 2));
+      const result = await this.editor.threeJSManager.renderWorld(normalizedWorldObj);
+      console.log('[DIAGNOSE] renderWorld Ergebnis:', result);
+      
       // Ladeindikator ausblenden
-      document.getElementById('loadingIndicator').style.display = 'none';
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+        console.log('[DIAGNOSE] Ladeindikator ausgeblendet');
+      }
+      
+      console.log('[DIAGNOSE] Vorschau aktualisiert - prüfe Szenezustand');
+      console.log('[DIAGNOSE] Szene-Objekte:', this.editor.threeJSManager?.scene?.children?.length || 0);
+      console.log('[DIAGNOSE] Aktuelle Zone:', !!this.editor.threeJSManager?.currentZone);
+      
+      // Prüfe, ob die Zone zur Szene hinzugefügt wurde
+      if (this.editor.threeJSManager?.currentZone?.group) {
+        const zoneInScene = this.editor.threeJSManager.scene.children.includes(
+          this.editor.threeJSManager.currentZone.group
+        );
+        console.log('[DIAGNOSE] Zone in Szene gefunden:', zoneInScene);
+      }
+      
       console.log('[DEBUG] Vorschau aktualisiert');
     } catch (error) {
-      console.error('Fehler bei der Aktualisierung der Vorschau:', error);
+      console.error('[DIAGNOSE] Fehler bei der Aktualisierung der Vorschau:', error);
       this.editor._setStatus('Vorschau-Fehler: ' + error.message, 'error');
     }
   }

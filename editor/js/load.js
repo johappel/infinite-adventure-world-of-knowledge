@@ -5,6 +5,7 @@
  * - Laden von Vorlagen über #presetSelect
  */
 
+
 // Hilfsfunktionen
 export function stripRootId(obj) {
   if (obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, 'id')) {
@@ -25,6 +26,22 @@ export function deriveCopyId(baseId) {
   const short = crypto.randomUUID().split('-')[0];
   const sanitized = String(baseId || 'world').toLowerCase().replace(/[^a-z0-9-_]/g,'-');
   return `${sanitized}-${short}`;
+}
+
+// Funktion zum Simulieren eines Input-Events, welches das Rendern des ThreeJS Canvas auslöst
+export function simulateInputEvent(element) {
+  if (!element) return;
+  
+  // Erstelle ein neues Input-Event
+  const inputEvent = new Event('input', {
+    bubbles: true,
+    cancelable: true,
+  });
+ 
+  
+  // Löse die Events in der richtigen Reihenfolge aus
+  element.dispatchEvent(inputEvent);
+  
 }
 
 // Vorlagen-Definitionen
@@ -397,9 +414,18 @@ export function setupWorldSearch(editor, nostrService) {
               worldIdInput.value = data.id;
             }
             if (editor) {
+              console.log('[DIAGNOSE] Lade.js - Setze Welt-ID und starte Verarbeitung');
               editor.worldId = data.id;
+              console.log('[DIAGNOSE] Lade.js - Editor-Status vor _processYamlInput:', {
+                hasPreviewRenderer: !!editor.previewRenderer,
+                hasThreeJSManager: !!editor.threeJSManager,
+                threeJSManagerInitialized: editor.threeJSManager?.initialized,
+                worldId: editor.worldId
+              });
+              
               // Now that the editor has the correct YAML, trigger the processing pipeline
               await editor._processYamlInput();
+              console.log('[DIAGNOSE] Lade.js - _processYamlInput abgeschlossen');
             }
 
             hideResults();
@@ -581,21 +607,24 @@ export function setupPresetSelect(editor) {
           console.log('🏷️ [Integrationstest] Welt-ID im Editor gesetzt');
         }
         
-        // Aktualisiere die Vorschau
-        console.log('🎬 [Integrationstest] Aktualisiere Vorschau');
-        if (editor && editor.previewRenderer && typeof editor.previewRenderer.updatePreviewFromObject === 'function') {
-          // Parse die YAML-Daten und aktualisiere die Vorschau
-          try {
-            const yamlText = yamlEditor.value;
-            const parsedObj = safeYamlParse(yamlText);
-            const normalizedObj = editor.yamlProcessor ? editor.yamlProcessor.normalizeUserYaml(parsedObj) : parsedObj;
-            await editor.previewRenderer.updatePreviewFromObject(normalizedObj);
-            console.log('✅ [Integrationstest] Vorschau aktualisiert');
-          } catch (e) {
-            console.error('❌ [Integrationstest] Fehler bei der Vorschau-Aktualisierung:', e);
-          }
+        // Aktualisiere die Vorschau - verwende die gleiche Methode wie in setupWorldSearch
+        console.log('🎬 [Integrationstest] Aktualisiere Vorschau über _processYamlInput');
+        if (editor) {
+          console.log('[DIAGNOSE] Lade.js - Setze Welt-ID und starte Verarbeitung (presetSelect - lokales Template)');
+          editor.worldId = uniqueId;
+          console.log('[DIAGNOSE] Lade.js - Editor-Status vor _processYamlInput (presetSelect):', {
+            hasPreviewRenderer: !!editor.previewRenderer,
+            hasThreeJSManager: !!editor.threeJSManager,
+            threeJSManagerInitialized: editor.threeJSManager?.initialized,
+            worldId: editor.worldId
+          });
+          
+          // Now that the editor has the correct YAML, trigger the processing pipeline
+          yamlEditor.value = yamlContent;
+          simulateInputEvent(yamlEditor);
+          
         } else {
-          console.error('❌ [Integrationstest] Editor, previewRenderer oder updatePreviewFromObject nicht verfügbar');
+          console.error('❌ [Integrationstest] Editor nicht verfügbar');
         }
         
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
@@ -638,28 +667,30 @@ export function setupPresetSelect(editor) {
         const yamlContent = safeYamlDump(spec);
         console.log('📝 [Integrationstest] YAML-Content generiert, Länge:', yamlContent.length);
         yamlEditor.value = yamlContent;
-        
+        simulateInputEvent(yamlEditor);
         // Aktualisiere die Welt-ID im Editor
         if (editor) {
           editor.worldId = uniqueId;
           console.log('🏷️ [Integrationstest] Welt-ID im Editor gesetzt');
         }
         
-        // Aktualisiere die Vorschau
-        console.log('🎬 [Integrationstest] Aktualisiere Vorschau');
-        if (editor && editor.previewRenderer && typeof editor.previewRenderer.updatePreviewFromObject === 'function') {
-          // Parse die YAML-Daten und aktualisiere die Vorschau
-          try {
-            const yamlText = yamlEditor.value;
-            const parsedObj = safeYamlParse(yamlText);
-            const normalizedObj = editor.yamlProcessor ? editor.yamlProcessor.normalizeUserYaml(parsedObj) : parsedObj;
-            await editor.previewRenderer.updatePreviewFromObject(normalizedObj);
-            console.log('✅ [Integrationstest] Vorschau aktualisiert');
-          } catch (e) {
-            console.error('❌ [Integrationstest] Fehler bei der Vorschau-Aktualisierung:', e);
-          }
+        // Aktualisiere die Vorschau - verwende die gleiche Methode wie in setupWorldSearch
+        console.log('🎬 [Integrationstest] Aktualisiere Vorschau über _processYamlInput');
+        if (editor) {
+          console.log('[DIAGNOSE] Lade.js - Setze Welt-ID und starte Verarbeitung (presetSelect - Welt-Datei)');
+          editor.worldId = uniqueId;
+          console.log('[DIAGNOSE] Lade.js - Editor-Status vor _processYamlInput (presetSelect - Welt-Datei):', {
+            hasPreviewRenderer: !!editor.previewRenderer,
+            hasThreeJSManager: !!editor.threeJSManager,
+            threeJSManagerInitialized: editor.threeJSManager?.initialized,
+            worldId: editor.worldId
+          });
+          
+          // Now that the editor has the correct YAML, trigger the processing pipeline
+          await editor._processYamlInput();
+          console.log('[DIAGNOSE] Lade.js - _processYamlInput abgeschlossen (presetSelect - Welt-Datei)');
         } else {
-          console.error('❌ [Integrationstest] Editor, previewRenderer oder updatePreviewFromObject nicht verfügbar');
+          console.error('❌ [Integrationstest] Editor nicht verfügbar');
         }
         
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
@@ -715,6 +746,7 @@ export function setupRenderResetButtons(editor) {
     });
   }
 }
+
 
 // Hauptfunktion zum Initialisieren der Load-Funktionalität
 export async function initLoadFunctionality(editor, nostrService) {

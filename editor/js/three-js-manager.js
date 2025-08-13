@@ -76,20 +76,27 @@ export class ThreeJSManager {
 
     async renderWorld(worldData) {
         console.log('🌍 [Integrationstest] ThreeJSManager.renderWorld aufgerufen mit worldData:', worldData);
+        console.log('[DIAGNOSE] renderWorld - Initialisierungsstatus:', this.initialized);
+        console.log('[DIAGNOSE] renderWorld - Szene vorhanden:', !!this.scene);
+        console.log('[DIAGNOSE] renderWorld - Kamera vorhanden:', !!this.camera);
+        console.log('[DIAGNOSE] renderWorld - Renderer vorhanden:', !!this.renderer);
         
         if (!this.initialized) {
             console.log('🔄 [Integrationstest] Three.js nicht initialisiert, initialisiere jetzt...');
             await this.init();
+            console.log('[DIAGNOSE] Nach Initialisierung - Initialisierungsstatus:', this.initialized);
         }
         
         try {
             console.log('🧹 [Integrationstest] Setze Szene zurück');
             this.resetScene();
+            console.log('[DIAGNOSE] Nach resetScene - Szene-Objekte:', this.scene?.children?.length || 0);
             
             // Konvertiere das Genesis-Format in das für die Weltgenerierung erwartete Format
             console.log('🔄 [Integrationstest] Konvertiere Genesis-Format in World-Format');
             const convertedWorldData = this.convertGenesisToWorldFormat(worldData);
             console.log('✅ [Integrationstest] Konvertierte Daten:', convertedWorldData);
+            console.log('[DIAGNOSE] Konvertiertes World-Format:', JSON.stringify(convertedWorldData, null, 2));
             
             console.log('🔍 [Integrationstest] Rufe resolveWorldSpec auf');
             console.log('🔍 [Integrationstest] convertedWorldData vor resolveWorldSpec:', JSON.stringify(convertedWorldData, null, 2));
@@ -98,6 +105,7 @@ export class ThreeJSManager {
             console.log('🔍 [Integrationstest] World-Spec objects:', spec.objects);
             console.log('🔍 [Integrationstest] World-Spec personas:', spec.personas);
             console.log('🔍 [Integrationstest] World-Spec portals:', spec.portals);
+            console.log('[DIAGNOSE] Nach resolveWorldSpec - Objekte in Spec:', spec.objects?.length || 0);
             
             const rng = Math.random;
             
@@ -105,10 +113,20 @@ export class ThreeJSManager {
             console.log('🏗️ [Integrationstest] Baue Zone ohne Umgebung');
             const zoneInfo = buildZoneFromSpec(spec, { rng, skipEnvironment: true });
             console.log('✅ [Integrationstest] Zone gebaut:', zoneInfo);
+            console.log('[DIAGNOSE] Zone-Info:', {
+                hasGroup: !!zoneInfo?.group,
+                groupChildren: zoneInfo?.group?.children?.length || 0,
+                zoneType: typeof zoneInfo
+            });
             
             this.currentZone = zoneInfo;
             this.scene.add(this.currentZone.group);
             console.log('📦 [Integrationstest] Zone zur Szene hinzugefügt');
+            console.log('[DIAGNOSE] Nach Hinzufügen zur Szene - Szene-Objekte:', this.scene.children.length);
+            
+            // Prüfe, ob die Zone tatsächlich hinzugefügt wurde
+            const zoneIndex = this.scene.children.indexOf(this.currentZone.group);
+            console.log('[DIAGNOSE] Zone-Index in Szene:', zoneIndex);
             
             // Umgebung (Skybox, Lichter, Nebel) auf die Hauptszene anwenden
             if (spec.environment) {
@@ -120,10 +138,15 @@ export class ThreeJSManager {
                 console.log('ℹ️ [Integrationstest] Keine Umgebung in Spec gefunden');
             }
             
+            console.log('[DIAGNOSE] Vor Abschluss - Szene-Objekte:', this.scene.children.length);
+            console.log('[DIAGNOSE] Vor Abschluss - Aktive Zone vorhanden:', !!this.currentZone);
+            console.log('[DIAGNOSE] Vor Abschluss - Animation ID:', this.animationId);
+            
             console.log('🎉 [Integrationstest] renderWorld erfolgreich abgeschlossen, gebe zoneInfo zurück:', zoneInfo);
             return zoneInfo;
         } catch (error) {
             console.error('❌ [Integrationstest] World Rendering Error:', error);
+            console.error('[DIAGNOSE] Detaillierter Fehler:', error.stack);
             throw error;
         }
     }
