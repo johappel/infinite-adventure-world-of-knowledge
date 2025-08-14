@@ -5,194 +5,19 @@
  * - Laden von Vorlagen über #presetSelect
  */
 
-
-// Hilfsfunktionen
-export function stripRootId(obj) {
-  if (obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, 'id')) {
-    try { delete obj.id; } catch {}
-  }
-  return obj;
-}
-
-export function safeYamlParse(str) {
-  try { return window.jsyaml.load(str); } catch (e) { throw new Error('YAML-Fehler: ' + e.message); }
-}
-
-export function safeYamlDump(obj) {
-  try {
-    // Spezielle Behandlung für terrain.size - immer als Flow-Array
-    if (obj && obj.terrain && Array.isArray(obj.terrain.size)) {
-      // Erstelle eine Kopie ohne terrain.size
-      const objCopy = JSON.parse(JSON.stringify(obj));
-      const terrainSize = objCopy.terrain.size;
-      delete objCopy.terrain.size;
-      
-      // Erstelle YAML mit Standard-Einstellungen
-      let yamlText = window.jsyaml.dump(objCopy, {
-        lineWidth: 120,
-        indent: 2,
-        noRefs: true,
-        sortKeys: false,
-        flowLevel: 3
-      });
-      
-      // terrain.size manuell als Flow-Array einfügen
-      const sizeYaml = `size: [${terrainSize.join(', ')}]`;
-      const terrainRegex = /terrain:\s*\n((?:  [^\n]+\n)*)/;
-      
-      if (terrainRegex.test(yamlText)) {
-        yamlText = yamlText.replace(
-          terrainRegex,
-          `terrain:\n$1${sizeYaml}\n`
-        );
-      } else {
-        // Fallback: terrain.size am Ende des terrain-Blocks einfügen
-        yamlText = yamlText.replace(
-          /(terrain:[\s\S]*?)(?=\n\w+:|$)/,
-          `$1\n  ${sizeYaml}`
-        );
-      }
-      
-      return yamlText;
-    }
-    
-    // Standard-Fall für alle anderen Objekte
-    return window.jsyaml.dump(obj, {
-      lineWidth: 120,
-      indent: 2,
-      noRefs: true,
-      sortKeys: false,
-      flowLevel: 3
-    });
-  } catch (e) {
-    throw new Error('YAML-Serialize-Fehler: ' + e.message);
-  }
-}
-
-export function deriveCopyId(baseId) {
-  const short = crypto.randomUUID().split('-')[0];
-  const sanitized = String(baseId || 'world').toLowerCase().replace(/[^a-z0-9-_]/g,'-');
-  return `${sanitized}-${short}`;
-}
+import { YamlProcessor } from './preset-editor/yaml-processor.js';
 
 /**
  * Heuristiken für Anzeige-Name und YAML-Extraktion
  */
 function extractYamlFromContentString(str) {
-  return processStringToYaml(str);
-}
-
-function isFactorySchema(obj) {
-  try {
-    return !!(
-      obj &&
-      typeof obj === 'object' &&
-      obj.metadata &&
-      typeof obj.metadata.schema_version === 'string' &&
-      obj.metadata.schema_version.startsWith('patchkit/')
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Konvertiert Factory-/PatchKit-JSON in das vom Autor erwartete YAML-Schema:
- * - name, description, id (aus metadata)
- * - environment (erstes Element aus entities.environment)
- * - terrain (erstes Element aus entities.terrain)
- * - objects, portals, personas als Arrays (aus den jeweiligen Maps)
- * - rules nur, wenn nicht leer
- */
-function factoryToAuthorSpec(obj) {
-  if (!obj || typeof obj !== 'object' || !isFactorySchema(obj)) return null;
-  const md = obj.metadata || {};
-  const entities = obj.entities || {};
-
-  // Erstes Value aus Map (z. B. environment_1, terrain_1)
-  const firstValue = (m) => {
-    if (!m || typeof m !== 'object') return undefined;
-    const vals = Object.values(m);
-    return vals.length ? vals[0] : undefined;
-    };
-
-  // Map -> Array
-  const mapToArray = (m) => {
-    if (!m || typeof m !== 'object') return undefined;
-    const arr = Object.values(m);
-    return arr.length ? arr : undefined;
-  };
-
-  const spec = {
-    name: md.name || '',
-    description: md.description || '',
-    id: md.id || undefined,
-  };
-
-  const environment = firstValue(entities.environment);
-  if (environment && typeof environment === 'object') {
-    spec.environment = environment;
-  }
-
-  const terrain = firstValue(entities.terrain);
-  if (terrain && typeof terrain === 'object') {
-    spec.terrain = terrain;
-  }
-
-  const objects = mapToArray(entities.objects);
-  if (objects) spec.objects = objects;
-
-  const portals = mapToArray(entities.portals);
-  if (portals) spec.portals = portals;
-
-  const personas = mapToArray(entities.personas);
-  if (personas) spec.personas = personas;
-
-  if (obj.rules && typeof obj.rules === 'object' && Object.keys(obj.rules).length) {
-    spec.rules = obj.rules;
-  }
-
-  if (!spec.id) delete spec.id;
-
-  return spec;
-}
-
-/**
- * Nimmt String entgegen, der JSON (Patch/Factory, Patch payload) oder YAML sein kann.
- * - Patch-JSON: { payload: "<YAML>" } -> gibt payload (YAML) zurück
- * - Factory-JSON: in Autor-Schema mappen und YAML dumpen (inkl. id)
- * - Sonstiges JSON: als YAML dumpen (Autorformat, keine id-Bereinigung)
- * - YAML: unverändert zurückgeben
- */
-function processStringToYaml(str) {
-  if (typeof str !== 'string') return null;
-
-  try {
-    const parsed = JSON.parse(str);
-
-    // Patch-Event: payload enthält den ursprünglichen YAML-Text
-    if (parsed && typeof parsed.payload === 'string') {
-      return parsed.payload;
-    }
-
-    // Factory-/Genesis-Objekt im PatchKit-Schema -> in Autor-Schema mappen
-    const mapped = factoryToAuthorSpec(parsed);
-    if (mapped) {
-      return safeYamlDump(mapped);
-    }
-
-    // Fallback: JSON -> YAML (Autorformat)
-    return safeYamlDump(parsed);
-  } catch {
-    // Kein JSON -> vermutlich YAML, unverändert zurückgeben
-    return str;
-  }
+  return YamlProcessor.processStringToYaml(str);
 }
 
 
 function parseNameFromYamlString(yaml) {
   try {
-    const spec = window.jsyaml?.load ? window.jsyaml.load(yaml) : null;
+    const spec = YamlProcessor.safeYamlParse(yaml);
     return spec?.name || spec?.metadata?.name || '';
   } catch {
     return '';
@@ -203,8 +28,8 @@ function getDisplayNameFromItem(it) {
   return (
     it?.name ||
     it?.metadata?.name ||
-    (typeof it?.originalYaml === 'string' ? parseNameFromYamlString(processStringToYaml(it.originalYaml) || it.originalYaml) : '') ||
-    (typeof it?.yaml === 'string' ? parseNameFromYamlString(processStringToYaml(it.yaml) || it.yaml) : '') ||
+    (typeof it?.originalYaml === 'string' ? parseNameFromYamlString(YamlProcessor.processStringToYaml(it.originalYaml) || it.originalYaml) : '') ||
+    (typeof it?.yaml === 'string' ? parseNameFromYamlString(YamlProcessor.processStringToYaml(it.yaml) || it.yaml) : '') ||
     (typeof it?.content === 'string' ? parseNameFromYamlString(extractYamlFromContentString(it.content)) : '')
   );
 }
@@ -218,11 +43,11 @@ function chooseYamlFromData(data) {
   // Explizite String-Felder bevorzugen und ggf. konvertieren
   if (data && typeof data === 'object') {
     if (typeof data.originalYaml === 'string') {
-      const s = processStringToYaml(data.originalYaml);
+      const s = YamlProcessor.processStringToYaml(data.originalYaml);
       if (s) return s;
     }
     if (typeof data.yaml === 'string') {
-      const s = processStringToYaml(data.yaml);
+      const s = YamlProcessor.processStringToYaml(data.yaml);
       if (s) return s;
     }
   }
@@ -233,11 +58,11 @@ function chooseYamlFromData(data) {
   }
   // Bereits geparstes Objekt: Factory-Objekt mappen, sonst normal dumpen
   if (data && typeof data === 'object') {
-    const mapped = jsonFactoryToEditorSpec(data);
+    const mapped = YamlProcessor.factoryToAuthorSpec(data);
     if (mapped) {
-      try { return safeYamlDump(stripRootId(mapped)); } catch {}
+      try { return YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(mapped)); } catch {}
     } else {
-      try { return safeYamlDump(stripRootId(data)); } catch {}
+      try { return YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(data)); } catch {}
     }
   }
   throw new Error('Kein YAML-Inhalt verfügbar');
@@ -397,13 +222,13 @@ export function setupWorldSearch(editor, nostrService) {
               // Ultimativer Fallback: content parsen oder Objekt dumpen (nur wenn kein Factory-Schema)
               if (typeof data?.content === 'string') {
                 try {
-                  const parsed = safeYamlParse(data.content);
-                  yamlText = safeYamlDump(stripRootId(parsed));
+                  const parsed = YamlProcessor.safeYamlParse(data.content);
+                  yamlText = YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(parsed));
                 } catch {}
               }
-              if (!yamlText && typeof data === 'object' && !isFactorySchema(data)) {
+              if (!yamlText && typeof data === 'object' && !YamlProcessor.isFactorySchema(data)) {
                 try {
-                  yamlText = safeYamlDump(stripRootId(data));
+                  yamlText = YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(data));
                 } catch {}
               }
               if (!yamlText) throw new Error('Konnte keinen YAML-Inhalt aus den Daten extrahieren.');
@@ -553,17 +378,17 @@ export async function setupPresetSelect(editor) {
     if (v && templates[v]) {
       try {
         const raw = templates[v];
-        let spec = safeYamlParse(raw);
+        let spec = YamlProcessor.safeYamlParse(raw);
         
         // Single Source of Truth: root.id entfernen
-        spec = stripRootId(spec);
+        spec = YamlProcessor.stripRootId(spec);
         
         // Neue systemseitige ID generieren
-        const uniqueId = deriveCopyId(v);
+        const uniqueId = YamlProcessor.deriveCopyId(v);
         if (worldIdInput) worldIdInput.value = uniqueId;
         
         // In den Editor schreiben wir YAML OHNE id
-        const yamlContent = safeYamlDump(spec);
+        const yamlContent = YamlProcessor.safeYamlDump(spec);
         yamlEditor.value = yamlContent;
         // Aktualisiere die Welt-ID im Editor
         if (editor) {
@@ -600,7 +425,7 @@ export async function setupPresetSelect(editor) {
         const res = await fetch(path, { cache: 'no-cache' });
         if (!res.ok) throw new Error('Konnte Datei nicht laden: ' + path);
         const raw = await res.text();
-        let spec = safeYamlParse(raw);
+        let spec = YamlProcessor.safeYamlParse(raw);
         
         // zone_id bereinigen wie bisher
         if (spec && Object.prototype.hasOwnProperty.call(spec, 'zone_id')) {
@@ -608,14 +433,14 @@ export async function setupPresetSelect(editor) {
         }
         
         // Single Source of Truth: root.id entfernen
-        spec = stripRootId(spec);
+        spec = YamlProcessor.stripRootId(spec);
         
         // Neue systemseitige ID generieren
-        const uniqueId = deriveCopyId(path.replace('worlds/', '').replace('.yaml', ''));
+        const uniqueId = YamlProcessor.deriveCopyId(path.replace('worlds/', '').replace('.yaml', ''));
         if (worldIdInput) worldIdInput.value = uniqueId;
         
         // In den Editor schreiben wir YAML OHNE id
-        const yamlContent = safeYamlDump(spec);
+        const yamlContent = YamlProcessor.safeYamlDump(spec);
         yamlEditor.value = yamlContent;
         // Aktualisiere die Welt-ID im Editor
         if (editor) {
@@ -720,13 +545,13 @@ export async function setupFromId(world_id, editor, nostrService) {
       // Ultimativer Fallback: content parsen oder Objekt dumpen (nur wenn kein Factory-Schema)
       if (typeof data?.content === 'string') {
         try {
-          const parsed = safeYamlParse(data.content);
-          yamlText = safeYamlDump(stripRootId(parsed));
+          const parsed = YamlProcessor.safeYamlParse(data.content);
+          yamlText = YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(parsed));
         } catch {}
       }
-      if (!yamlText && typeof data === 'object' && !isFactorySchema(data)) {
+      if (!yamlText && typeof data === 'object' && !YamlProcessor.isFactorySchema(data)) {
         try {
-          yamlText = safeYamlDump(stripRootId(data));
+          yamlText = YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(data));
         } catch {}
       }
       if (!yamlText) throw new Error('Konnte keinen YAML-Inhalt aus den Daten extrahieren.');

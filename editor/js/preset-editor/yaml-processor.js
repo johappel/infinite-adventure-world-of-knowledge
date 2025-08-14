@@ -65,54 +65,9 @@ export class YamlProcessor {
       if (!obj) {
         return '';
       }
-      
-      // Erstelle eine tiefe Kopie des Objekts für die Serialisierung
+      // Tiefe Kopie und Delegation an die zentrale Routine, die terrain.size korrekt einrückt
       const objToSerialize = JSON.parse(JSON.stringify(obj));
-      
-      // Spezielle Behandlung für terrain.size - immer als Flow-Array
-      if (objToSerialize.terrain && Array.isArray(objToSerialize.terrain.size)) {
-        // terrain.size wird als Flow-Array behandelt
-        const terrainSize = objToSerialize.terrain.size;
-        delete objToSerialize.terrain.size;
-        
-        // Erstelle YAML mit Standard-Einstellungen
-        let yamlText = jsyaml.dump(objToSerialize, {
-          indent: 2,
-          lineWidth: 120,
-          noRefs: true,
-          sortKeys: false,
-          flowLevel: 3
-        });
-        
-        // terrain.size manuell als Flow-Array einfügen
-        const sizeYaml = `size: [${terrainSize.join(', ')}]`;
-        const terrainRegex = /terrain:\s*\n((?:  [^\n]+\n)*)/;
-        
-        if (terrainRegex.test(yamlText)) {
-          yamlText = yamlText.replace(
-            terrainRegex,
-            `terrain:\n$1${sizeYaml}\n`
-          );
-        } else {
-          // Fallback: terrain.size am Ende des terrain-Blocks einfügen
-          yamlText = yamlText.replace(
-            /(terrain:[\s\S]*?)(?=\n\w+:|$)/,
-            `$1\n  ${sizeYaml}`
-          );
-        }
-        
-        return yamlText;
-      }
-      
-      // Standard-Fall für alle anderen Objekte
-      const yamlText = jsyaml.dump(objToSerialize, {
-        indent: 2,
-        lineWidth: 120,
-        noRefs: true,
-        sortKeys: false,
-        flowLevel: 3
-      });
-      return yamlText;
+      return YamlProcessor.safeYamlDump(objToSerialize);
     } catch (e) {
       console.error('YAML-Serialisierungs-Fehler:', e);
       this.editor._setStatus('YAML-Serialisierungs-Fehler: ' + e.message, 'error');
@@ -523,6 +478,239 @@ export class YamlProcessor {
     } catch (e) {
       console.error('[Validator] Parse/Normalize Exception:', e);
       this.editor._setStatus('YAML-Parsefehler: ' + e.message, 'error');
+    }
+  }
+
+  /**
+   * Statische Methode zum sicheren YAML-Parsing
+   * @param {string} str - Der zu parsende YAML-String
+   * @returns {Object} - Das geparste Objekt
+   * @throws {Error} - Bei Parsing-Fehlern
+   */
+  static safeYamlParse(str) {
+    try {
+      return jsyaml.load(str);
+    } catch (e) {
+      throw new Error('YAML-Fehler: ' + e.message);
+    }
+  }
+
+  /**
+   * Statische Methode zum sicheren YAML-Dumping
+   * @param {Object} obj - Das zu serialisierende Objekt
+   * @returns {string} - Der serialisierte YAML-Text
+   * @throws {Error} - Bei Serialisierungs-Fehlern
+   */
+  static safeYamlDump(obj) {
+    try {
+      // Spezielle Behandlung für terrain.size - immer als Flow-Array
+      // Prüfe sowohl direkte terrain.size als auch normalisierte Struktur (terrain.terrain_1.size)
+      let terrainSize = null;
+      let objCopy = JSON.parse(JSON.stringify(obj));
+      
+      // Fall 1: Direkte terrain.size Struktur
+      if (objCopy && objCopy.terrain && Array.isArray(objCopy.terrain.size)) {
+        terrainSize = objCopy.terrain.size;
+        delete objCopy.terrain.size;
+      }
+      // Fall 2: Normalisierte Struktur mit terrain.terrain_1.size
+      else if (objCopy && objCopy.terrain) {
+        // Suche nach terrain_X Schlüsseln
+        const terrainKeys = Object.keys(objCopy.terrain).filter(key => key.startsWith('terrain_'));
+        if (terrainKeys.length > 0) {
+          const firstTerrainKey = terrainKeys[0];
+          const terrainObj = objCopy.terrain[firstTerrainKey];
+          if (terrainObj && Array.isArray(terrainObj.size)) {
+            terrainSize = terrainObj.size;
+            delete objCopy.terrain[firstTerrainKey].size;
+          }
+        }
+      }
+      
+      if (terrainSize) {
+        // Erstelle YAML mit Standard-Einstellungen
+        let yamlText = jsyaml.dump(objCopy, {
+          lineWidth: 120,
+          indent: 2,
+          noRefs: true,
+          sortKeys: false,
+          flowLevel: 3
+        });
+        
+        // terrain.size manuell als Flow-Array einfügen mit korrekter Einrückung
+        const sizeYaml = `  size: [${terrainSize.join(', ')}]`;
+        
+        // Verschiedene Regex-Patterns für verschiedene Strukturen
+        const directTerrainRegex = /terrain:\s*\n((?:  [^\n]+\n)*)/;
+        const normalizedTerrainRegex = /terrain:\s*\n\s+terrain_\d+:\s*\n((?:    [^\n]+\n)*)/;
+        
+        if (normalizedTerrainRegex.test(yamlText)) {
+          // Normalisierte Struktur: terrain.terrain_1.size
+          yamlText = yamlText.replace(
+            normalizedTerrainRegex,
+            (match, content) => {
+              const lines = content.split('\n').filter(line => line.trim());
+              const indentedSize = `    size: [${terrainSize.join(', ')}]`;
+              return match + indentedSize + '\n';
+            }
+          );
+        } else if (directTerrainRegex.test(yamlText)) {
+          // Direkte Struktur: terrain.size
+          yamlText = yamlText.replace(
+            directTerrainRegex,
+            `terrain:\n$1${sizeYaml}\n`
+          );
+        } else {
+          // Fallback: terrain.size am Ende des terrain-Blocks einfügen
+          yamlText = yamlText.replace(
+            /(terrain:[\s\S]*?)(?=\n\w+:|$)/,
+            `$1\n${sizeYaml}`
+          );
+        }
+        
+        return yamlText;
+      }
+      
+      // Standard-Fall für alle anderen Objekte
+      return jsyaml.dump(obj, {
+        lineWidth: 120,
+        indent: 2,
+        noRefs: true,
+        sortKeys: false,
+        flowLevel: 3
+      });
+    } catch (e) {
+      throw new Error('YAML-Serialize-Fehler: ' + e.message);
+    }
+  }
+
+  /**
+   * Statische Methode zum Entfernen der Root-ID aus einem Objekt
+   * @param {Object} obj - Das Objekt
+   * @returns {Object} Das Objekt ohne Root-ID
+   */
+  static stripRootId(obj) {
+    if (obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, 'id')) {
+      try { delete obj.id; } catch {}
+    }
+    return obj;
+  }
+
+  /**
+   * Prüft, ob ein Objekt dem Factory-Schema entspricht
+   * @param {Object} obj - Das zu prüfende Objekt
+   * @returns {boolean} - True, wenn es ein Factory-Schema ist
+   */
+  static isFactorySchema(obj) {
+    try {
+      return !!(
+        obj &&
+        typeof obj === 'object' &&
+        obj.metadata &&
+        typeof obj.metadata.schema_version === 'string' &&
+        obj.metadata.schema_version.startsWith('patchkit/')
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Konvertiert Factory-/PatchKit-JSON in das vom Autor erwartete YAML-Schema
+   * @param {Object} obj - Das Factory-Objekt
+   * @returns {Object|null} - Das konvertierte Autor-Schema oder null
+   */
+  static factoryToAuthorSpec(obj) {
+    if (!obj || typeof obj !== 'object' || !YamlProcessor.isFactorySchema(obj)) return null;
+    const md = obj.metadata || {};
+    const entities = obj.entities || {};
+
+    // Erstes Value aus Map (z. B. environment_1, terrain_1)
+    const firstValue = (m) => {
+      if (!m || typeof m !== 'object') return undefined;
+      const vals = Object.values(m);
+      return vals.length ? vals[0] : undefined;
+    };
+
+    // Map -> Array
+    const mapToArray = (m) => {
+      if (!m || typeof m !== 'object') return undefined;
+      const arr = Object.values(m);
+      return arr.length ? arr : undefined;
+    };
+
+    const spec = {
+      name: md.name || '',
+      description: md.description || '',
+      id: md.id || undefined,
+    };
+
+    const environment = firstValue(entities.environment);
+    if (environment && typeof environment === 'object') {
+      spec.environment = environment;
+    }
+
+    const terrain = firstValue(entities.terrain);
+    if (terrain && typeof terrain === 'object') {
+      spec.terrain = terrain;
+    }
+
+    const objects = mapToArray(entities.objects);
+    if (objects) spec.objects = objects;
+
+    const portals = mapToArray(entities.portals);
+    if (portals) spec.portals = portals;
+
+    const personas = mapToArray(entities.personas);
+    if (personas) spec.personas = personas;
+
+    if (obj.rules && typeof obj.rules === 'object' && Object.keys(obj.rules).length) {
+      spec.rules = obj.rules;
+    }
+
+    if (!spec.id) delete spec.id;
+
+    return spec;
+  }
+
+  /**
+   * Generiert eine eindeutige Kopie-ID basierend auf einer Basis-ID
+   * @param {string} baseId - Die Basis-ID
+   * @returns {string} - Die generierte eindeutige ID
+   */
+  static deriveCopyId(baseId) {
+    const short = crypto.randomUUID().split('-')[0];
+    const sanitized = String(baseId || 'world').toLowerCase().replace(/[^a-z0-9-_]/g,'-');
+    return `${sanitized}-${short}`;
+  }
+
+  /**
+   * Verarbeitet einen String zu YAML
+   * @param {string} str - Der zu verarbeitende String
+   * @returns {string|null} - Der verarbeitete YAML-String oder null
+   */
+  static processStringToYaml(str) {
+    if (typeof str !== 'string') return null;
+
+    try {
+      const parsed = JSON.parse(str);
+
+      // Patch-Event: payload enthält den ursprünglichen YAML-Text
+      if (parsed && typeof parsed.payload === 'string') {
+        return parsed.payload;
+      }
+
+      // Factory-/Genesis-Objekt im PatchKit-Schema -> in Autor-Schema mappen
+      const mapped = YamlProcessor.factoryToAuthorSpec(parsed);
+      if (mapped) {
+        return YamlProcessor.safeYamlDump(mapped);
+      }
+
+      // Fallback: JSON -> YAML (Autorformat)
+      return YamlProcessor.safeYamlDump(parsed);
+    } catch {
+      // Kein JSON -> vermutlich YAML, unverändert zurückgeben
+      return str;
     }
   }
 }
