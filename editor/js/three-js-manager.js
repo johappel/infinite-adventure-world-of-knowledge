@@ -22,6 +22,25 @@ export class ThreeJSManager {
         this.initialized = false;
         this.highlightedEntities = new Map();
         this.originalMaterials = new Map();
+
+        // Kamera-Interaktionszustand (Orbit/Pan/Zoom ohne OrbitControls)
+        this.camTarget = new THREE.Vector3(0, 0, 0);
+        this.camDistance = 15;       // Zoom (Radius)
+        this.camAzimuth = Math.PI/4; // Drehung um Y
+        this.camPolar = Math.PI/3;   // Neigung (0..PI)
+        this.camMinDistance = 3;
+        this.camMaxDistance = 200;
+        this.camMinPolar = 0.1;
+        this.camMaxPolar = Math.PI - 0.1;
+
+        // Maus/Keyboard State
+        this._isDragging = false;
+        this._dragButton = 0; // 0=left(rot), 2=right(pan)
+        this._lastX = 0;
+        this._lastY = 0;
+
+        // Event-Handler gebunden (für remove bei dispose)
+        this._boundHandlers = {};
     }
 
     async init() {
@@ -43,9 +62,9 @@ export class ThreeJSManager {
             window.worldEditor = { scene: this.scene };
 
             // Camera
-            this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 1000);
-            this.camera.position.set(15, 15, 15);
-            this.camera.lookAt(0, 0, 0);
+            this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 2000);
+            // Anfangsposition aus Sphärischen Koordinaten berechnen
+            this._updateCameraFromSpherical();
 
             // Renderer
             this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
@@ -64,6 +83,9 @@ export class ThreeJSManager {
             directionalLight.position.set(10, 20, 10);
             directionalLight.castShadow = true;
             this.scene.add(directionalLight);
+
+            // Interaktions-Events binden
+            this._initCameraControls();
 
             this.initialized = true;
             this.animate();
@@ -150,14 +172,9 @@ export class ThreeJSManager {
 
     animate() {
         this.animationId = requestAnimationFrame(() => this.animate());
-        
-        // Einfache Kamerafahrt für die Vorschau
-        if (this.currentZone) {
-            const time = Date.now() * 0.0005;
-            this.camera.position.x = Math.cos(time) * 20;
-            this.camera.position.z = Math.sin(time) * 20;
-            this.camera.lookAt(0, 0, 0);
-        }
+
+        // Kamera anhand aktueller Sphären- und Ziel-Parameter aktualisieren
+        this._updateCameraFromSpherical();
 
         this.renderer.render(this.scene, this.camera);
     }
@@ -319,13 +336,25 @@ export class ThreeJSManager {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
         }
-        
+
+        // Event-Listener entfernen
+        const c = this.canvas || this.renderer?.domElement;
+        if (c) {
+            c.removeEventListener('wheel', this._boundHandlers.wheel, { passive: false });
+            c.removeEventListener('mousedown', this._boundHandlers.mousedown);
+            window.removeEventListener('mousemove', this._boundHandlers.mousemove);
+            window.removeEventListener('mouseup', this._boundHandlers.mouseup);
+            c.removeEventListener('contextmenu', this._boundHandlers.contextmenu);
+            // Key-Events ebenfalls am Canvas entfernen (nicht global)
+            c.removeEventListener('keydown', this._boundHandlers.keydown);
+        }
+
         this.resetScene();
-        
+
         if (this.renderer) {
             this.renderer.dispose();
         }
-        
+
         this.initialized = false;
     }
 
@@ -675,5 +704,180 @@ export class ThreeJSManager {
     // Aktuellen Patch speichern für spätere Animationen
     setCurrentPatch(patch) {
         this.currentPatch = patch;
+    }
+    // === Kamera-Interaktion (Orbit/Pan/Zoom) ===
+
+    _initCameraControls() {
+        const el = this.canvas || this.renderer?.domElement;
+        if (!el) return;
+
+        // Canvas fokussierbar machen, damit Key-Events nur auf dem Canvas ankommen
+        try {
+            if (el.tabIndex === undefined || el.tabIndex < 0) {
+                el.setAttribute('tabindex', '0');
+            }
+            // Fokus beim Klick setzen
+            el.addEventListener('mousedown', () => { el.focus(); }, { capture: true });
+            // optional: Fokusrahmen ausblenden
+            el.style.outline = 'none';
+        } catch (_) {}
+
+        // Gebundene Handler speichern, um sie in dispose entfernen zu können
+        this._boundHandlers.wheel = (e) => this._onWheel(e);
+        this._boundHandlers.mousedown = (e) => this._onMouseDown(e);
+        this._boundHandlers.mousemove = (e) => this._onMouseMove(e);
+        this._boundHandlers.mouseup = (e) => this._onMouseUp(e);
+        this._boundHandlers.keydown = (e) => this._onKeyDown(e);
+        this._boundHandlers.contextmenu = (e) => e.preventDefault();
+
+        // Maus
+        el.addEventListener('wheel', this._boundHandlers.wheel, { passive: false });
+        el.addEventListener('mousedown', this._boundHandlers.mousedown);
+        window.addEventListener('mousemove', this._boundHandlers.mousemove);
+        window.addEventListener('mouseup', this._boundHandlers.mouseup);
+        el.addEventListener('contextmenu', this._boundHandlers.contextmenu);
+
+        // Tastatur NUR am Canvas binden (nicht global), damit andere Panels Eingaben behalten
+        el.addEventListener('keydown', this._boundHandlers.keydown);
+    }
+
+    _updateCameraFromSpherical() {
+        // Begrenzen
+        this.camDistance = Math.max(this.camMinDistance, Math.min(this.camMaxDistance, this.camDistance));
+        this.camPolar = Math.max(this.camMinPolar, Math.min(this.camMaxPolar, this.camPolar));
+
+        // Sphärisch -> Kartesisch
+        const r = this.camDistance;
+        const sinPhi = Math.sin(this.camPolar);
+        const x = this.camTarget.x + r * sinPhi * Math.cos(this.camAzimuth);
+        const y = this.camTarget.y + r * Math.cos(this.camPolar);
+        const z = this.camTarget.z + r * sinPhi * Math.sin(this.camAzimuth);
+
+        this.camera.position.set(x, y, z);
+        this.camera.lookAt(this.camTarget);
+    }
+
+    _onWheel(e) {
+        // Zoom (Mausrad)
+        e.preventDefault();
+        const delta = e.deltaY;
+        const factor = Math.pow(1.0015, delta); // sanftes Zoomen
+        this.camDistance *= factor;
+    }
+
+    _onMouseDown(e) {
+        if (!this.renderer) return;
+        this._isDragging = true;
+        this._dragButton = e.button; // 0: rotieren, 2: pan
+        this._lastX = e.clientX;
+        this._lastY = e.clientY;
+    }
+
+    _onMouseMove(e) {
+        if (!this._isDragging) return;
+
+        const dx = e.clientX - this._lastX;
+        const dy = e.clientY - this._lastY;
+        this._lastX = e.clientX;
+        this._lastY = e.clientY;
+
+        if (this._dragButton === 0) {
+            // Linke Maustaste: Orbit (Azimuth/Polar)
+            const ROT_SPEED = 0.005;
+            this.camAzimuth -= dx * ROT_SPEED;
+            this.camPolar -= dy * ROT_SPEED;
+        } else if (this._dragButton === 2) {
+            // Rechte Maustaste: Pan (Verschieben des Targets)
+            this._panCamera(dx, dy);
+        }
+    }
+
+    _onMouseUp() {
+        this._isDragging = false;
+    }
+
+    _onKeyDown(e) {
+        // WASD zum Pannen auf XZ-Ebene, QE für Höhe, Pfeile zum Rotieren
+        const PAN = 0.5 * (this.camDistance / 25); // skaliert mit Entfernung
+        const ROT = 0.03;
+
+        // Kamera-Basisvektoren
+        const forward = new THREE.Vector3();
+        const right = new THREE.Vector3();
+        const up = new THREE.Vector3(0, 1, 0);
+
+        forward.copy(this.camTarget).sub(this.camera.position).setY(0).normalize(); // XZ-Forward
+        if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+        right.crossVectors(forward, up).normalize();
+
+        switch (e.key.toLowerCase()) {
+            case 'w':
+                this.camTarget.addScaledVector(forward, PAN);
+                break;
+            case 's':
+                this.camTarget.addScaledVector(forward, -PAN);
+                break;
+            case 'a':
+                this.camTarget.addScaledVector(right, -PAN);
+                break;
+            case 'd':
+                this.camTarget.addScaledVector(right, PAN);
+                break;
+            case 'q':
+                this.camTarget.y += PAN;
+                break;
+            case 'e':
+                this.camTarget.y -= PAN;
+                break;
+            case 'arrowleft':
+                this.camAzimuth += ROT;
+                break;
+            case 'arrowright':
+                this.camAzimuth -= ROT;
+                break;
+            case 'arrowup':
+                this.camPolar -= ROT;
+                break;
+            case 'arrowdown':
+                this.camPolar += ROT;
+                break;
+            case 'r':
+                // Reset
+                this.camTarget.set(0, 0, 0);
+                this.camDistance = 25;
+                this.camAzimuth = Math.PI/4;
+                this.camPolar = Math.PI/3;
+                break;
+            default:
+                return;
+        }
+        e.preventDefault();
+    }
+
+    _panCamera(dx, dy) {
+        // Bildschirmbewegung -> Weltverschiebung des Targets
+        // Skaliere Pan-Geschwindigkeit mit Entfernung und Viewport
+        const el = this.canvas || this.renderer?.domElement;
+        const width = el?.clientWidth || 800;
+        const height = el?.clientHeight || 600;
+
+        const panX = (dx / width) * this.camDistance;
+        const panY = (dy / height) * this.camDistance;
+
+        // Kameraachsen berechnen
+        const cam = this.camera;
+        const right = new THREE.Vector3();
+        const up = new THREE.Vector3();
+        cam.getWorldDirection(up);            // up missbraucht hier für forward
+        up.normalize();
+        const worldUp = new THREE.Vector3(0,1,0);
+        // Rechtsvektor als Kreuzprodukt aus forward und worldUp
+        right.crossVectors(up, worldUp).normalize();
+        // "Screen up" annähern als echte Welt-Up
+        const screenUp = worldUp;
+
+        // Pan nach rechts/oben im Bildschirm
+        this.camTarget.addScaledVector(right, -panX * 2.0);
+        this.camTarget.addScaledVector(screenUp, panY * 2.0);
     }
 }
