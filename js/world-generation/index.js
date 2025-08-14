@@ -262,21 +262,52 @@ export function buildZoneFromSpec(worldData, options={}){
 
     // Build a Ground Group (preferred) or Ground Grid (fallback) for robust player ground detection
     try {
-      // Preferred: collect all terrain tiles into a single raycast target group
+      // Preferred: collect all terrain tiles into a single raycast target group (via proxy clones)
       const groundGroup = new THREE.Group();
       groundGroup.name = 'ground_group';
       groundGroup.userData.isGroundGroup = true;
 
-      const addIfTerrainTile = (o) => {
+      // 1) Sammle Kandidaten während traverse, reparent NICHT während traverse!
+      const candidateTiles = [];
+
+      const collectIfTerrainTile = (o) => {
         if (!o?.isMesh) return;
         const isTile = o.userData?.terrainSize || /terrain|tile|ground/i.test(o.name);
-        if (isTile) groundGroup.add(o);
+        if (isTile) candidateTiles.push(o);
       };
 
       if (terrainMesh.type === 'Group') {
-        terrainMesh.traverse(addIfTerrainTile);
+        terrainMesh.traverse(collectIfTerrainTile);
       } else {
-        addIfTerrainTile(terrainMesh);
+        collectIfTerrainTile(terrainMesh);
+      }
+
+      // 2) Erzeuge unsichtbare, raycastbare Proxies, statt Originale umzuhängen
+      for (const src of candidateTiles) {
+        // Flacher Klon, Geometrie-Share ok, Material als unsichtbarer Raycast-Proxy
+        const proxy = new THREE.Mesh(
+          src.geometry,
+          new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.0,
+            depthWrite: false
+          })
+        );
+        proxy.name = (src.name || 'ground_tile') + '_proxy';
+        proxy.userData = { ...src.userData, isGroundProxy: true };
+        proxy.castShadow = false;
+        proxy.receiveShadow = false;
+
+        // Transform übernehmen, damit Proxies deckungsgleich sind
+        proxy.position.copy(src.getWorldPosition(new THREE.Vector3()));
+        proxy.quaternion.copy(src.getWorldQuaternion(new THREE.Quaternion()));
+        proxy.scale.copy(src.getWorldScale(new THREE.Vector3()));
+
+        // Proxies in lokale Koords des groundGroup bringen
+        // Da groundGroup in (0,0,0) ohne Rotation/Scale ist, genügt world->local:
+        groundGroup.add(proxy);
+        proxy.updateMatrixWorld(true);
       }
 
       if (groundGroup.children.length > 0) {
@@ -315,7 +346,7 @@ export function buildZoneFromSpec(worldData, options={}){
         }
         pos.needsUpdate = true;
 
-        const mat = new THREE.MeshBasicMaterial({ visible:false });
+        const mat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.0, depthWrite: false });
         const grid = new THREE.Mesh(plane, mat);
         grid.name = 'ground_grid';
         grid.userData.isGroundGrid = true;
