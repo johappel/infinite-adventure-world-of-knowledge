@@ -171,16 +171,19 @@ Du kannst mehrere Patches kombinieren:
 ### Häufige Probleme
 
 **Patch wird nicht visualisiert:**
+
 - Stelle sicher, dass der Patch korrekt formatiert ist
 - Überprüfe, ob der Patch auf die aktuelle Welt anwendbar ist
 - Prüfe die Browser-Konsole auf Fehlermeldungen
 
 **3D-Visualisierung funktioniert nicht:**
+
 - Stelle sicher, dass Three.js korrekt geladen ist
 - Überprüfe, ob der WebGL-Renderer unterstützt wird
 - Aktualisiere den Browser auf die neueste Version
 
 **Patch kann nicht gespeichert werden:**
+
 - Überprüfe die Netzwerkverbindung
 - Stelle sicher, dass du die notwendigen Berechtigungen hast
 - Prüfe, ob der Patch-Name bereits vergeben ist
@@ -285,13 +288,4 @@ entities:
         color: "#5a8c2e"
 ```
 
-## Nächste Schritte
-
-- Experimentiere mit verschiedenen Patch-Typen
-- Erstelle komplexe Patches mit mehreren Änderungen
-- Nutze die zeitbasierte Anwendung für Präsentationen
-- Kombiniere mehrere Patches zu einem Gesamt-Patch
-
----
-
-Diese Anleitung bietet eine umfassende Einführung in die Patch-Visualisierungsfunktionen. Für weitere Informationen zur Welt-Erstellung und zum YAML-Format siehe [world-maker.md](../world-maker.md).
+# Alternative 

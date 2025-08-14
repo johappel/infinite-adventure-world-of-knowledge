@@ -66,13 +66,52 @@ export class YamlProcessor {
         return '';
       }
       
-      const yamlText = jsyaml.dump(obj, {
+      // Erstelle eine tiefe Kopie des Objekts für die Serialisierung
+      const objToSerialize = JSON.parse(JSON.stringify(obj));
+      
+      // Spezielle Behandlung für terrain.size - immer als Flow-Array
+      if (objToSerialize.terrain && Array.isArray(objToSerialize.terrain.size)) {
+        // terrain.size wird als Flow-Array behandelt
+        const terrainSize = objToSerialize.terrain.size;
+        delete objToSerialize.terrain.size;
+        
+        // Erstelle YAML mit Standard-Einstellungen
+        let yamlText = jsyaml.dump(objToSerialize, {
+          indent: 2,
+          lineWidth: 120,
+          noRefs: true,
+          sortKeys: false,
+          flowLevel: 3
+        });
+        
+        // terrain.size manuell als Flow-Array einfügen
+        const sizeYaml = `size: [${terrainSize.join(', ')}]`;
+        const terrainRegex = /terrain:\s*\n((?:  [^\n]+\n)*)/;
+        
+        if (terrainRegex.test(yamlText)) {
+          yamlText = yamlText.replace(
+            terrainRegex,
+            `terrain:\n$1${sizeYaml}\n`
+          );
+        } else {
+          // Fallback: terrain.size am Ende des terrain-Blocks einfügen
+          yamlText = yamlText.replace(
+            /(terrain:[\s\S]*?)(?=\n\w+:|$)/,
+            `$1\n  ${sizeYaml}`
+          );
+        }
+        
+        return yamlText;
+      }
+      
+      // Standard-Fall für alle anderen Objekte
+      const yamlText = jsyaml.dump(objToSerialize, {
         indent: 2,
         lineWidth: 120,
         noRefs: true,
-        sortKeys: false
+        sortKeys: false,
+        flowLevel: 3
       });
-      
       return yamlText;
     } catch (e) {
       console.error('YAML-Serialisierungs-Fehler:', e);

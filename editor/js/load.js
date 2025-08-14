@@ -19,7 +19,54 @@ export function safeYamlParse(str) {
 }
 
 export function safeYamlDump(obj) {
-  try { return window.jsyaml.dump(obj, { lineWidth: 120 }); } catch (e) { throw new Error('YAML-Serialize-Fehler: ' + e.message); }
+  try {
+    // Spezielle Behandlung für terrain.size - immer als Flow-Array
+    if (obj && obj.terrain && Array.isArray(obj.terrain.size)) {
+      // Erstelle eine Kopie ohne terrain.size
+      const objCopy = JSON.parse(JSON.stringify(obj));
+      const terrainSize = objCopy.terrain.size;
+      delete objCopy.terrain.size;
+      
+      // Erstelle YAML mit Standard-Einstellungen
+      let yamlText = window.jsyaml.dump(objCopy, {
+        lineWidth: 120,
+        indent: 2,
+        noRefs: true,
+        sortKeys: false,
+        flowLevel: 3
+      });
+      
+      // terrain.size manuell als Flow-Array einfügen
+      const sizeYaml = `size: [${terrainSize.join(', ')}]`;
+      const terrainRegex = /terrain:\s*\n((?:  [^\n]+\n)*)/;
+      
+      if (terrainRegex.test(yamlText)) {
+        yamlText = yamlText.replace(
+          terrainRegex,
+          `terrain:\n$1${sizeYaml}\n`
+        );
+      } else {
+        // Fallback: terrain.size am Ende des terrain-Blocks einfügen
+        yamlText = yamlText.replace(
+          /(terrain:[\s\S]*?)(?=\n\w+:|$)/,
+          `$1\n  ${sizeYaml}`
+        );
+      }
+      
+      return yamlText;
+    }
+    
+    // Standard-Fall für alle anderen Objekte
+    return window.jsyaml.dump(obj, {
+      lineWidth: 120,
+      indent: 2,
+      noRefs: true,
+      sortKeys: false,
+      flowLevel: 3
+    });
+  } catch (e) {
+    throw new Error('YAML-Serialize-Fehler: ' + e.message);
+  }
 }
 
 export function deriveCopyId(baseId) {
@@ -139,24 +186,6 @@ function processStringToYaml(str) {
   } catch {
     // Kein JSON -> vermutlich YAML, unverändert zurückgeben
     return str;
-  }
-}
-
-// Extrahiert Name aus YAML- oder JSON-String
-function parseNameFromAnyString(str) {
-  if (typeof str !== 'string') return '';
-  // Versuch über YAML
-  try {
-    const spec = window.jsyaml?.load ? window.jsyaml.load(str) : null;
-    if (spec?.name) return spec.name;
-    if (spec?.metadata?.name) return spec.metadata.name;
-  } catch {}
-  // Versuch über JSON
-  try {
-    const obj = JSON.parse(str);
-    return obj?.metadata?.name || obj?.name || '';
-  } catch {
-    return '';
   }
 }
 
