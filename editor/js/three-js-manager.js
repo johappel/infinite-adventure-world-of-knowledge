@@ -41,6 +41,12 @@ export class ThreeJSManager {
 
         // Event-Handler gebunden (für remove bei dispose)
         this._boundHandlers = {};
+
+        // Raycasting / Klick-Interaktion
+        this.raycaster = new THREE.Raycaster();
+        this._clickHandlers = new Set();
+        this._mouseDownX = 0;
+        this._mouseDownY = 0;
     }
 
     async init() {
@@ -347,6 +353,8 @@ export class ThreeJSManager {
             c.removeEventListener('contextmenu', this._boundHandlers.contextmenu);
             // Key-Events ebenfalls am Canvas entfernen (nicht global)
             c.removeEventListener('keydown', this._boundHandlers.keydown);
+            // Klick-Handler entfernen
+            c.removeEventListener('click', this._boundHandlers.click);
         }
 
         this.resetScene();
@@ -729,6 +737,7 @@ export class ThreeJSManager {
         this._boundHandlers.mouseup = (e) => this._onMouseUp(e);
         this._boundHandlers.keydown = (e) => this._onKeyDown(e);
         this._boundHandlers.contextmenu = (e) => e.preventDefault();
+        this._boundHandlers.click = (e) => this._onCanvasClick(e);
 
         // Maus
         el.addEventListener('wheel', this._boundHandlers.wheel, { passive: false });
@@ -736,6 +745,8 @@ export class ThreeJSManager {
         window.addEventListener('mousemove', this._boundHandlers.mousemove);
         window.addEventListener('mouseup', this._boundHandlers.mouseup);
         el.addEventListener('contextmenu', this._boundHandlers.contextmenu);
+        // Klick (nach MouseUp) für Raycast auf Terrain
+        el.addEventListener('click', this._boundHandlers.click);
 
         // Tastatur NUR am Canvas binden (nicht global), damit andere Panels Eingaben behalten
         el.addEventListener('keydown', this._boundHandlers.keydown);
@@ -771,6 +782,8 @@ export class ThreeJSManager {
         this._dragButton = e.button; // 0: rotieren, 2: pan
         this._lastX = e.clientX;
         this._lastY = e.clientY;
+        this._mouseDownX = e.clientX;
+        this._mouseDownY = e.clientY;
     }
 
     _onMouseMove(e) {
@@ -879,5 +892,121 @@ export class ThreeJSManager {
         // Pan nach rechts/oben im Bildschirm
         this.camTarget.addScaledVector(right, -panX * 2.0);
         this.camTarget.addScaledVector(screenUp, panY * 2.0);
+    }
+
+    // === Terrain-Klick-API ===
+
+    /**
+     * Registriert einen Handler, der bei Klick auf das Terrain die Intersections erhält.
+     * @param {(info: { point: THREE.Vector3, object: THREE.Object3D, uv?: THREE.Vector2, face?: THREE.Face3, event: MouseEvent }) => void} cb
+     */
+    registerTerrainClickHandler(cb) {
+        if (typeof cb === 'function') this._clickHandlers.add(cb);
+    }
+
+    /**
+     * Entfernt einen zuvor registrierten Terrain-Klick-Handler.
+     * @param {Function} cb
+     */
+    unregisterTerrainClickHandler(cb) {
+        this._clickHandlers.delete(cb);
+    }
+
+    /**
+     * Interner Klick-Handler: berechnet den Schnittpunkt auf dem Terrain und ruft die registrierten Handler auf.
+     * Filtert Drags heraus (nur kleiner Mausweg wird als Klick akzeptiert).
+     */
+    _onCanvasClick(e) {
+        try {
+            // Drag-Gesten herausfiltern
+            const moved =
+                Math.abs(e.clientX - this._mouseDownX) > 5 ||
+                Math.abs(e.clientY - this._mouseDownY) > 5;
+            if (moved) return;
+
+            if (!this.camera || !this.renderer) return;
+
+            const el = this.canvas || this.renderer.domElement;
+            const rect = el.getBoundingClientRect();
+
+            // Mausposition in Normalized Device Coordinates [-1, 1]
+            const ndc = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+
+            this.raycaster.setFromCamera(ndc, this.camera);
+
+            // Bevorzugt Terrain-Objekte, ansonsten alle Meshes
+            const targets = this._collectRaycastTargets();
+            if (!targets.length) return;
+
+            const hits = this.raycaster.intersectObjects(targets, true);
+            if (!hits || hits.length === 0) return;
+
+            const hit = this._pickBestTerrainHit(hits);
+            if (!hit) return;
+
+            // Callbacks informieren
+            for (const cb of this._clickHandlers) {
+                try {
+                    cb({
+                        point: hit.point.clone(),
+                        object: hit.object,
+                        uv: hit.uv,
+                        face: hit.face,
+                        event: e
+                    });
+                } catch (err) {
+                    console.error('[ThreeJSManager] Terrain-Klick-Callback-Fehler:', err);
+                }
+            }
+        } catch (err) {
+            console.error('[ThreeJSManager] Fehler bei Canvas-Klick:', err);
+        }
+    }
+
+    /**
+     * Sammelt bevorzugte Raycast-Ziele (Terrain), mit Fallback auf alle Meshes der Szene.
+     */
+    _collectRaycastTargets() {
+        const targets = [];
+        const prefer = [];
+        const group = this.currentZone?.group || this.scene;
+
+        if (!group) return targets;
+
+        group.traverse(obj => {
+            // Nur sichtbare Meshes beachten
+            if (!obj || !obj.visible) return;
+            // THREE.Mesh erkennen
+            const isMesh = obj.isMesh === true || (obj.geometry && obj.material);
+            if (!isMesh) return;
+
+            // Heuristik: Terrain bevorzugen
+            const isTerrain =
+                obj.userData?.isTerrain === true ||
+                (typeof obj.name === 'string' && /terrain|ground|floor/i.test(obj.name));
+
+            if (isTerrain) prefer.push(obj);
+            else targets.push(obj);
+        });
+
+        // Terrain zuerst testen
+        return prefer.length ? prefer : targets;
+    }
+
+    /**
+     * Wählt den "besten" Terrain-Treffer aus einer Liste von Intersections.
+     * Aktuell: der nächste Treffer (kleinste distance).
+     */
+    _pickBestTerrainHit(intersections) {
+        if (!Array.isArray(intersections) || intersections.length === 0) return null;
+        // Falls mehrere Treffer: nehme den mit kleinster Entfernung
+        let best = intersections[0];
+        for (let i = 1; i < intersections.length; i++) {
+            if (intersections[i].distance < best.distance) best = intersections[i];
+        }
+        return best;
     }
 }

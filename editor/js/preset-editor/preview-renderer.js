@@ -47,6 +47,17 @@ export class PreviewRenderer {
       
       // Initialisiere die Szene
       await this.editor.threeJSManager.init();
+
+      // Terrain-Klicks an den Editor weiterleiten (für YAML-Einfügen/Path-Aufbau)
+      try {
+        this.editor.threeJSManager.registerTerrainClickHandler((hitInfo) => {
+          if (this.editor && typeof this.editor._handleTerrainClick === 'function') {
+            this.editor._handleTerrainClick(hitInfo);
+          }
+        });
+      } catch (e) {
+        console.warn('[DEBUG] Konnte TerrainClickHandler nicht registrieren:', e);
+      }
       
       console.log('[DEBUG] Three.js Preview initialisiert');
     } catch (error) {

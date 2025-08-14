@@ -64,6 +64,11 @@ export class PresetEditor {
     this.currentPatchId = null;
     this.worldYamlText = '';
     this.patchYamlText = '';
+
+    // Interaktions-Status (Preview-Canvas)
+    this.interactionMode = 'none';
+    this.selectedObjectType = 'tree_simple';
+    this.tmpPathPoints = [];
     
     // Submodule initialisieren
     console.log('[DEBUG] Initialisiere Submodule');
@@ -262,6 +267,11 @@ export class PresetEditor {
       // 7) Patch-UI initialisieren
       await this.uiManager._initPatchUI();
 
+      // 8) Interaktions-Controls (Modus/Objekt-Typ) im Preview-Header
+      if (typeof this.uiManager.initInteractionControls === 'function') {
+        this.uiManager.initInteractionControls();
+      }
+
       this._setStatus('Bereit.', 'info');
     } catch (err) {
       this._setStatus('Fehler bei Initialisierung: ' + err.message, 'error');
@@ -384,6 +394,140 @@ export class PresetEditor {
     } else if (this.activeTab === 'patch') {
       if (this.patchTextarea) this.patchTextarea.value = text;
     }
+  }
+
+  // === Interaktionslogik: Klick auf Terrain verarbeitet YAML-Änderungen ===
+
+  /**
+   * Wird vom ThreeJSManager aufgerufen, wenn auf das Terrain geklickt wurde.
+   * @param {{ point: {x:number,y:number,z:number}, object: any, event: MouseEvent }} hitInfo
+   * @private
+   */
+  async _handleTerrainClick(hitInfo) {
+    try {
+      const mode = this.interactionMode || 'none';
+      if (mode === 'place_object') {
+        await this._placeObjectAt(hitInfo.point);
+      } else if (mode === 'path_add') {
+        this._addPathPoint(hitInfo.point);
+      }
+      // path_finish / path_cancel werden über UI-Select sofort behandelt
+    } catch (e) {
+      console.error('[Editor] Fehler bei _handleTerrainClick:', e);
+      this._setStatus('Interaktionsfehler: ' + e.message, 'error');
+    }
+  }
+
+  /**
+   * Fügt einen Punkt zur temporären Pfadliste hinzu.
+   * @param {{x:number,y:number,z:number}} point
+   * @private
+   */
+  _addPathPoint(point) {
+    const p = this._roundPoint(point);
+    this.tmpPathPoints.push([p.x, p.y, p.z]);
+    if (window.showToast) window.showToast('info', `Path-Punkt hinzugefügt: [${p.x}, ${p.y}, ${p.z}]`);
+  }
+
+  /**
+   * UI-Aktion "Path (Finish)": schreibt gesammelte Punkte als Pfad ins YAML.
+   * @private
+   */
+  async _finishPathFromUI() {
+try {
+  if (!Array.isArray(this.tmpPathPoints) || this.tmpPathPoints.length < 2) {
+    if (window.showToast) window.showToast('warning', 'Mindestens 2 Punkte für einen Pfad benötigt.');
+    return;
+  }
+  let obj = this.yamlProcessor.parseYaml();
+  if (!obj || typeof obj !== 'object') obj = {};
+
+  // Pfade sind Teil von terrain: terrain.paths: [...]
+  if (!obj.terrain || typeof obj.terrain !== 'object') obj.terrain = {};
+  if (!Array.isArray(obj.terrain.paths)) obj.terrain.paths = [];
+  obj.terrain.paths.push({ points: this.tmpPathPoints.slice(), smooth: true });
+
+  const yaml = YamlProcessor.safeYamlDump(obj);
+  await this._applyYamlChange(yaml);
+
+  // Aufräumen
+  this.tmpPathPoints = [];
+  if (window.showToast) window.showToast('success', 'Pfad eingefügt.');
+} catch (e) {
+  console.error('[Editor] Fehler bei Path-Finish:', e);
+  if (window.showToast) window.showToast('error', 'Pfad konnte nicht eingefügt werden: ' + e.message);
+}
+}
+
+  /**
+   * UI-Aktion "Path (Cancel)": leert temporäre Punkte.
+   * @private
+   */
+  _cancelPathFromUI() {
+    this.tmpPathPoints = [];
+    if (window.showToast) window.showToast('info', 'Path-Aufnahme abgebrochen.');
+  }
+
+  /**
+   * Fügt ein Objekt an der gegebenen Position in das YAML (Autorenformat) ein.
+   * @param {{x:number,y:number,z:number}} point
+   * @private
+   */
+  async _placeObjectAt(point) {
+    const p = this._roundPoint(point);
+    try {
+      let obj = this.yamlProcessor.parseYaml();
+      if (!obj || typeof obj !== 'object') obj = {};
+
+      // Autorenformat: objects als Array
+      if (!Array.isArray(obj.objects)) obj.objects = Array.isArray(obj.objects) ? obj.objects : [];
+
+      const type = this.selectedObjectType || 'tree_simple';
+      obj.objects.push({
+        type,
+        position: [p.x, p.y, p.z]
+      });
+
+      const yaml = YamlProcessor.safeYamlDump(obj);
+      await this._applyYamlChange(yaml);
+      if (window.showToast) window.showToast('success', `Objekt eingefügt: ${type} @ [${p.x}, ${p.y}, ${p.z}]`);
+    } catch (e) {
+      console.error('[Editor] Fehler beim Einfügen des Objekts:', e);
+      if (window.showToast) window.showToast('error', 'Objekt konnte nicht eingefügt werden: ' + e.message);
+    }
+  }
+
+  /**
+   * Setzt YAML-Text und triggert die Verarbeitungspipeline sofort.
+   * @param {string} yaml
+   * @private
+   */
+  async _applyYamlChange(yaml) {
+    // Immer in den World-Editor schreiben
+    if (this.worldTextarea) {
+      this.worldTextarea.value = yaml;
+      // Direktes Processing statt auf Debounce zu warten
+      const prevTab = this.activeTab;
+      this.activeTab = 'world';
+      await this._processYamlInput();
+      this.activeTab = prevTab;
+      // Zusätzlich ein Input-Event dispatchen (für Listener anderer Teile)
+      try {
+        const ev = new Event('input', { bubbles: true, cancelable: true });
+        this.worldTextarea.dispatchEvent(ev);
+      } catch {}
+    }
+  }
+
+  /**
+   * Rundet eine THREE.Vector3-ähnliche Position auf 2 Dezimalstellen.
+   * @param {{x:number,y:number,z:number}} v
+   * @returns {{x:number,y:number,z:number}}
+   * @private
+   */
+  _roundPoint(v) {
+    const r = (n) => Math.round(n * 100) / 100;
+    return { x: r(v.x), y: r(v.y), z: r(v.z) };
   }
 }
 

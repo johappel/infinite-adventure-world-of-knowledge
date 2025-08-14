@@ -55,6 +55,121 @@ export class UIManager {
   }
 
   /**
+   * Initialisiert Interaktions-Controls (Modus/Objekttyp) am Preview-Header
+   * - Mode: none | place_object | path_add | path_finish | path_cancel
+   * - Object-Type: nur sichtbar bei place_object
+   */
+  initInteractionControls() {
+    try {
+      // Container neben/über dem Canvas platzieren
+      let container = document.getElementById('preview-interaction-controls');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'preview-interaction-controls';
+        container.style.display = 'flex';
+        container.style.gap = '8px';
+        container.style.alignItems = 'center';
+        container.style.padding = '6px 8px';
+        container.style.background = '#1e1e1e';
+        container.style.borderBottom = '1px solid #333';
+        container.style.fontSize = '12px';
+        // Versuche über dem Canvas-Container einzuhängen
+        const canvasContainer = document.querySelector('.canvas-container') || this.editor.canvas?.parentElement;
+        if (canvasContainer && canvasContainer.parentElement) {
+          canvasContainer.parentElement.insertBefore(container, canvasContainer);
+        } else {
+          // Fallback: am Body
+          document.body.prepend(container);
+        }
+      } else {
+        container.innerHTML = '';
+      }
+
+      // Label
+      const label = document.createElement('span');
+      label.textContent = 'Interaktion:';
+      label.style.opacity = '0.8';
+
+      // Mode Select
+      const modeSelect = document.createElement('select');
+      modeSelect.id = 'interactionMode';
+      modeSelect.style.padding = '3px 6px';
+      const modes = [
+        { v: 'none', t: 'None' },
+        { v: 'place_object', t: 'Place Object' },
+        { v: 'path_add', t: 'Path (Add Points)' },
+        { v: 'path_finish', t: 'Path (Finish)' },
+        { v: 'path_cancel', t: 'Path (Cancel)' }
+      ];
+      modes.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.v;
+        opt.textContent = m.t;
+        modeSelect.appendChild(opt);
+      });
+
+      // Object-Type Select
+      const typeSelect = document.createElement('select');
+      typeSelect.id = 'objectType';
+      typeSelect.style.padding = '3px 6px';
+      typeSelect.style.display = 'none';
+      // Vorläufige Liste aus vorhandenen Presets
+      const types = [
+        'tree_simple',
+        'rock_small',
+        'mushroom_small',
+        'crystal',
+        'stone_circle_thin',
+        'bookshelf',
+        'village'
+      ];
+      types.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        typeSelect.appendChild(opt);
+      });
+
+      // Events binden
+      modeSelect.addEventListener('change', async () => {
+        this.editor.interactionMode = modeSelect.value;
+        // Object-Select nur bei place_object zeigen
+        typeSelect.style.display = this.editor.interactionMode === 'place_object' ? 'inline-block' : 'none';
+
+        // Sofortaktionen für Path
+        if (this.editor.interactionMode === 'path_finish') {
+          await this.editor._finishPathFromUI();
+          // Zurück auf Add-Mode oder None?
+          this.editor.interactionMode = 'none';
+          modeSelect.value = 'none';
+          typeSelect.style.display = 'none';
+        } else if (this.editor.interactionMode === 'path_cancel') {
+          this.editor._cancelPathFromUI();
+          this.editor.interactionMode = 'none';
+          modeSelect.value = 'none';
+          typeSelect.style.display = 'none';
+        }
+      });
+
+      typeSelect.addEventListener('change', () => {
+        this.editor.selectedObjectType = typeSelect.value;
+      });
+
+      // Initialwerte übernehmen
+      modeSelect.value = this.editor.interactionMode || 'none';
+      typeSelect.value = this.editor.selectedObjectType || 'tree_simple';
+      typeSelect.style.display = (this.editor.interactionMode === 'place_object') ? 'inline-block' : 'none';
+
+      // Einhängen
+      container.appendChild(label);
+      container.appendChild(modeSelect);
+      container.appendChild(typeSelect);
+    } catch (e) {
+      console.error('Fehler beim Erzeugen der Interaktions-Controls:', e);
+    }
+  }
+
+  /**
    * Bindet Event-Listener für Tab-Wechsel
    */
   _bindTabEvents() {
