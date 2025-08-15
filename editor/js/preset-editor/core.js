@@ -177,10 +177,24 @@ export class PresetEditor {
               const errors = Array.isArray(patchValidation?.errors) ? patchValidation.errors : [];
               this._setStatus('Patch ungültig – Details unten.', 'error');
               this.uiManager._setValidationErrorsUI(errors, raw);
+              
+              // Aktualisiere trotzdem die Vorschau auch bei ungültigen Patches
+              try {
+                await this.patchManager._updatePatchPreview(normalizedPatch);
+              } catch (previewError) {
+                console.warn('[DEBUG] Konnte Vorschau für ungültigen Patch nicht aktualisieren:', previewError);
+              }
             }
           } catch (validationError) {
             console.error('[DEBUG] Fehler bei der Patch-Validierung:', validationError);
             this._setStatus('Patch-Validierungsfehler: ' + validationError.message, 'error');
+            
+            // Versuche trotzdem eine Vorschau zu zeigen
+            try {
+              await this.patchManager._updatePatchPreview(normalizedPatch);
+            } catch (previewError) {
+              console.warn('[DEBUG] Konnte Vorschau nach Validierungsfehler nicht aktualisieren:', previewError);
+            }
           }
         } else {
           console.warn('[DEBUG] Keine Patch-Validierungsfunktion verfügbar');
@@ -314,9 +328,11 @@ export class PresetEditor {
     // Idempotente Bindung des Save-Buttons (nur einmal)
     this._bindSaveButton();
     
-    // Entfernt: savePatchBtn wird bereits über _bindSaveButton() behandelt
-    // const savePatchBtn = document.getElementById('savePatchBtn');
-    // if (savePatchBtn) savePatchBtn.addEventListener('click', () => this.patchManager.saveAsPatch());
+    const savePatchBtn = document.getElementById('savePatchBtn');
+    if (savePatchBtn && !savePatchBtn._listenerAdded) {
+      savePatchBtn.addEventListener('click', () => this.patchManager.saveAsPatch());
+      savePatchBtn._listenerAdded = true;
+    }
     
     // Render-Button
     const renderBtn = document.getElementById('renderBtn');

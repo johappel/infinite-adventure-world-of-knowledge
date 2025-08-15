@@ -95,6 +95,11 @@ body {
 }
 .panel-header {
   background: #252526; padding: 10px 15px; border-bottom: 1px solid #3e3e42; font-weight: bold; color: #cccccc;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  /*gap: 8px;*/
+  gap: 18px;
 }
 
 .panel-header-flex {

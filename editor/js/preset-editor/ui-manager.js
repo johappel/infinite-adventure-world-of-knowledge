@@ -79,9 +79,10 @@ export class UIManager {
         container.style.borderBottom = '1px solid #333';
         container.style.fontSize = '12px';
         // Versuche über dem Canvas-Container einzuhängen
-        const canvasContainer = document.querySelector('.canvas-container') || this.editor.canvas?.parentElement;
+        const canvasContainer = document.querySelector('#preview-controls') || this.editor.canvas?.parentElement;
         if (canvasContainer && canvasContainer.parentElement) {
-          canvasContainer.parentElement.insertBefore(container, canvasContainer);
+          // insert container in canvasContainer
+          canvasContainer.appendChild(container);
         } else {
           // Fallback: am Body
           document.body.prepend(container);

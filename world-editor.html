@@ -82,6 +82,7 @@
         </select>
         <!-- <button class="btn" id="loadWorldBtn" title="Welt anhand der ID laden">🌐 Laden</button> -->
         <button class="btn success" id="saveGenesisBtn" title="Aktuelle Welt als Genesis speichern">💾 Speichern</button>
+        <button class="btn success" id="savePatchBtn" title="Als Patch speichern" style="display: none;">🧩 Patch speichern</button>
       </div>
       
       <!-- Sekundäre-Aktionsgruppe (wird in Sidebar verschoben) -->
@@ -90,7 +91,7 @@
       
       <!-- Vorschau-Aktionsgruppe (vereinfacht) -->
       <div class="control-group preview-actions">
-        <button class="btn" id="savePatchBtn" title="Als Patch speichern" style="display: none;">🧩 Patch speichern</button>
+        
       </div>
     </div>
   </div>
@@ -103,7 +104,7 @@
         <input class="preset-selector search-input" id="worldSearchInput" placeholder="Gespeicherte Welten..." title="Suche in gespeicherten Welten">
         <div id="worldSearchResults" class="search-results" style="display:none;"></div>
       </div>
-      <div id="patch-list-container" class="patch-list-panel hidden">
+      <div id="patch-list-container" class="patch-list-panel">
           <!-- Patch list will be rendered here -->
           <div class="panel-header">🧩 Patches</div>
           <div class="patch-list-content"></div>
@@ -147,7 +148,7 @@ description: 'Eine Test-Welt für Presets'
 
     <!-- 3D Preview Panel -->
     <div class="preview-panel">
-      <div class="panel-header">🎮 3D Vorschau</div>
+      <div class="panel-header">🎮 3D Vorschau<div id="preview-controls"></div></div>
       <div class="canvas-container">
         <canvas id="preview-canvas"></canvas>
         <div class="loading" id="loadingIndicator">
@@ -290,5 +291,5 @@ description: 'Eine Test-Welt für Presets'
       }
     })();
   </script>
-</body>
+</div<>
 </html>
