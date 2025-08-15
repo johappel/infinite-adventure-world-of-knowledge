@@ -19,13 +19,23 @@ export class PatchUI {
     this.genesisData = opts.genesisData || null;
     this.editor = opts.editor || null; // Referenz zum PresetEditor für Bearbeitungs- und Löschfunktionen
 
-    // UI-Refs (IDs aus world-editor.html)
-    this.listEl = opts.listEl || document.getElementById('patch-list');
-    // robust: akzeptiere sowohl "patchFilter" (HTML) als auch "patch-filter" (älterer Code)
-    this.filterEl = opts.filterEl || document.getElementById('patchFilter') || document.getElementById('patch-filter');
-    this.rangeEl = opts.rangeEl || document.getElementById('preview-range');
-    this.detailEl = opts.detailEl || document.getElementById('patch-detail');
-    this.conflictsEl = opts.conflictsEl || document.getElementById('conflicts-panel');
+    // Container-Panel (world-editor.html: #patch-list-container)
+    this.container = opts.container || document.getElementById('patch-list-container');
+
+    // UI-Refs
+    // Liste: bevorzugt .patch-list-content innerhalb des Containers
+    this.listEl =
+      opts.listEl ||
+      (this.container ? this.container.querySelector('.patch-list-content') : null);
+
+    // Filter / Range sind im aktuellen Layout optional/nicht vorhanden
+    this.filterEl = opts.filterEl || null;
+    this.rangeEl = opts.rangeEl || null;
+
+    // Detail-/Konflikt-Panels werden bei Bedarf dynamisch erzeugt
+    this.detailEl = opts.detailEl || null;
+    this.conflictsEl = opts.conflictsEl || null;
+
     this.applyUntilValueEl = document.getElementById('applyUntilValue');
 
     // interner Zustand
@@ -71,6 +81,19 @@ export class PatchUI {
       this.renderDetail();
       this.renderConflicts();
       this.renderPreview();
+
+      // Container-Panel ein-/ausblenden je nach Datenlage
+      if (this.container) {
+        if (this.patches.length > 0) {
+          this.container.classList.remove('hidden');
+        } else {
+          this.container.classList.add('hidden');
+          if (this.listEl) {
+            this.listEl.innerHTML = '<div class="empty">Keine Patches gefunden.</div>';
+          }
+        }
+      }
+
       if (window.showToast) window.showToast('success', 'Patches geladen.');
     } catch (e) {
       if (window.showToast) window.showToast('error', 'Fehler beim Laden der Patches: ' + e.message);
@@ -465,28 +488,62 @@ export class PatchUI {
   }
 
   renderDetail() {
+    // Panel bei Bedarf erzeugen
+    if (!this.detailEl && this.container) {
+      this.detailEl = document.createElement('div');
+      this.detailEl.id = 'patch-detail';
+      this.detailEl.className = 'patch-details-panel';
+      const header = document.createElement('div');
+      header.className = 'panel-subheader';
+      header.textContent = 'Details';
+      this.detailEl.appendChild(header);
+      this.container.appendChild(this.detailEl);
+    }
     if (!this.detailEl) return;
-    this.detailEl.innerHTML = '';
+
+    // Inhalt rendern
+    this.detailEl.innerHTML = this.detailEl.innerHTML.split('</div>').slice(0,1).join('</div>'); // Header erhalten
+    const content = document.createElement('div');
+
     const p = this.patches.find(x => x.id === this.selectedId);
     if (!p) {
-      this.detailEl.innerHTML = '<div class="empty">Kein Patch ausgewählt.</div>';
+      content.innerHTML = '<div class="empty">Kein Patch ausgewählt.</div>';
+      this.detailEl.appendChild(content);
       return;
     }
     const deps = (p?.metadata?.depends_on || []).map(d => this._esc(d)).join(', ');
-    this.detailEl.innerHTML =
+    content.innerHTML =
       `<div class="card">
          <div class="title">${this._esc(p?.metadata?.name || p.id)}</div>
-         <div class="row">Author: ${this._esc(p?.metadata?.author || 'unknown')}</div>
+         <div class="row">Author: ${this._esc(p?.metadata?.author || p?.metadata?.author_npub || 'unknown')}</div>
          <div class="row">Date: ${this._esc(p?.metadata?.date || '')}</div>
          <div class="row">depends_on: ${deps || '–'}</div>
        </div>`;
+    this.detailEl.appendChild(content);
   }
 
   renderConflicts() {
+    // Panel bei Bedarf erzeugen
+    if (!this.conflictsEl && this.container) {
+      this.conflictsEl = document.createElement('div');
+      this.conflictsEl.id = 'conflicts-panel';
+      this.conflictsEl.className = 'patch-conflicts-panel';
+      const header = document.createElement('div');
+      header.className = 'panel-subheader';
+      header.textContent = 'Konflikte';
+      this.conflictsEl.appendChild(header);
+      this.container.appendChild(this.conflictsEl);
+    }
     if (!this.conflictsEl) return;
+
     const conflicts = this._conflicts || [];
+    // Header erhalten
+    this.conflictsEl.innerHTML = this.conflictsEl.innerHTML.split('</div>').slice(0,1).join('</div>');
     if (!conflicts.length) {
-      this.conflictsEl.innerHTML = '<div class="empty">Keine Konflikte erkannt.</div>';
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'Keine Konflikte erkannt.';
+      this.conflictsEl.appendChild(empty);
       return;
     }
     const ul = document.createElement('ul');
@@ -495,7 +552,6 @@ export class PatchUI {
       li.textContent = typeof c === 'string' ? c : JSON.stringify(c);
       ul.appendChild(li);
     }
-    this.conflictsEl.innerHTML = '';
     this.conflictsEl.appendChild(ul);
   }
 
@@ -504,7 +560,7 @@ export class PatchUI {
     if (!this.patchKit) return;
     const n = this.rangeEl ? Number(this.rangeEl.value || 0) : this.order.length;
     const upTo = this.order.slice(0, n);
- 
+
     const byId = new Map(this.patches.map(p => [p.id, p]));
     const selectedPatches = [];
     for (const id of upTo) {
@@ -513,8 +569,19 @@ export class PatchUI {
         if (p) selectedPatches.push(p);
       }
     }
- 
+
     try {
+      // Sicherstellen: Genesis und Visualizer verfügbar (verhindert Fallback, der die Welt ersetzt)
+      if (!this.genesisData && this.editor?.previewRenderer?._getCurrentGenesisData) {
+        try {
+          const g = await this.editor.previewRenderer._getCurrentGenesisData();
+          if (g) this.genesisData = g;
+        } catch {}
+      }
+      if (!this.patchVisualizer && this.editor?.patchVisualizer) {
+        this.setPatchVisualizer(this.editor.patchVisualizer);
+      }
+
       // Wenn Genesis-Daten und PatchVisualizer vorhanden sind, visualisiere die Patches
       if (this.genesisData && this.patchVisualizer) {
         await this.patchVisualizer.visualizePatches(this.genesisData, selectedPatches, {
@@ -522,12 +589,12 @@ export class PatchUI {
           highlightIntensity: 0.7
         });
       } else {
-        // Fallback: Nur die Patch-Anwendung ohne Visualisierung
+        // Fallback: Nur die Patch-Anwendung ohne Visualisierung (keine 3D-Darstellung)
         const base = { entities: {} }; // minimale Basis-Welt
         await this.patchKit.world.applyPatches(base, selectedPatches);
       }
-      
-      if (this.applyUntilValueEl) this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
+
+      if (this.applyUntilValueEl && this.rangeEl) this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
     } catch (e) {
       if (window.showToast) window.showToast('error', 'Preview fehlgeschlagen: ' + e.message);
     }

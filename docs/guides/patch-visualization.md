@@ -21,30 +21,23 @@ Die Patch-Visualisierung ist eine Erweiterung des Preset-Editors, die es ermögl
 
 ### 1. Preset-Editor öffnen
 
-Öffne den Preset-Editor über `world-editor.html` in deinem Browser.
+Öffne den Preset-Editor über `world-editor.html` (vorzugsweise via lokalem HTTP-Server).
 
 ### 2. Welt laden oder erstellen
 
-Lade eine vorhandene Welt oder erstelle eine neue:
+- Welt aus Vorlage/Preset laden oder „Neu“
+- 3D-Vorschau rendert die Welt (Statusbar zeigt Objektanzahl)
 
-```javascript
-// Welt aus YAML-Datei laden
-yamlHelpers.loadZone('worlds/sample_world.yaml')
+### 3. Patches laden (automatisch)
 
-//von world_id laden
+- Das Panel „🧩 Patches“ (Sidebar) zeigt vorhandene Patches (IndexedDB/Nostr)
+- Fehlen Patches, wird „Keine Patches gefunden“ angezeigt
 
-setupFromId(world_id, editor, nostrService)
-- world_id: Nostr-Event-ID (NIP-33 d-Tag)
-- editor: Editor-Instanz (wird im Bootstrap-Prozess erstellt)
-- nostrService: await window.NostrServiceFactory.getNostrService(); //nostr oder indexDb
+### 4. Zur Patch-Ansicht wechseln
 
-// Oder eine neue Welt erstellen
-editor.createNewWorld()
-```
-
-### 3. Zur Patch-Ansicht wechseln
-
-Klicke auf den "Patch"-Tab oben im Editor, um zur Patch-Ansicht zu wechseln.
+- Klicke auf den "Patch"-Tab oben im Editor, um zur Patch-Ansicht zu wechseln
+- YAML im Patch-Editor eingeben (siehe Beispiele oben)
+- Vorschau: Welt bleibt sichtbar, Patch-Änderungen werden farblich überlagert
 
 ## Patch-Visualisierung verstehen
 
@@ -60,13 +53,17 @@ Klicke auf den "Patch"-Tab oben im Editor, um zur Patch-Ansicht zu wechseln.
 - **Grün**: Hinzugefügte Entitäten
 - **Rot**: Entfernte Entitäten
 - **Gelb**: Modifizierte Entitäten
+- **Magenta**: Konflikte (pulsierende Hervorhebung)
 
 ## Patches erstellen
 
-Modifizierende Patches (Operation: update, delete) auf Objekte angewendet werden, die eine id haben. Objekte, die eine Id haben sollten bei MouseOver im 3D Preview farblich hervorgehoben werden.
-Grundsätzlich können Objekte über die add Opreation hinzugefügt werden. 
+Wichtig: Das im Patch-Tab eingegebene YAML ist ein "benutzerfreundliches Editor-Format" und wird vor dem Speichern/Visualisieren automatisch in das interne Schema "patchkit/1.0" (operations als Liste von add/update/delete Objekten) normalisiert.
 
-**Wenn eine Welt (Genesis) im 
+- update/delete wirken auf Objekte mit id.
+- add fügt neue Objekte/Entitäten hinzu (id optional, wird sonst generiert).
+- In der 3D-Preview bleibt die Welt erhalten; Patch-Änderungen werden überlagert farblich hervorgehoben.
+
+Hinweis: Selektion bestehender Objekte per Mausklick (Raycasting) ist vorgesehen, aber in der aktuellen Version noch nicht verfügbar. Änderungen können über den YAML-Editor vorgenommen werden.
 
 ### Methode 1: Visuell über den 3D-Editor
 
@@ -96,9 +93,11 @@ objects:
 
 ## Patch anzeigen
 
-Beim Laden einer Genesis werden **automatisch alle Patches** in der Reihenfolge ihres entstehens (created_at) verarbeitet und in der 3D Ansicht wird die finale Welt mit allen gepatchten Veränderungen  gerenderd.
+Beim Laden einer Genesis können Patches geladen und in der 3D-Ansicht visualisiert werden.
+Die finale Welt mit allen Änderungen wird dargestellt, Änderungen werden farblich hervorgehoben.
 
-Um die Auswirkung eines **einzelen Patches** anzuzeigen, klicke in der Liste auf einen Patch: Alle vorhergehenden Patches werden in der 3D Preview visualisiet. Die Elemente des aktuell angeklickten Patches werden ebenfalls in die Welt hinein gerenderd aber farblich hervorgehoben (siehe oben)
+Um die Auswirkung eines **einzelnen Patches** anzuzeigen, klicke in der Liste auf einen Patch:
+Alle vorhergehenden Patches werden berücksichtigt; die Elemente des aktuell angeklickten Patches werden zusätzlich hervorgehoben (siehe Farblegende).
 
 ## Eigene Patches bearbeiten (nur Author npub)
 
@@ -118,21 +117,22 @@ Um die Auswirkung eines **einzelen Patches** anzuzeigen, klicke in der Liste auf
 
 ### Visualisierungs-Optionen
 
-Die Patch-Visualisierung bietet verschiedene Steuerungsmöglichkeiten:
+- **Highlight-Änderungen**: Änderungen ein-/ausblenden
+- **Zeitbasierte Anwendung**: Modus 'step' oder 'continuous'
+- **Geschwindigkeit**: setAnimationSpeed(0.5 … 5)
+- **Konflikte**: Pulsieren in Magenta
 
-- **Highlight-Änderungen**: Zeigt hervorgehobene Änderungen an/aus
-- **Zeitbasierte Anwendung**: Spielt die Patch-Anwendung schrittweise ab
-
-#### Tastenkürzel
-- `P`: Spiele alle patches nacheinander ab 
-- '+': schneller abspielen (zeitbasiert)
-- '-': langsamer abspielen
-- `Leertaste`: Pausiert/fortgesetzt den automatischen ablauf aller Patches
-- `N`: Nächhster Patch
+#### Tastenkürzel (optional)
+- `P`: Patches nacheinander abspielen (wenn konfiguriert)
+- '+': schneller
+- '-': langsamer
+- `Leertaste`: Pause/Fortsetzen
+- `N`: Nächster Patch
 - `M`: Vorhergehender
 
 
-Die zeitbasierte Patch-Anwendung ermöglicht es dir, die Auswirkungen eines Patches schrittweise zu visualisieren
+Die zeitbasierte Patch-Anwendung ermöglicht es dir, die Auswirkungen eines Patches schrittweise zu visualisieren.
+Hinweis: In der aktuellen Version ist die Timeline-Steuerung als Status vorhanden (step/continuous) und wird schrittweise ausgebaut.
 
 ## Best Practices
 
@@ -144,12 +144,16 @@ Die zeitbasierte Patch-Anwendung ermöglicht es dir, die Auswirkungen eines Patc
 
 
 
-## weitere Beispiele
+## weitere Beispiele (Editor-YAML)
+
+Die folgenden Beispiele sind im benutzerfreundlichen Patch-Editor-Format. Der Editor normalisiert diese Eingaben intern in das "patchkit/1.0"-Schema.
+
+1) Objekt hinzufügen (add)
 
 ```yaml
 name: "Baum hinzufügen"
 description: "Fügt einen einzelnen Baum zur Welt hinzu"
-operations: add 
+
 objects:
   - type: "tree"
     position: [5, 0, 3]
@@ -157,75 +161,91 @@ objects:
     color: "#4a7c1e"
 ```
 
+2) Objekt ändern (update)
+
 ```yaml
 name: "Baumfarbe ändern"
 description: "schöneres grün"
-operations: update 
+
+objects:
   - id: "existing-tree"
     color: "#5a8c2e"
 ```
 
+3) Objekt entfernen (delete)
+
 ```yaml
 name: "Baum entfernen"
-operations: delete 
+
+objects:
   - id: "existing-tree"
+    delete: true
 ```
+
+Interne Normalisierung (informativ):
+- add → { type: "add", entity_type: "object", entity_id?, payload: {...} }
+- update → { type: "update", entity_type: "object", entity_id: "existing-tree", changes: {...} }
+- delete → { type: "delete", entity_type: "object", entity_id: "existing-tree" }
 
 
 
 
 ### Debug-Optionen
 
-Aktiviere die Debug-Optionen, um Probleme zu diagnostizieren:
+Aktiviere Debug-Ausgaben in der Konsole:
 
 ```javascript
-// Debug-Modus aktivieren
-editor.setDebugMode(true)
+// Basis-Debugging
+console.log('PatchKit:', editor.patchKit);
+console.log('PatchVisualizer info:', editor.patchVisualizer?.getPatchInfo());
 
-// Patch-Visualisierung debuggen
-editor.patchVisualizer.debug = true
-
-// Konsolenausgaben anzeigen
-console.log(editor.patchVisualizer.getState())
+// Reihenfolge/Abhängigkeiten prüfen
+const order = await editor.patchKit.world.computeOrder(await editor.patchKit.io.patchPort.listByWorld(editor.worldId));
+console.log('Order result:', order);
 ```
 
 ## API-Referenz
 
 ### PatchVisualizer-Klasse
 
-Die PatchVisualizer-Klasse bietet die folgenden Methoden:
+Die PatchVisualizer-Klasse bietet u. a. folgende Methoden:
 
 ```javascript
-// Patch visualisieren
-await editor.patchVisualizer.visualizePatch(patch, options)
+// Patch(es) visualisieren
+await editor.patchVisualizer.visualizePatches(genesis, [patch], { showConflicts: true })
 
 // Visualisierung zurücksetzen
 editor.patchVisualizer.resetVisualization()
 
-// Highlight-Status umschalten
-editor.patchVisualizer.toggleHighlights()
+// Highlights ein-/ausschalten
+editor.patchVisualizer.toggleHighlights() // returns boolean
 
-// Zeitbasierte Anwendung starten/stoppen
-editor.patchVisualizer.toggleTimeBasedApplication()
+// Zeitmodus umschalten: 'none' | 'step' | 'continuous'
+editor.patchVisualizer.toggleTimeBasedApplication('step')
 
-// Animationsgeschwindigkeit setzen
-editor.patchVisualizer.setAnimationSpeed(speed)
+// Animationsgeschwindigkeit setzen (z. B. 0.5, 1, 2, 3)
+editor.patchVisualizer.setAnimationSpeed(2)
 ```
 
 ### PresetEditor-Erweiterungen
 
-Der PresetEditor wurde um folgende Methoden erweitert:
+Der PresetEditor bietet u. a.:
 
 ```javascript
-// Patch erstellen
-await editor.savePatch()
+// Patch speichern (aus aktuellem Patch-Tab YAML)
+await editor.patchManager.saveAsPatch()
 
-// Patch bearbeiten
-await editor.editPatch(patchId)
+// Patch bearbeiten/löschen
+await editor.patchManager.editPatch(patchId)
+await editor.patchManager.deletePatch(patchId)
 
-// Patch löschen
-await editor.deletePatch(patchId)
+// Patch-Visualisierung (einzeln/mehrere)
+await editor.patchManager.visualizePatch(patch, { highlightChanges: true })
+await editor.patchManager.visualizePatches([patchA, patchB])
 
-// Zur Patch-Ansicht wechseln
-editor.switchTab('patch')
+// Patch-Visualisierung zurücksetzen
+await editor.patchManager.resetPatchVisualization()
+
+// Tabs
+editor.uiManager.switchTab('patch')
 ```

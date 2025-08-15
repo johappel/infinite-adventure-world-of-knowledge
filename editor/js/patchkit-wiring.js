@@ -77,30 +77,26 @@ export function createPatchKitPorts(nostrService) {
       for (const e of evts) {
         try {
           const p = JSON.parse(e.content);
-          if (p && p.id === worldId) {
-            // Transformiere Event zu PatchKit-Objekt (roh, PatchKit.patch.parse kann weiter verarbeiten)
-            // Speichere den YAML-Payload im originalYaml-Feld für den Editor
+          // p.target enthält laut Schema die worldId
+          if (p && p.target === worldId) {
             const patchObj = {
               metadata: {
                 schema_version: 'patchkit/1.0',
-                id: e.id || p.patch_id || p.id || '',
+                id: p.id || e.id || '',
                 name: p.name || '',
                 description: p.description || '',
                 author_npub: e.pubkey || '',
                 created_at: e.created_at || 0,
                 version: p.version || '',
-                targets_world: p.id || worldId,
+                targets_world: p.target || worldId,
                 depends_on: Array.isArray(p.depends_on) ? p.depends_on : [],
                 overrides: Array.isArray(p.overrides) ? p.overrides : []
               },
               operations: Array.isArray(p.operations) ? p.operations : []
             };
-            
-            // Speichere den YAML-Payload im originalYaml-Feld für den Editor
             if (p.payload) {
               patchObj.originalYaml = p.payload;
             }
-            
             out.push(patchObj);
           }
         } catch { /* ignore */ }
@@ -108,24 +104,37 @@ export function createPatchKitPorts(nostrService) {
       return out;
     },
     async getById(id) {
-      // nutze Service.getById; gibt ggf. { id, type, yaml } zurück
       return nostrService?.getById ? nostrService.getById(id) : notImpl('getById')();
     },
     async save(signedPatch) {
-      // saveOrUpdate für patch
       const md = signedPatch?.metadata || {};
-      // Verwende originalYaml falls vorhanden, sonst serialisiere das Patch-Objekt
       const yaml = signedPatch.originalYaml || (PatchKit.patch.serialize ? PatchKit.patch.serialize(signedPatch, 'yaml') : JSON.stringify(signedPatch));
       const ident = await nostrService.getIdentity();
+      // content JSON inkl. payload
+      const contentJSON = JSON.stringify({
+        id: md.id,
+        target: md.targets_world,
+        name: md.name || '',
+        description: md.description || '',
+        version: md.version || '',
+        operations: signedPatch.operations || [],
+        payload: signedPatch.originalYaml || ''
+      });
       const payload = {
         id: md.targets_world || md.id,
         name: md.name || '',
         type: 'patch',
-        yaml,
-        originalYaml: signedPatch.originalYaml, // originalYaml-Feld weitergeben
+        content: contentJSON,
+        originalYaml: signedPatch.originalYaml,
         pubkey: ident.pubkey
       };
       return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
+    },
+    async delete(id) {
+      if (nostrService?.delete) {
+        return nostrService.delete(id);
+      }
+      throw new Error('NostrService.delete ist nicht implementiert');
     }
   };
 

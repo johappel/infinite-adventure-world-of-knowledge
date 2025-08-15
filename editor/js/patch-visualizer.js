@@ -12,6 +12,14 @@ export class PatchVisualizer {
             delete: 0xff0000,   // Rot für gelöschte Entities
             conflict: 0xff00ff  // Magenta für Konflikte
         };
+
+        // Visualisierungszustand
+        this.showHighlights = true;   // Toggle für Hervorhebungen
+        this.animationSpeed = 1;      // Faktor für zeitbasierte Animation (1x)
+        this.timeMode = 'none';       // 'none' | 'step' | 'continuous'
+
+        // Letzte Genesis-Daten für Lookups (z. B. gelöschte Entities)
+        this.lastGenesis = null;
     }
 
     /**
@@ -30,8 +38,9 @@ export class PatchVisualizer {
             // Setze alle vorherigen Hervorhebungen zurück
             this.resetVisualization();
 
-            // Speichere die aktuellen Patches
+            // Speichere die aktuellen Patches und Genesis-Referenz
             this.currentPatches = patches || [];
+            this.lastGenesis = genesisData || null;
 
             // Wenn keine Patches vorhanden sind, rendere nur die Genesis-Welt
             if (!patches || patches.length === 0) {
@@ -166,20 +175,22 @@ export class PatchVisualizer {
         }
 
         // Hervorhebung der Entities nach Operationstyp
-        if (entitiesByOperation.add.length > 0) {
-            this.threeJSManager.highlightEntities(
-                entitiesByOperation.add,
-                this.patchColors.add,
-                highlightIntensity
-            );
-        }
+        if (this.showHighlights) {
+            if (entitiesByOperation.add.length > 0) {
+                this.threeJSManager.highlightEntities(
+                    entitiesByOperation.add,
+                    this.patchColors.add,
+                    highlightIntensity
+                );
+            }
 
-        if (entitiesByOperation.update.length > 0) {
-            this.threeJSManager.highlightEntities(
-                entitiesByOperation.update,
-                this.patchColors.update,
-                highlightIntensity
-            );
+            if (entitiesByOperation.update.length > 0) {
+                this.threeJSManager.highlightEntities(
+                    entitiesByOperation.update,
+                    this.patchColors.update,
+                    highlightIntensity
+                );
+            }
         }
 
         if (entitiesByOperation.delete.length > 0) {
@@ -204,24 +215,18 @@ export class PatchVisualizer {
         for (const entity of deletedEntities) {
             try {
                 let mesh = null;
-                
+
+                // Original-Entity aus der Genesis finden
+                const originalData = this.findEntityInGenesis(entity);
+                if (!originalData) continue;
+
                 // Erstelle eine semi-transparente Repräsentation der Entity
                 if (entity.type === 'objects') {
-                    // Finde die Original-Entity-Daten aus der Genesis
-                    const originalData = this.findEntityInGenesis(entity);
-                    if (originalData) {
-                        mesh = buildObject(originalData, 'deleted_' + entity.id);
-                    }
+                    mesh = buildObject(originalData, 'deleted_' + entity.id);
                 } else if (entity.type === 'personas') {
-                    const originalData = this.findEntityInGenesis(entity);
-                    if (originalData) {
-                        mesh = buildPersona(originalData, 'deleted_' + entity.id);
-                    }
+                    mesh = buildPersona(originalData, 'deleted_' + entity.id);
                 } else if (entity.type === 'portals') {
-                    const originalData = this.findEntityInGenesis(entity);
-                    if (originalData) {
-                        mesh = buildPortal(originalData, 'deleted_' + entity.id);
-                    }
+                    mesh = buildPortal(originalData, 'deleted_' + entity.id);
                 }
 
                 if (mesh) {
@@ -262,6 +267,12 @@ export class PatchVisualizer {
                 if (object) {
                     // Erstelle ein pulsierendes Material für Konflikte
                     const pulsingMaterial = this.createPulsingMaterial(object, this.patchColors.conflict);
+
+                    // Originalmaterial sichern, falls noch nicht vorhanden
+                    object.userData = object.userData || {};
+                    if (!object.userData.originalMaterial) {
+                        object.userData.originalMaterial = object.material;
+                    }
                     object.material = pulsingMaterial;
                     
                     // Speichere die Referenz für späteres Zurücksetzen
@@ -319,9 +330,15 @@ export class PatchVisualizer {
      * @returns {Object|null} - Die gefundene Entity oder null
      */
     findEntityInGenesis(entity) {
-        // Diese Methode sollte implementiert werden, um die Original-Entity-Daten zu finden
-        // Für jetzt geben wir null zurück, was bedeutet, dass keine Repräsentation erstellt wird
-        return null;
+        // Erwartetes Format: entity = { type: 'objects'|'portals'|'personas'|..., id: string }
+        if (!this.lastGenesis || !this.lastGenesis.entities) return null;
+        const t = entity?.type;
+        const id = entity?.id;
+        if (!t || !id) return null;
+        const bucket = this.lastGenesis.entities[t];
+        if (!bucket) return null;
+        const original = bucket[id];
+        return original ? JSON.parse(JSON.stringify(original)) : null; // defensive clone
     }
 
     /**
@@ -369,8 +386,10 @@ export class PatchVisualizer {
                 for (const material of materials) {
                     if (material.userData.isPulsing) {
                         const elapsed = (time - material.userData.pulseStartTime) / 1000;
-                        const intensity = material.userData.baseEmissiveIntensity + 
-                                       Math.sin(elapsed * 3) * 0.3;
+                        // Geschwindigkeit skalieren
+                        const speed = Math.max(0.1, Number(this.animationSpeed) || 1);
+                        const intensity = material.userData.baseEmissiveIntensity +
+                                       Math.sin(elapsed * 3 * speed) * 0.3;
                         material.emissiveIntensity = Math.max(0.1, Math.min(1.0, intensity));
                     }
                 }
@@ -388,5 +407,29 @@ export class PatchVisualizer {
             highlightedEntities: this.highlightedEntities.size,
             hasConflicts: Array.from(this.highlightedEntities.keys()).some(key => key.startsWith('conflict_'))
         };
+    }
+
+    // Zusätzliche Steuer-APIs (MVP-Implementationen)
+
+    toggleHighlights() {
+        this.showHighlights = !this.showHighlights;
+        return this.showHighlights;
+    }
+
+    setAnimationSpeed(speed) {
+        const val = Number(speed);
+        if (!Number.isFinite(val) || val <= 0) return this.animationSpeed;
+        this.animationSpeed = val;
+        return this.animationSpeed;
+    }
+
+    toggleTimeBasedApplication(mode) {
+        // Optional: 'none' | 'step' | 'continuous' (MVP: nur Status setzen)
+        if (!mode) {
+            this.timeMode = (this.timeMode === 'none') ? 'step' : (this.timeMode === 'step' ? 'continuous' : 'none');
+        } else {
+            this.timeMode = mode;
+        }
+        return this.timeMode;
     }
 }

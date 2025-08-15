@@ -14,10 +14,10 @@ export class PatchManager {
         this.editor._setStatus('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.', 'error');
         return;
       }
-      
+
       // Erstelle einen leeren Patch
       this.editor.currentPatchId = 'patch_' + Math.random().toString(36).slice(2, 10);
-      
+
       // Setze einen leeren YAML-Content im Editor
       const yamlEditor = document.getElementById('patch-yaml-editor');
       if (yamlEditor) {
@@ -34,10 +34,10 @@ description: "Beschreibung hier einfügen"
 #     color: "#1a4a1a"
 `;
       }
-      
+
       // Wechsle zum Patch-Tab
       this.editor.uiManager.switchTab('patch');
-      
+
       // Aktualisiere die Patch-UI, falls vorhanden
       if (this.editor.patchUI) {
         try {
@@ -46,7 +46,7 @@ description: "Beschreibung hier einfügen"
           console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
         }
       }
-      
+
       if (window.showToast) window.showToast('success', 'Neuer Patch erstellt');
       this.editor._setStatus('Neuer Patch erstellt', 'success');
     } catch (e) {
@@ -62,55 +62,55 @@ description: "Beschreibung hier einfügen"
         this.editor._setStatus('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.', 'error');
         return;
       }
-      
+
       if (!patchId) {
         this.editor._setStatus('Keine Patch ID angegeben.', 'error');
         return;
       }
-      
+
       // Lade den Patch vom Server
       const patchEvent = await this.editor.patchKit.io?.patchPort?.getById
         ? this.editor.patchKit.io.patchPort.getById(patchId)
         : null;
-        
+
       if (!patchEvent) {
         this.editor._setStatus('Patch nicht gefunden.', 'error');
         return;
       }
-      
+
       // Parse den Patch
       const patch = this.editor.patchKit.patch.parse(patchEvent?.yaml || patchEvent);
-      
+
       // Setze die aktuelle Patch-ID
       this.editor.currentPatchId = patchId;
-      
+
       // Konvertiere den Patch in das benutzerfreundliche YAML-Format
       const yamlText = patchEvent.originalYaml || this._convertPatchToYaml(patch);
-      
+
       // Setze den YAML-Content im Editor
       const yamlEditor = document.getElementById('patch-yaml-editor');
       if (yamlEditor) {
         yamlEditor.value = yamlText;
       }
-      
+
       // Wechsle zum Patch-Tab
       this.editor.uiManager.switchTab('patch');
-      
+
       // Aktualisiere den Tab-Namen
       this.editor.uiManager._updatePatchTabName(patch.metadata?.name || 'Patch');
-      
+
       // Visualisiere den Patch, falls der Patch-Visualizer verfügbar ist
       if (this.editor.patchVisualizer) {
         try {
           await this.visualizePatch(patch, {
             highlightChanges: true,
             showConflicts: false
-          });
+          }); 
         } catch (error) {
           console.warn('Konnte Patch nicht visualisieren:', error);
         }
       }
-      
+
       if (window.showToast) window.showToast('success', 'Patch geladen und zur Bearbeitung geöffnet.');
       this.editor._setStatus('Patch zur Bearbeitung geladen.', 'success');
     } catch (e) {
@@ -146,7 +146,7 @@ description: "Beschreibung hier einfügen"
       
       // Parse den Patch
       const patch = this.editor.patchKit.patch.parse(patchEvent?.yaml || patchEvent);
-      
+
       // Ermittle author_npub aus aktiver Identität
       let author_npub = 'npub0';
       try {
@@ -192,6 +192,7 @@ description: "Beschreibung hier einfügen"
         const yamlEditor = document.getElementById('patch-yaml-editor');
         if (yamlEditor) {
           yamlEditor.value = '';
+
         }
         
         // Aktualisiere den Tab-Namen
@@ -206,7 +207,7 @@ description: "Beschreibung hier einfügen"
           console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
         }
       }
-      
+
       // Setze die Patch-Visualisierung zurück, falls der gelöschte Patch gerade visualisiert wird
       if (this.editor.patchVisualizer) {
         try {
@@ -215,7 +216,7 @@ description: "Beschreibung hier einfügen"
           console.warn('Konnte Patch-Visualisierung nicht zurücksetzen:', error);
         }
       }
-      
+
       if (window.showToast) window.showToast('success', 'Patch gelöscht.');
       this.editor._setStatus('Patch gelöscht.', 'success');
     } catch (e) {
@@ -240,7 +241,7 @@ description: "Beschreibung hier einfügen"
       if (!obj) {
         throw new Error('Ungültiges YAML');
       }
-      
+
       // Normalisiere das YAML-Objekt für das Speichern als Patch
       const normalizedPatch = this.editor.yamlProcessor.normalizePatchYaml(obj);
       
@@ -254,7 +255,7 @@ description: "Beschreibung hier einfügen"
       this.editor.currentPatchId = normalizedPatch.metadata.id;
       
       if (window.showToast) window.showToast('success', 'Patch gespeichert');
-      this.editor._setStatus('Patch gespeichert: ' + normalizedPatch.metadata.id, 'success');
+      this.editor._setStatus('Patch gespeichert: ' + normalizedPatch.metadata.id, 'success');    
     } catch (e) {
       console.error(e);
       if (window.showToast) window.showToast('error', 'Speichern fehlgeschlagen: ' + e.message);
@@ -276,20 +277,26 @@ description: "Beschreibung hier einfügen"
       const patchEvent = await this.editor.patchKit.io?.patchPort?.getById
         ? this.editor.patchKit.io.patchPort.getById(patchId)
         : null;
-        
+      
       if (!patchEvent) {
         throw new Error('Patch nicht gefunden.');
       }
       
       // Parse den Patch
       const patch = this.editor.patchKit.patch.parse(patchEvent?.yaml || patchEvent);
-      
-      // Wende den Patch auf die aktuelle Welt an
-      const result = await this.editor.patchKit.world.applyPatch(this.editor.worldId, patch);
-      
-      // Lade die aktualisierte Welt
-      await this.loadWorldById(this.editor.worldId);
-      
+
+      // Lade die Genesis-Daten
+      const genesisData = await this.editor.previewRenderer._getCurrentGenesisData();
+      if (!genesisData) {
+        throw new Error('Genesis-Daten nicht verfügbar');
+      }
+
+      // Wende den Patch an
+      const result = await this.editor.patchKit.world.applyPatches(genesisData, [patch]);
+
+      // Aktualisiert die Vorschau mit dem neuen Weltzustand
+      await this.editor.previewRenderer.updatePreviewFromObject(result.state);
+
       if (window.showToast) window.showToast('success', 'Patch angewendet');
       this.editor._setStatus('Patch angewendet: ' + patchId, 'success');
     } catch (e) {
@@ -316,7 +323,7 @@ description: "Beschreibung hier einfügen"
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       if (window.showToast) window.showToast('success', 'Patch exportiert');
       this.editor._setStatus('Patch exportiert', 'success');
     } catch (e) {
@@ -342,7 +349,6 @@ description: "Beschreibung hier einfügen"
           
           // Setze den YAML-Content im Editor
           this.editor.setYamlText(text);
-          
           // Parse die YAML, um die ID zu extrahieren
           const obj = this.editor.yamlProcessor.parseYaml();
           if (obj && obj.metadata && obj.metadata.id) {
@@ -360,7 +366,7 @@ description: "Beschreibung hier einfügen"
           await this._updatePatchPreview(normalizedPatch);
           
           if (window.showToast) window.showToast('success', 'Patch importiert');
-          this.editor._setStatus('Patch importiert: ' + this.editor.currentPatchId, 'success');
+          this.editor._setStatus('Patch importiert: ' + this.editor.currentPatchId, 'success');            
         } catch (error) {
           console.error(error);
           if (window.showToast) window.showToast('error', 'Import fehlgeschlagen: ' + error.message);
@@ -436,11 +442,8 @@ description: "Beschreibung hier einfügen"
       // Importiere den PatchVisualizer
       const { PatchVisualizer } = await import('../patch-visualizer.js');
       
-      // Initialisiere den Patch-Visualizer
-      this.editor.patchVisualizer = new PatchVisualizer({
-        threeJSManager: this.editor.threeJSManager,
-        canvas: this.editor.canvas
-      });
+      // Initialisiere den Patch-Visualizer (Konstruktor erwartet threeJSManager)
+      this.editor.patchVisualizer = new PatchVisualizer(this.editor.threeJSManager);
       
       console.log('[DEBUG] Patch-Visualizer initialisiert');
     } catch (error) {
@@ -473,6 +476,12 @@ description: "Beschreibung hier einfügen"
         };
         
         console.log('[DEBUG] Patch-Objekt für Visualisierung erstellt:', patchForVisualization);
+
+        // Stelle sicher, dass der PatchVisualizer vorhanden ist (sonst initialisieren)
+        if (!this.editor.patchVisualizer) {
+          console.log('[DEBUG] Patch-Visualizer nicht vorhanden. Initialisiere...');
+          await this._initPatchVisualizer();
+        }
         
         // Versuche, den Patch zu visualisieren
         try {
@@ -485,7 +494,7 @@ description: "Beschreibung hier einfügen"
             console.log('[DEBUG] Patch-Visualisierung erfolgreich');
             this.editor._setStatus('Patch-Vorschau aktualisiert', 'success');
           } else {
-            console.warn('[DEBUG] Patch-Visualizer nicht verfügbar');
+            console.warn('[DEBUG] Patch-Visualizer weiterhin nicht verfügbar (Fallback)');
             // Fallback: Konvertiere den Patch in ein Genesis-Format und zeige ihn als Welt an
             const genesisFormat = this.editor.previewRenderer._convertPatchToGenesisFormat(normalizedPatch);
             console.log('[DEBUG] Fallback: Zeige Patch als Welt an:', genesisFormat);
@@ -569,7 +578,7 @@ description: "Beschreibung hier einfügen"
       // Lade die Genesis-Welt
       const genesisData = await this.editor.previewRenderer._getCurrentGenesisData();
       if (!genesisData) {
-        this.editor._setStatus('Konnte Genesis-Daten nicht laden', 'error');
+        this.editor._setStatus('Konnte Genesis-Daten nicht laden', 'error');    
         return;
       }
       
@@ -599,7 +608,7 @@ description: "Beschreibung hier einfügen"
       }
       
       this.editor.patchVisualizer.resetVisualization();
-      this.editor._setStatus('Patch-Visualisierung zurückgesetzt', 'success');
+      this.editor._setStatus('Patch-Visualisierung zurückgesetzt', 'success');    
     } catch (error) {
       console.error('Fehler beim Zurücksetzen der Patch-Visualisierung:', error);
       this.editor._setStatus('Fehler: ' + error.message, 'error');

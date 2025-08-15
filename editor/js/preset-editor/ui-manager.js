@@ -41,8 +41,13 @@ export class UIManager {
       this.editor.patchUI = new PatchUI({
         worldId: this.editor.worldId,
         patchKit: this.editor.patchKit,
-        container: document.getElementById('patch-list-container')
+        container: document.getElementById('patch-list-container'),
+        editor: this.editor
       });
+      // Fallback: sicherstellen, dass die Editor-Referenz gesetzt ist
+      if (this.editor.patchUI && typeof this.editor.patchUI.setEditor === 'function') {
+        this.editor.patchUI.setEditor(this.editor);
+      }
       console.log('[DEBUG] Patch-UI initialisiert');
       //if patch-list is not empty
       if (document.querySelector('#patch-list-container .patch-list-content').childElementCount > 0) {
