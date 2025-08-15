@@ -175,22 +175,46 @@ export class PreviewRenderer {
         return null;
       }
       
-      // Versuche, die Genesis aus dem aktuellen YAML-Text zu laden
-      const yamlText = this.editor.getYamlText();
-      if (yamlText) {
-        const parsedYaml = this.editor.yamlProcessor.parseYaml();
-        if (parsedYaml) {
-          return this.editor.yamlProcessor.normalizeUserYaml(parsedYaml);
-        }
-      }
-      
-      // Fallback: Lade die Genesis vom Server
+      // Lade die Genesis direkt vom Server (nicht aus dem aktuellen YAML-Text, da das ein Patch sein könnte)
       const genesisEvt = await this.editor.patchKit.io?.genesisPort?.getById
         ? this.editor.patchKit.io.genesisPort.getById(this.editor.worldId)
         : null;
       
       if (genesisEvt) {
-        return this.editor.patchKit.genesis.parse(genesisEvt?.yaml || genesisEvt);
+        try {
+          // Versuche verschiedene Formate für die Genesis-Daten
+          let genesisData = null;
+          if (typeof genesisEvt === 'string') {
+            // String -> direkt parsen
+            genesisData = this.editor.patchKit.genesis.parse(genesisEvt);
+          } else if (genesisEvt.yaml && typeof genesisEvt.yaml === 'string') {
+            // Objekt mit yaml-Property
+            genesisData = this.editor.patchKit.genesis.parse(genesisEvt.yaml);
+          } else if (genesisEvt.content && typeof genesisEvt.content === 'string') {
+            // Objekt mit content-Property
+            genesisData = this.editor.patchKit.genesis.parse(genesisEvt.content);
+          } else {
+            // Fallback: versuche das ganze Objekt zu parsen
+            genesisData = this.editor.patchKit.genesis.parse(genesisEvt);
+          }
+          
+          if (genesisData) {
+            return genesisData;
+          }
+        } catch (parseError) {
+          console.error('Fehler beim Parsen der Genesis-Daten:', parseError);
+        }
+      }
+      
+      // Fallback: Versuche aus dem World-Tab YAML zu laden (nur wenn wir im World-Tab sind)
+      if (this.editor.activeTab === 'world') {
+        const yamlText = this.editor.getYamlText();
+        if (yamlText) {
+          const parsedYaml = this.editor.yamlProcessor.parseYaml();
+          if (parsedYaml) {
+            return this.editor.yamlProcessor.normalizeUserYaml(parsedYaml);
+          }
+        }
       }
       
       return null;
@@ -271,7 +295,12 @@ export class PreviewRenderer {
       // Konvertiere die Operationen in Genesis-Entitäten
       for (const op of patch.operations) {
         if (op.type === 'add' && op.entity_type && op.payload) {
-          const entityTypeName = op.entity_type + 's'; // Plural form
+          // Behandle sowohl Singular als auch Plural entity_type
+          let entityTypeName = op.entity_type;
+          if (!entityTypeName.endsWith('s')) {
+            entityTypeName = entityTypeName + 's'; // Plural form
+          }
+          
           if (genesis.entities[entityTypeName]) {
             // Vereinheitliche Attributnamen: kind → type
             const payload = { ...op.payload };
@@ -279,7 +308,7 @@ export class PreviewRenderer {
             delete payload.kind;
             
             // Füge die Entität hinzu
-            const entityId = op.entity_id || op.entity_type + '_' + Math.random().toString(36).slice(2, 8);
+            const entityId = op.entity_id || op.entity_type.replace('s', '') + '_' + Math.random().toString(36).slice(2, 8);
             genesis.entities[entityTypeName][entityId] = payload;
           }
         } else if (op.type === 'update' && op.entity_type && op.changes) {

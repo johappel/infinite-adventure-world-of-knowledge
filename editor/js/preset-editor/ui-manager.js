@@ -239,6 +239,8 @@ export class UIManager {
       const patchTab = document.getElementById('patch-tab');
       const worldEditor = document.getElementById('world-editor');
       const patchEditor = document.getElementById('patch-editor');
+      const savePatchBtn = document.getElementById('savePatchBtn');
+      const saveGenesisBtn = document.getElementById('saveGenesisBtn');
       
       if (worldTab && patchTab && worldEditor && patchEditor) {
         if (tabName === 'world') {
@@ -247,12 +249,18 @@ export class UIManager {
           worldEditor.style.display = 'flex';
           patchEditor.style.display = 'none';
           this.editor.textarea = this.editor.worldTextarea;
+          // Buttons: im Welt-Tab Genesis speichern sichtbar, Patch speichern ausblenden
+          if (savePatchBtn) savePatchBtn.style.display = 'none';
+          if (saveGenesisBtn) saveGenesisBtn.style.display = 'inline-block';
         } else if (tabName === 'patch') {
           worldTab.classList.remove('active');
           patchTab.classList.add('active');
           worldEditor.style.display = 'none';
           patchEditor.style.display = 'flex';
           this.editor.textarea = this.editor.patchTextarea;
+          // Buttons: im Patch-Tab Patch speichern sichtbar, Genesis speichern optional ausblenden
+          if (savePatchBtn) savePatchBtn.style.display = 'inline-block';
+          if (saveGenesisBtn) saveGenesisBtn.style.display = 'none';
         }
       }
       
@@ -267,6 +275,12 @@ export class UIManager {
         const obj = this.editor.yamlProcessor.parseYaml();
         if (obj) {
           const normalizedPatch = this.editor.yamlProcessor.normalizePatchYaml(obj);
+          // targets_world für Validierung/Vorschau setzen
+          try {
+            if (normalizedPatch && normalizedPatch.metadata && this.editor.worldId) {
+              normalizedPatch.metadata.targets_world = this.editor.worldId;
+            }
+          } catch {}
           this.editor.patchManager._updatePatchPreview(normalizedPatch);
         }
       }

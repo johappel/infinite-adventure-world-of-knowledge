@@ -77,8 +77,13 @@ export function createPatchKitPorts(nostrService) {
       for (const e of evts) {
         try {
           const p = JSON.parse(e.content);
-          // p.target enthält laut Schema die worldId
-          if (p && p.target === worldId) {
+          // Unterstütze beide Formate:
+          // - neues Mapping: p.target === worldId
+          // - Legacy (Service-intern): p.target === 'world' && p.id === worldId
+          const isNew = p && p.target === worldId;
+          const isLegacy = p && p.target === 'world' && p.id === worldId;
+          if (isNew || isLegacy) {
+            const targets_world = isNew ? p.target : p.id;
             const patchObj = {
               metadata: {
                 schema_version: 'patchkit/1.0',
@@ -88,7 +93,7 @@ export function createPatchKitPorts(nostrService) {
                 author_npub: e.pubkey || '',
                 created_at: e.created_at || 0,
                 version: p.version || '',
-                targets_world: p.target || worldId,
+                targets_world,
                 depends_on: Array.isArray(p.depends_on) ? p.depends_on : [],
                 overrides: Array.isArray(p.overrides) ? p.overrides : []
               },
@@ -124,7 +129,7 @@ export function createPatchKitPorts(nostrService) {
         id: md.targets_world || md.id,
         name: md.name || '',
         type: 'patch',
-        content: contentJSON,
+        yaml: yaml,
         originalYaml: signedPatch.originalYaml,
         pubkey: ident.pubkey
       };

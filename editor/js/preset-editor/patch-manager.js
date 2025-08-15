@@ -228,8 +228,14 @@ description: "Beschreibung hier einfügen"
 
   async saveAsPatch() {
     try {
+      // Versuche World ID aus dem UI-Input zu lesen, falls nicht im Editor gesetzt
       if (!this.editor.worldId) {
-        throw new Error('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.');
+        const worldIdInput = document.getElementById('worldIdInput');
+        if (worldIdInput && worldIdInput.value.trim()) {
+          this.editor.worldId = worldIdInput.value.trim();
+        } else {
+          throw new Error('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.');
+        }
       }
       
       const yamlText = this.editor.getYamlText();
@@ -254,8 +260,17 @@ description: "Beschreibung hier einfügen"
       // Setze die aktuelle Patch-ID
       this.editor.currentPatchId = normalizedPatch.metadata.id;
       
+      // Aktualisiere die Patch-UI, falls vorhanden
+      if (this.editor.patchUI) {
+        try {
+          await this.editor.patchUI.load(this.editor.worldId);
+        } catch (error) {
+          console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
+        }
+      }
+      
       if (window.showToast) window.showToast('success', 'Patch gespeichert');
-      this.editor._setStatus('Patch gespeichert: ' + normalizedPatch.metadata.id, 'success');    
+      this.editor._setStatus('Patch gespeichert: ' + normalizedPatch.metadata.id, 'success');
     } catch (e) {
       console.error(e);
       if (window.showToast) window.showToast('error', 'Speichern fehlgeschlagen: ' + e.message);
@@ -469,46 +484,52 @@ description: "Beschreibung hier einfügen"
       if (this.editor.threeJSManager && this.editor.threeJSManager.initialized) {
         console.log('[DEBUG] Three.js Manager ist verfügbar, versuche Patch-Visualisierung');
         
-        // Erstelle ein Patch-Objekt für die Visualisierung
-        const patchForVisualization = {
-          metadata: normalizedPatch.metadata,
-          operations: normalizedPatch.operations
-        };
+        // Versuche zuerst, Genesis-Daten aus dem World-Tab zu verwenden
+        console.log('[DEBUG] Versuche Genesis-Daten aus World-Tab zu laden');
+        let genesisData = null;
         
-        console.log('[DEBUG] Patch-Objekt für Visualisierung erstellt:', patchForVisualization);
-
-        // Stelle sicher, dass der PatchVisualizer vorhanden ist (sonst initialisieren)
-        if (!this.editor.patchVisualizer) {
-          console.log('[DEBUG] Patch-Visualizer nicht vorhanden. Initialisiere...');
-          await this._initPatchVisualizer();
-        }
+        // Wechsle temporär zum World-Tab, um die Genesis-Daten zu laden
+        const originalTab = this.editor.activeTab;
+        this.editor.activeTab = 'world';
         
-        // Versuche, den Patch zu visualisieren
         try {
-          if (this.editor.patchVisualizer) {
-            console.log('[DEBUG] Patch-Visualizer ist verfügbar, rufe visualizePatch auf');
-            await this.visualizePatch(patchForVisualization, {
-              highlightChanges: true,
-              showConflicts: false
-            });
-            console.log('[DEBUG] Patch-Visualisierung erfolgreich');
-            this.editor._setStatus('Patch-Vorschau aktualisiert', 'success');
-          } else {
-            console.warn('[DEBUG] Patch-Visualizer weiterhin nicht verfügbar (Fallback)');
-            // Fallback: Konvertiere den Patch in ein Genesis-Format und zeige ihn als Welt an
-            const genesisFormat = this.editor.previewRenderer._convertPatchToGenesisFormat(normalizedPatch);
-            console.log('[DEBUG] Fallback: Zeige Patch als Welt an:', genesisFormat);
-            await this.editor.previewRenderer.updatePreviewFromObject(genesisFormat);
-            this.editor._setStatus('Patch als Welt-Vorschau angezeigt', 'info');
+          const worldYamlText = this.editor.worldTextarea ? this.editor.worldTextarea.value : '';
+          if (worldYamlText) {
+            const parsedWorldYaml = this.editor.yamlProcessor.parseYaml();
+            if (parsedWorldYaml) {
+              genesisData = this.editor.yamlProcessor.normalizeUserYaml(parsedWorldYaml);
+              console.log('[DEBUG] Genesis-Daten aus World-Tab geladen:', genesisData);
+            }
           }
-        } catch (visualizationError) {
-          console.error('[DEBUG] Fehler bei der Patch-Visualisierung:', visualizationError);
-          // Fallback: Konvertiere den Patch in ein Genesis-Format und zeige ihn als Welt an
-          const genesisFormat = this.editor.previewRenderer._convertPatchToGenesisFormat(normalizedPatch);
-          console.log('[DEBUG] Fallback nach Fehler: Zeige Patch als Welt an:', genesisFormat);
-          await this.editor.previewRenderer.updatePreviewFromObject(genesisFormat);
-          this.editor._setStatus('Patch-Vorschau mit Fallback angezeigt', 'info');
+        } catch (worldLoadError) {
+          console.warn('[DEBUG] Fehler beim Laden der World-Tab-Daten:', worldLoadError);
+        } finally {
+          // Wechsle zurück zum ursprünglichen Tab
+          this.editor.activeTab = originalTab;
         }
+        
+        if (genesisData && this.editor.patchKit && this.editor.patchKit.world) {
+          try {
+            console.log('[DEBUG] Genesis-Daten verfügbar, wende Patch an');
+            // Wende den Patch auf die Genesis-Daten an
+            const result = await this.editor.patchKit.world.applyPatches(genesisData, [normalizedPatch]);
+            console.log('[DEBUG] Patch angewendet, Ergebnis:', result);
+            
+            // Zeige das Ergebnis (Genesis + Patch) an
+            await this.editor.previewRenderer.updatePreviewFromObject(result.state);
+            this.editor._setStatus('Patch-Vorschau mit Genesis angezeigt', 'success');
+            return;
+          } catch (patchError) {
+            console.warn('[DEBUG] Fehler beim Anwenden des Patches auf Genesis:', patchError);
+          }
+        }
+        
+        // Fallback: Konvertiere den Patch in ein Genesis-Format und zeige ihn als Welt an
+        console.log('[DEBUG] Fallback: Zeige Patch als eigenständige Welt an');
+        const genesisFormat = this.editor.previewRenderer._convertPatchToGenesisFormat(normalizedPatch);
+        console.log('[DEBUG] Genesis-Format erstellt:', genesisFormat);
+        await this.editor.previewRenderer.updatePreviewFromObject(genesisFormat);
+        this.editor._setStatus('Patch-Vorschau angezeigt (Fallback)', 'info');
       } else {
         console.warn('[DEBUG] Three.js Manager nicht initialisiert');
         this.editor._setStatus('3D-Visualisierung nicht verfügbar', 'info');

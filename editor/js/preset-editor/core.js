@@ -148,8 +148,19 @@ export class PresetEditor {
           this.uiManager._setValidationErrorsUI(errors, raw);
         }
       } else if (this.activeTab === 'patch') {
+        // Prüfe zuerst, ob eine World ID verfügbar ist
+        if (!this.worldId) {
+          this._setStatus('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.', 'error');
+          return;
+        }
+
         const normalizedPatch = this.yamlProcessor.normalizePatchYaml(obj);
-        
+
+        // Stelle sicher, dass targets_world gesetzt ist (sonst schlägt die Schema-Validierung fehl)
+        if (normalizedPatch && normalizedPatch.metadata) {
+          normalizedPatch.metadata.targets_world = this.worldId;
+        }
+
         // Validiere den Patch
         if (this.patchKit && this.patchKit.patch && typeof this.patchKit.patch.validate === 'function') {
           try {
@@ -303,8 +314,9 @@ export class PresetEditor {
     // Idempotente Bindung des Save-Buttons (nur einmal)
     this._bindSaveButton();
     
-    const savePatchBtn = document.getElementById('savePatchBtn');
-    if (savePatchBtn) savePatchBtn.addEventListener('click', () => this.patchManager.saveAsPatch());
+    // Entfernt: savePatchBtn wird bereits über _bindSaveButton() behandelt
+    // const savePatchBtn = document.getElementById('savePatchBtn');
+    // if (savePatchBtn) savePatchBtn.addEventListener('click', () => this.patchManager.saveAsPatch());
     
     // Render-Button
     const renderBtn = document.getElementById('renderBtn');
@@ -336,7 +348,20 @@ export class PresetEditor {
   _bindSaveButton() {
     const saveGenesisBtn = document.getElementById('saveGenesisBtn');
     if (saveGenesisBtn && !saveGenesisBtn._listenerAdded) {
-      saveGenesisBtn.addEventListener('click', () => this.worldManager.saveCurrent());
+      saveGenesisBtn.addEventListener('click', async () => {
+        try {
+          // Wenn der Patch-Tab aktiv ist, speichere als Patch – NICHT als Genesis!
+          if (this.activeTab === 'patch') {
+            await this.patchManager.saveAsPatch();
+          } else {
+            // sonst aktuelle Welt (Genesis) speichern
+            await this.worldManager.saveCurrent?.() ?? await this.worldManager.saveGenesis?.();
+          }
+        } catch (e) {
+          console.error('[Core] Fehler beim Speichern:', e);
+          this._setStatus('Speichern fehlgeschlagen: ' + e.message, 'error');
+        }
+      });
       // Flag setzen, damit nicht erneut gebunden wird
       saveGenesisBtn._listenerAdded = true;
     }

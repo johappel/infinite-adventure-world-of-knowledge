@@ -164,6 +164,12 @@ personas:
       // Setze die World-ID
       this.editor.worldId = worldId;
       
+      // Aktualisiere das UI-Input-Feld
+      const worldIdInput = document.getElementById('worldIdInput');
+      if (worldIdInput) {
+        worldIdInput.value = worldId;
+      }
+      
       // Konvertiere in das benutzerfreundliche YAML-Format
       const yamlText = this.editor.yamlProcessor.serializeYaml(
         this.editor.yamlProcessor.denormalizeUserYaml(genesis)

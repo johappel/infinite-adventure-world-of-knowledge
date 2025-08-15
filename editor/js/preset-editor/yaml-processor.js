@@ -339,55 +339,173 @@ export class YamlProcessor {
    */
   normalizePatchYaml(userYaml) {
     try {
-      if (!userYaml) {
-        return null;
-      }
-      
-      // Erstelle eine Kopie des Objekts
-      const normalized = JSON.parse(JSON.stringify(userYaml));
-      
-      // Stelle sicher, dass die Metadaten vorhanden sind
-      if (!normalized.metadata) {
-        normalized.metadata = {};
-      }
-      
-      // Setze die Schema-Version
-      normalized.metadata.schema_version = 'patchkit/1.0';
-      
-      // Stelle sicher, dass die Operationen vorhanden sind
-      if (!normalized.operations) {
-        normalized.operations = [];
-      }
-      
-      // Validiere jede Operation
-      for (const operation of normalized.operations) {
-        if (!operation.type || !operation.entity_type || !operation.entity_id) {
-          throw new Error('Ungültige Operation: type, entity_type und entity_id sind erforderlich');
+      if (!userYaml) return null;
+
+      // 1) Kopie erstellen
+      const src = JSON.parse(JSON.stringify(userYaml));
+
+      // 2) Metadaten sicherstellen
+      const normalized = {
+        metadata: {
+          schema_version: 'patchkit/1.0',
+          id: src?.metadata?.id || 'patch_' + Math.random().toString(36).slice(2, 10),
+          name: (src?.metadata?.name || src?.name || 'Patch'),
+          description: (src?.metadata?.description || src?.description || ''),
+          author_npub: (src?.metadata?.author_npub || src?.author_npub || 'npub0'),
+          created_at: (src?.metadata?.created_at || Math.floor(Date.now() / 1000)),
+          version: (src?.metadata?.version || src?.version || '')
+          // targets_world wird außerhalb (z. B. PatchManager) gesetzt
+        },
+        operations: []
+      };
+
+      // 3) Falls bereits eine gültige operations-Liste im Autorformat existiert, validieren und übernehmen
+      const isArrayOps = Array.isArray(src.operations);
+      if (isArrayOps && src.operations.length > 0 && src.operations.every(op => typeof op === 'object')) {
+        // Validieren und ggf. einfache Normalisierung der Felder
+        for (const op of src.operations) {
+          if (!op.type || !op.entity_type) throw new Error('Ungültige Operation: type und entity_type sind erforderlich');
+          if (op.type === 'add') {
+            if (!op.payload || typeof op.payload !== 'object') throw new Error('Add-Operation erfordert ein payload-Objekt');
+            // optional: type->kind Angleichung, hier lassen wir payload unverändert
+            normalized.operations.push({
+              type: 'add',
+              entity_type: op.entity_type,   // erwartet PLURAL, z. B. "objects"
+              entity_id: op.entity_id || undefined,
+              payload: op.payload
+            });
+          } else if (op.type === 'update') {
+            if (!op.entity_id) throw new Error('Update-Operation erfordert entity_id');
+            if (!op.changes || typeof op.changes !== 'object') throw new Error('Update-Operation erfordert changes-Objekt');
+            normalized.operations.push({
+              type: 'update',
+              entity_type: op.entity_type,
+              entity_id: op.entity_id,
+              changes: op.changes
+            });
+          } else if (op.type === 'delete' || op.type === 'remove') {
+            if (!op.entity_id) throw new Error('Delete-Operation erfordert entity_id');
+            normalized.operations.push({
+              type: 'delete',
+              entity_type: op.entity_type,
+              entity_id: op.entity_id
+            });
+          } else {
+            throw new Error('Unbekannter Operationstyp: ' + op.type);
+          }
         }
-        
-        // Stelle sicher, dass die Operation die richtigen Felder hat
-        switch (operation.type) {
-          case 'add':
-            if (!operation.payload) {
-              throw new Error('Add-Operation erfordert ein payload-Feld');
+        return normalized;
+      }
+
+      // 4) Aus dem benutzerfreundlichen YAML-Editor-Format ableiten (z. B. ohne operations-Liste)
+      // Hilfsfunktion: fügt eine Operation hinzu
+      const addOp = (op) => normalized.operations.push(op);
+
+      // Mapping: Editor-Abschnitt → plural entity_type
+      const entityArraySections = [
+        { key: 'objects',   entity_type: 'objects'   },
+        { key: 'portals',   entity_type: 'portals'   },
+        { key: 'personas',  entity_type: 'personas'  }
+      ];
+
+      // 4.1) Arrays (objects/portals/personas)
+      for (const section of entityArraySections) {
+        const arr = src[section.key];
+        if (!Array.isArray(arr)) continue;
+
+        arr.forEach((item, index) => {
+          const hasId = !!item.id;
+          const isDelete = item.delete === true || item.type === 'delete';
+          // Klone und entferne Steuerfelder
+          const payload = JSON.parse(JSON.stringify(item));
+          delete payload.id;
+          delete payload.delete;
+
+          // Editor verwendet häufig "type" für Objekt-Typen → intern optional als payload.kind behalten
+          if (payload.type && !payload.kind) {
+            payload.kind = payload.type;
+          }
+
+          if (isDelete) {
+            // delete benötigt entity_id
+            if (!hasId) return; // ohne id keine delete-Operation
+            addOp({
+              type: 'delete',
+              entity_type: section.entity_type,    // PLURAL!
+              entity_id: item.id
+            });
+          } else if (hasId) {
+            // update: Änderungen = verbleibende Felder
+            if (Object.keys(payload).length > 0) {
+              addOp({
+                type: 'update',
+                entity_type: section.entity_type,  // PLURAL!
+                entity_id: item.id,
+                changes: payload
+              });
             }
-            break;
-            
-          case 'update':
-            if (!operation.changes) {
-              throw new Error('Update-Operation erfordert ein changes-Feld');
-            }
-            break;
-            
-          case 'remove':
-            // Remove-Operationen benötigen keine zusätzlichen Felder
-            break;
-            
-          default:
-            throw new Error('Unbekannter Operationstyp: ' + operation.type);
+          } else {
+            // add: payload sind die Eigenschaften des neuen Objekts
+            addOp({
+              type: 'add',
+              entity_type: section.entity_type,    // PLURAL!
+              entity_id: undefined,                // optional; wird beim Anwenden generiert
+              payload
+            });
+          }
+        });
+      }
+
+      // 4.2) Einzelobjekte (environment, terrain, camera, extensions)
+      // Diese werden als Updates auf stabile IDs betrachtet (z. B. env1/t1/cam1), aber für applyPatches
+      // reicht ein Update ohne vorhandenes Objekt – es wird als Konflikt behandelt, wenn nicht vorhanden.
+      const singleSections = [
+        { key: 'environment', entity_type: 'environment', entity_id: 'env1' },
+        { key: 'terrain',     entity_type: 'terrain',     entity_id: 't1'   },
+        { key: 'camera',      entity_type: 'camera',      entity_id: 'cam1' }
+      ];
+      for (const s of singleSections) {
+        if (src[s.key] && typeof src[s.key] === 'object') {
+          addOp({
+            type: 'update',
+            entity_type: s.entity_type, // SINGULAR Schlüssel erlaubt (Bucket wird bei Bedarf erzeugt)
+            entity_id: s.entity_id,
+            changes: JSON.parse(JSON.stringify(src[s.key]))
+          });
         }
       }
-      
+
+      // 4.3) extensions als Key-Map behandeln (add/update/delete je nach Differenz zum leeren Zustand)
+      if (src.extensions && typeof src.extensions === 'object') {
+        for (const [name, value] of Object.entries(src.extensions)) {
+          // add/update als add (payload enthält name und value/objekt)
+          const payload = typeof value === 'object' ? { ...value, name } : { name, value };
+          addOp({
+            type: 'add',
+            entity_type: 'extension',
+            entity_id: `extension_${name}`,
+            payload
+          });
+        }
+      }
+
+      // 5) Fallback: wenn keine Operationen abgeleitet wurden, aber der Nutzer im Kopf "operations: add" o. ä. gesetzt hat,
+      // dann versuchen wir minimal aus objects einen add abzuleiten
+      if (normalized.operations.length === 0 && Array.isArray(src.objects) && src.objects.length > 0) {
+        for (const item of src.objects) {
+          const payload = JSON.parse(JSON.stringify(item));
+          delete payload.id;
+          delete payload.delete;
+          if (payload.type && !payload.kind) payload.kind = payload.type;
+          addOp({
+            type: 'add',
+            entity_type: 'objects',
+            entity_id: undefined,
+            payload
+          });
+        }
+      }
+
       return normalized;
     } catch (e) {
       console.error('Fehler bei der Normalisierung des Patch-YAML:', e);
