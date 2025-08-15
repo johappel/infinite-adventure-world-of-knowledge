@@ -25,17 +25,13 @@ export class PatchManager {
 name: "Neuer Patch"
 description: "Beschreibung hier einfügen"
 
-# Fügen Sie hier Ihre Operationen hinzu
-# Beispiel:
-# operations:
-#   - type: add
-#     entity_type: object
-#     entity_id: new_object
-#     payload:
-#       kind: "tree"
-#       position: [0, 0, 0]
-#       scale: [1, 1, 1]
-#       color: "#1a4a1a"
+# name: "Baum hinzufügen"
+# operations: add
+# objects
+#   - type: "tree"
+#     position: [2, 0, -2]
+#     scale: [1, 1, 1]
+#     color: "#1a4a1a"
 `;
       }
       

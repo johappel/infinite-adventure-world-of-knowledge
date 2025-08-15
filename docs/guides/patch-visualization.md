@@ -21,7 +21,7 @@ Die Patch-Visualisierung ist eine Erweiterung des Preset-Editors, die es ermögl
 
 ### 1. Preset-Editor öffnen
 
-Öffne den Preset-Editor über `preset-editor.html` in deinem Browser.
+Öffne den Preset-Editor über `world-editor.html` in deinem Browser.
 
 ### 2. Welt laden oder erstellen
 
@@ -30,6 +30,13 @@ Lade eine vorhandene Welt oder erstelle eine neue:
 ```javascript
 // Welt aus YAML-Datei laden
 yamlHelpers.loadZone('worlds/sample_world.yaml')
+
+//von world_id laden
+
+setupFromId(world_id, editor, nostrService)
+- world_id: Nostr-Event-ID (NIP-33 d-Tag)
+- editor: Editor-Instanz (wird im Bootstrap-Prozess erstellt)
+- nostrService: await window.NostrServiceFactory.getNostrService(); //nostr oder indexDb
 
 // Oder eine neue Welt erstellen
 editor.createNewWorld()
@@ -44,7 +51,7 @@ Klicke auf den "Patch"-Tab oben im Editor, um zur Patch-Ansicht zu wechseln.
 ### Hauptkomponenten
 
 1. **3D-Visualisierungsbereich**: Zeigt die Welt mit visuellen Hervorhebungen für Patch-Änderungen
-2. **Patch-Liste**: Zeigt verfügbare Patches an, die auf die Welt angewendet werden können
+2. **Patch-Liste**: Zeigt verfügbare Patches an, die auf die Welt angewendet werden können (#patch-list-container .patch-list-content)
 3. **Patch-Editor**: YAML-Editor zum Erstellen und Bearbeiten von Patches
 4. **Visualisierungs-Controls**: Steuerelemente für die Darstellung der Patch-Änderungen
 
@@ -53,9 +60,13 @@ Klicke auf den "Patch"-Tab oben im Editor, um zur Patch-Ansicht zu wechseln.
 - **Grün**: Hinzugefügte Entitäten
 - **Rot**: Entfernte Entitäten
 - **Gelb**: Modifizierte Entitäten
-- **Blau**: Konflikte zwischen Patches
 
 ## Patches erstellen
+
+Modifizierende Patches (Operation: update, delete) auf Objekte angewendet werden, die eine id haben. Objekte, die eine Id haben sollten bei MouseOver im 3D Preview farblich hervorgehoben werden.
+Grundsätzlich können Objekte über die add Opreation hinzugefügt werden. 
+
+**Wenn eine Welt (Genesis) im 
 
 ### Methode 1: Visuell über den 3D-Editor
 
@@ -70,22 +81,26 @@ Klicke auf den "Patch"-Tab oben im Editor, um zur Patch-Ansicht zu wechseln.
 2. Gib deinen Patch im YAML-Format ein:
 
 ```yaml
-name: "Mein erster Patch"
-description: "Fügt einen Baum hinzu"
-author: "Dein Name"
-entities:
-  added:
-    objects:
-      - type: "tree"
-        position: [5, 0, 3]
-        scale: [1, 1, 1]
-        color: "#4a7c1e"
+name: "Mein erster Patch"            # erforderlich
+description: "Fügt einen Baum hinzu" # optional
+operations: add  # erforderlich: operations kommen nur im Patches vor, nicht in der genesis
+objects:
+  - type: "tree"
+    position: [5, 0, 3]
+    scale: [1, 1, 1]
+    color: "#4a7c1e"
 ```
 
-3. Klicke auf "Patch speichern"
-4. Gib einen Namen für deinen Patch ein und bestätige
+3. Klicke auf "Patch speichern" (jede entity erhält automatisch eine unigue id)
 
-## Patches bearbeiten
+
+## Patch anzeigen
+
+Beim Laden einer Genesis werden **automatisch alle Patches** in der Reihenfolge ihres entstehens (created_at) verarbeitet und in der 3D Ansicht wird die finale Welt mit allen gepatchten Veränderungen  gerenderd.
+
+Um die Auswirkung eines **einzelen Patches** anzuzeigen, klicke in der Liste auf einen Patch: Alle vorhergehenden Patches werden in der 3D Preview visualisiet. Die Elemente des aktuell angeklickten Patches werden ebenfalls in die Welt hinein gerenderd aber farblich hervorgehoben (siehe oben)
+
+## Eigene Patches bearbeiten (nur Author npub)
 
 1. Wähle in der Patch-Liste den Patch aus, den du bearbeiten möchtest
 2. Klicke auf das Bearbeiten-Symbol (✏️) neben dem Patch-Namen
@@ -93,13 +108,13 @@ entities:
 4. Nimm deine Änderungen vor
 5. Klicke auf "Patch aktualisieren"
 
-## Patches löschen
+## Patches löschen (nur Author npub)
 
 1. Wähle in der Patch-Liste den Patch aus, den du löschen möchtest
 2. Klicke auf das Löschen-Symbol (🗑️) neben dem Patch-Namen
 3. Bestätige die Löschung im Dialog
 
-## Patch-Visualisierung steuern
+## Fortgeschrittene Patch-Visualisierung steuern
 
 ### Visualisierungs-Optionen
 
@@ -107,44 +122,17 @@ Die Patch-Visualisierung bietet verschiedene Steuerungsmöglichkeiten:
 
 - **Highlight-Änderungen**: Zeigt hervorgehobene Änderungen an/aus
 - **Zeitbasierte Anwendung**: Spielt die Patch-Anwendung schrittweise ab
-- **Konflikt-Anzeige**: Zeigt Konflikte zwischen Patches an
-- **Animationsgeschwindigkeit**: Steuert die Geschwindigkeit der Zeitbasierten Anwendung
 
-### Tastenkürzel
+#### Tastenkürzel
+- `P`: Spiele alle patches nacheinander ab 
+- '+': schneller abspielen (zeitbasiert)
+- '-': langsamer abspielen
+- `Leertaste`: Pausiert/fortgesetzt den automatischen ablauf aller Patches
+- `N`: Nächhster Patch
+- `M`: Vorhergehender
 
-- `Leertaste`: Pausiert/fortgesetzt die zeitbasierte Anwendung
-- `P`: Wechselt zur Patch-Ansicht
-- `W`: Wechselt zur Welt-Ansicht
-- `S`: Speichert den aktuellen Patch
 
-## Fortgeschrittene Funktionen
-
-### Zeitbasierte Patch-Anwendung
-
-Die zeitbasierte Patch-Anwendung ermöglicht es dir, die Auswirkungen eines Patches schrittweise zu visualisieren:
-
-1. Erstelle oder lade einen Patch
-2. Aktiviere "Zeitbasierte Anwendung" in den Visualisierungs-Optionen
-3. Klicke auf "Abspielen", um die Animation zu starten
-4. Beobachte, wie die Änderungen schrittweise angewendet werden
-
-### Konfliktvisualisierung
-
-Wenn mehrere Patches auf dieselben Entitäten wirken, werden Konflikte visualisiert:
-
-1. Lade mehrere Patches, die sich überschneiden
-2. Aktiviere "Konflikt-Anzeige"
-3. Konfliktbereiche werden in Blau hervorgehoben
-4. Im Konflikt-Panel siehst du Details zu den Konflikten
-
-### Patch-Komposition
-
-Du kannst mehrere Patches kombinieren:
-
-1. Wähle in der Patch-Liste mehrere Patches aus
-2. Klicke auf "Patches kombinieren"
-3. Die kombinierten Änderungen werden visualisiert
-4. Speichere den kombinierten Patch als neuen Patch
+Die zeitbasierte Patch-Anwendung ermöglicht es dir, die Auswirkungen eines Patches schrittweise zu visualisieren
 
 ## Best Practices
 
@@ -154,39 +142,37 @@ Du kannst mehrere Patches kombinieren:
 - **Aussagekräftige Namen**: Verwende beschreibende Namen für deine Patches
 - **Dokumentation**: Füge Beschreibungen hinzu, um den Zweck des Patches zu erklären
 
-### Patch-Management
 
-- **Versionskontrolle**: Nutze Patches, um Änderungen nachvollziehbar zu machen
-- **Testen**: Visualisiere Patches immer vor dem Anwenden auf eine Produktionswelt
-- **Backup**: Erstelle Backups wichtiger Welten vor dem Anwenden von Patches
 
-### Performance
+## weitere Beispiele
 
-- **Komplexe Patches**: Bei sehr komplexen Patches kann die Visualisierung langsam sein
-- **Viele Entitäten**: Patches mit vielen Entitäten können die Leistung beeinträchtigen
-- **Optimierung**: Nutze die "Highlight-Änderungen"-Option, um die Performance zu verbessern
+```yaml
+name: "Baum hinzufügen"
+description: "Fügt einen einzelnen Baum zur Welt hinzu"
+operations: add 
+objects:
+  - type: "tree"
+    position: [5, 0, 3]
+    scale: [1, 1, 1]
+    color: "#4a7c1e"
+```
 
-## Fehlerbehebung
+```yaml
+name: "Baumfarbe ändern"
+description: "schöneres grün"
+operations: update 
+  - id: "existing-tree"
+    color: "#5a8c2e"
+```
 
-### Häufige Probleme
+```yaml
+name: "Baum entfernen"
+operations: delete 
+  - id: "existing-tree"
+```
 
-**Patch wird nicht visualisiert:**
 
-- Stelle sicher, dass der Patch korrekt formatiert ist
-- Überprüfe, ob der Patch auf die aktuelle Welt anwendbar ist
-- Prüfe die Browser-Konsole auf Fehlermeldungen
 
-**3D-Visualisierung funktioniert nicht:**
-
-- Stelle sicher, dass Three.js korrekt geladen ist
-- Überprüfe, ob der WebGL-Renderer unterstützt wird
-- Aktualisiere den Browser auf die neueste Version
-
-**Patch kann nicht gespeichert werden:**
-
-- Überprüfe die Netzwerkverbindung
-- Stelle sicher, dass du die notwendigen Berechtigungen hast
-- Prüfe, ob der Patch-Name bereits vergeben ist
 
 ### Debug-Optionen
 
@@ -243,49 +229,3 @@ await editor.deletePatch(patchId)
 // Zur Patch-Ansicht wechseln
 editor.switchTab('patch')
 ```
-
-## Beispiele
-
-### Einfacher Patch
-
-```yaml
-name: "Baum hinzufügen"
-description: "Fügt einen einzelnen Baum zur Welt hinzu"
-author: "Beispielautor"
-entities:
-  added:
-    objects:
-      - type: "tree"
-        position: [5, 0, 3]
-        scale: [1, 1, 1]
-        color: "#4a7c1e"
-```
-
-### Komplexer Patch
-
-```yaml
-name: "Wald erweitern"
-description: "Fügt mehrere Bäume und Felsen hinzu"
-author: "Beispielautor"
-entities:
-  added:
-    objects:
-      - type: "tree"
-        position: [5, 0, 3]
-        scale: [1, 1, 1]
-        color: "#4a7c1e"
-      - type: "tree"
-        position: [7, 0, 5]
-        scale: [1.2, 1.2, 1.2]
-        color: "#3d6b1a"
-      - type: "rock"
-        position: [3, 0, 2]
-        scale: [0.8, 0.6, 0.8]
-        color: "#8b7355"
-  modified:
-    objects:
-      - id: "existing-tree"
-        color: "#5a8c2e"
-```
-
-# Alternative 
