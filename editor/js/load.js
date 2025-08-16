@@ -8,6 +8,7 @@
 import { YamlProcessor } from './preset-editor/yaml-processor.js';
 import { createPatchKitAPI } from './patchkit-wiring.js';
 import PatchKit from '../../libs/patchkit/index.js';
+import { bootstrapPatchUI } from './patch-ui.js'; // PATCH-UI: Import korrigiert
 
 /**
  * Heuristiken für Anzeige-Name und YAML-Extraktion
@@ -57,6 +58,7 @@ function chooseYamlFromData(data) {
   if (data && typeof data?.content === 'string') {
     const maybe = extractYamlFromContentString(data.content);
     if (typeof maybe === 'string') return maybe;
+    else return '';
   }
   // Bereits geparstes Objekt: Factory-Objekt mappen, sonst normal dumpen
   if (data && typeof data === 'object') {
@@ -80,8 +82,8 @@ export function simulateInputEvent(element) {
     bubbles: true,
     cancelable: true,
   });
- 
-  // Löse die Events in der richtigen Reihenfolge aus
+
+  // Löse das Event aus
   element.dispatchEvent(inputEvent);
 }
 
@@ -113,7 +115,7 @@ export async function loadTemplates() {
       'worlds/presets/single_object.yaml',
       'worlds/presets/single_persona.yaml',
     ];
-    
+
     for (const file of templateFiles) {
       try {
         const response = await fetch(file, { cache: 'no-cache' });
@@ -185,16 +187,15 @@ export function setupWorldSearch(editor, nostrService) {
     const q = worldSearchInput.value.trim();
     const myToken = ++searchToken;
     if (!q) { hideResults(); return; }
-    
+
     try {
       const nostr = nostrService || await window.NostrServiceFactory.getNostrService();
       const items = await nostr.searchWorlds(q);
       
       if (myToken !== searchToken) return; // veraltete Antwort ignorieren
-      
       worldSearchResults.innerHTML = '';
       if (!items || !items.length) { hideResults(); return; }
-      
+
       worldSearchResults.style.display = 'block';
       worldSearchResults.style.minWidth = (worldSearchInput.offsetWidth + 'px');
 
@@ -207,7 +208,8 @@ export function setupWorldSearch(editor, nostrService) {
         const badge = it.type === 'patch' ? '🧩 Patch' : '🌱 Genesis';
         const displayName = getDisplayNameFromItem(it) || '(ohne Name)';
         div.textContent = `${it.id || '(ohne id)'} — ${displayName}  [${badge}]`;
-        
+
+
         div.addEventListener('click', async () => {
           try {
             let data = it;
@@ -247,9 +249,18 @@ export function setupWorldSearch(editor, nostrService) {
             }
             if (editor) {
               editor.worldId = data.id;
-              
-              // Now that the editor has the correct YAML, trigger the processing pipeline
-              await editor._processYamlInput();
+              simulateInputEvent(yamlEditor);
+            }
+
+            // PATCH-UI: Automatischer Patch-Ladevorgang (DEBUG: Zeile 585)
+            if (editor && editor.patchUI) {
+              try {
+                await editor.patchUI.load(data.id);
+                if (window.showToast) window.showToast('info', 'Patches geladen und angezeigt.');
+              } catch (e) {
+                console.error('Patch-UI Laden fehlgeschlagen:', e);
+                if (window.showToast) window.showToast('error', 'Patch-Anzeige fehlgeschlagen');
+              }
             }
 
             hideResults();
@@ -259,8 +270,9 @@ export function setupWorldSearch(editor, nostrService) {
             console.error(e);
           }
         });
+
         
-        div.addEventListener('mouseover', () => div.style.background = '#2d2d30');
+        div.addEventListener('mouseover', () => div.style.background = '#094771');
         div.addEventListener('mouseout', () => div.style.background = 'transparent');
         worldSearchResults.appendChild(div);
       });
@@ -273,7 +285,7 @@ export function setupWorldSearch(editor, nostrService) {
         if (i >= 0) worldSearchResults.setAttribute('aria-activedescendant', `wsr-${i}`);
       };
       
-      worldSearchInput.onkeydown = (ev) => {
+      worldSearchInput.onkeydown = (ev) => { 
         const children = Array.from(worldSearchResults.children);
         if (ev.key === 'ArrowDown') { 
           ev.preventDefault(); 
@@ -313,7 +325,6 @@ export async function setupPresetSelect(editor) {
     console.warn('Preset-Select oder YAML-Editor nicht gefunden');
     return;
   }
-  
   // Prüfe, ob die Optionsgruppen bereits existieren
   let localPresetsGroup = document.getElementById('localPresetsGroup');
   let worldFilesGroup = document.getElementById('worldFilesGroup');
@@ -362,7 +373,7 @@ export async function setupPresetSelect(editor) {
     for (const path of files) {
       const opt = document.createElement('option');
       opt.value = `file:${path}`;
-      opt.textContent = path.replace('worlds/','');
+      opt.textContent = path.replace('worlds/', '');
       worldFilesGroup.appendChild(opt);
     }
   }).catch(e => {
@@ -394,18 +405,14 @@ export async function setupPresetSelect(editor) {
         const yamlContent = YamlProcessor.safeYamlDump(spec);
         yamlEditor.value = yamlContent;
         // Aktualisiere die Welt-ID im Editor
-        if (editor) {
-          editor.worldId = uniqueId;
-        }
+        if (editor) editor.worldId = uniqueId;
         
         // URL-Parameter aktualisieren
         updateUrlParam(uniqueId);
         
         // Wert setzen
-        if (editor) {
-          editor.worldId = uniqueId;
-        }
-        
+        if (editor) editor.worldId = uniqueId;
+
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
       } catch (e) {
         console.error('Fehler beim Laden des lokalen Templates:', e);
@@ -414,7 +421,7 @@ export async function setupPresetSelect(editor) {
       return;
     }
     
-    // worlds/*.yaml Dateien
+    // worlds/*.yaml-Dateien
     if (v && v.startsWith('file:')) {
       const path = v.substring(5);
       try {
@@ -439,9 +446,7 @@ export async function setupPresetSelect(editor) {
         const yamlContent = YamlProcessor.safeYamlDump(spec);
         yamlEditor.value = yamlContent;
         // Aktualisiere die Welt-ID im Editor
-        if (editor) {
-          editor.worldId = uniqueId;
-        }
+        if (editor) editor.worldId = uniqueId;
         
         // URL-Parameter aktualisieren
         updateUrlParam(uniqueId);
@@ -449,27 +454,28 @@ export async function setupPresetSelect(editor) {
         // Aktualisiere die Vorschau - verwende die gleiche Methode wie in setupWorldSearch
         if (editor) {
           editor.worldId = uniqueId;
-          
+
           // Now that the editor has the correct YAML, trigger the processing pipeline
           yamlEditor.value = yamlContent;
           simulateInputEvent(yamlEditor);
         } else {
           console.error('Editor nicht verfügbar');
         }
-        
+
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
       } catch (e) {
         console.error('Fehler beim Laden der Welt-Datei:', e);
         if (window.showToast) window.showToast('error', 'Preset konnte nicht geladen werden: ' + (e?.message || e));
-      };
+      }
     }
   });
 }
+
 // Setup für die Render- und Reset-Buttons
 export function setupRenderResetButtons(editor) {
   const renderBtn = document.getElementById('renderBtn');
   const resetBtn = document.getElementById('resetBtn');
-  
+
   if (renderBtn) {
     renderBtn.addEventListener('click', async () => {
       try {
@@ -483,7 +489,7 @@ export function setupRenderResetButtons(editor) {
       }
     });
   }
-  
+
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
       try {
@@ -501,7 +507,7 @@ export function setupRenderResetButtons(editor) {
             editor.updatePreviewFromYaml();
           }
         }
-        
+
         if (window.showToast) window.showToast('info', 'Editor zurückgesetzt.');
       } catch (e) {
         console.error('Fehler beim Zurücksetzen:', e);
@@ -515,20 +521,20 @@ export function setupRenderResetButtons(editor) {
 export async function setupFromId(world_id, editor, nostrService) {
   const yamlEditor = document.getElementById('world-yaml-editor');
   const worldIdInput = document.getElementById('worldIdInput');
-  
+
   if (!yamlEditor) {
     console.error('YAML-Editor nicht gefunden');
     if (window.showToast) window.showToast('error', 'Editor nicht verfügbar');
     return;
   }
-  
+
   try {
     // Nostr-Service abrufen
-    const nostr = nostrService || await window.NostrServiceFactory.getNostrService();
+    const nostr = await window.NostrServiceFactory.getNostrService(); // Verwende getNostrService direkt
     
     // Welt anhand der ID abrufen
     const data = await nostr.getById(world_id);
-    
+
     if (!data) {
       throw new Error('Welt mit ID ' + world_id + ' nicht gefunden');
     }
@@ -557,27 +563,21 @@ export async function setupFromId(world_id, editor, nostrService) {
     yamlEditor.value = yamlText;
 
     // Welt-ID setzen
-    if (worldIdInput) {
-      worldIdInput.value = world_id;
-    }
-    
+    if (worldIdInput) worldIdInput.value = world_id;
+
     if (editor) {
       editor.worldId = world_id;
       simulateInputEvent(yamlEditor);
     }
 
-    // Laden der zugehörigen Patches
-    if (editor && editor.patchKitAPI) {
+    // PATCH-UI: Automatischer Patch-Ladevorgang (DEBUG: Zeile 585)
+    if (editor && editor.patchUI) {
       try {
-        const patches = await PatchKit.io.listPatchesByWorld(
-          world_id,
-          editor.patchKitAPI.io.patchPort
-        );
-        editor.currentPatches = patches;
-        if (window.showToast) window.showToast('info', `Geladene Patches: ${patches.length}`);
+        await editor.patchUI.load(world_id);
+        if (window.showToast) window.showToast('info', 'Patches geladen und angezeigt.');
       } catch (e) {
-        console.error('Patch-Laden fehlgeschlagen:', e);
-        if (window.showToast) window.showToast('error', 'Patches konnten nicht geladen werden');
+        console.error('Patch-UI Laden fehlgeschlagen:', e);
+        if (window.showToast) window.showToast('error', 'Patch-Anzeige fehlgeschlagen');
       }
     }
 
@@ -612,6 +612,10 @@ export async function initLoadFunctionality(editor, nostrService) {
   await loadTemplates();
   const patchKitAPI = await createPatchKitAPI(nostrService);
   editor.patchKitAPI = patchKitAPI;
+  
+  // PATCH-UI: Initialisierung (DEBUG: Zeile 616)
+  editor.patchUI = bootstrapPatchUI(patchKitAPI, editor.worldId);
+  
   setupWorldSearch(editor, nostrService);
   
   // Überprüfen, ob das presetSelect-Element existiert
@@ -622,9 +626,7 @@ export async function initLoadFunctionality(editor, nostrService) {
   } else {
     console.warn('presetSelect-Element nicht gefunden, setupPresetSelect wird nicht aufgerufen');
   }
-  
+
   // URL-Parameter-Handler einrichten
   setupUrlParameterHandler(editor, nostrService);
-  
-  // setupRenderResetButtons sind veraltet, da die UI-Elemente entfernt wurden.
 }

@@ -49,10 +49,9 @@ export class PatchUI {
   }
 
   _bindEvents() {
-    if (this.filterEl) {
+    if (this.filterEl) 
       this.filterEl.addEventListener('input', () => this._applyFilter());
-    }
-    if (this.rangeEl) {
+    if (this.rangeEl) 
       this.rangeEl.addEventListener('input', () => {
         if (this.applyUntilValueEl) {
           const n = Number(this.rangeEl.value || 0);
@@ -60,7 +59,6 @@ export class PatchUI {
         }
         this.renderPreview();
       });
-    }
   }
 
   async load(worldId) {
@@ -72,6 +70,7 @@ export class PatchUI {
       const list = await this.patchKit.io.patchPort.listPatchesByWorld(this.worldId);
       // Normalisieren/Parsen falls nötig
       this.patches = Array.isArray(list) ? list.map(x => this._ensurePatchObject(x)) : [];
+      console.log('[DEBUG PATCHES] Patches geladen:', this.patches);
       // Initial: alle included
       this.includes = new Map(this.patches.map(p => [p.id, true]));
       await this._computeOrderMarkCycles();
@@ -112,8 +111,7 @@ export class PatchUI {
       }
     } catch {}
     // Fallback: sicherstellen, dass eine id vorhanden ist
-    const p = { ...raw };
-    if (!p.id) p.id = p?.metadata?.id || p?.metadata?.patch_id || null;
+    const p = { ...raw }; if (!p.id) p.id = p?.metadata?.id || p?.metadata?.patch_id || null;
     return p;
   }
 
@@ -134,7 +132,7 @@ export class PatchUI {
         author_npub: await this.getAuthorNpub(),
         targets_world: worldId,
         operations
-      });
+      }).catch(console.error);
       
       // Speichere den ursprünglichen YAML-Text
       patch.originalYaml = modifiedYaml;
@@ -428,18 +426,25 @@ export class PatchUI {
       const li = document.createElement('li');
       li.className = 'patch-item' + (this.selectedId === p.id ? ' selected' : '');
       li.dataset.id = p.id;
+      li.dataset.world = p.metadata?.targets_world || '';
+      li.dataset.createdAt = p.metadata?.created_at || '';
 
       const inCycle = p._inCycle ? '<span class="cycle-badge">cycle</span>' : '';
-      const checked = this.includes.get(p.id) ? 'checked' : '';
+      const checked = this.includes.get(p.id) ? '' : 'checked'; // Standard: alle sichtbar (nicht ausgeblendet)
       
       // Erstelle Bearbeiten- und Löschen-Buttons
       const editButtonId = `edit-patch-${p.id}`;
       const deleteButtonId = `delete-patch-${p.id}`;
       
+      // Anzeige von Name und ID
+      const displayName = this._esc(p?.metadata?.name || p.id);
+      const displayId = this._esc(p.id);
+      
       li.innerHTML =
         '<div class="row">' +
-          `<label class="include-toggle"><input type="checkbox" data-inc="${p.id}" ${checked}> include</label>` +
-          `<span class="name">${this._esc(p?.metadata?.name || p.id)}</span>` +
+          `<label class="exclude-toggle"><input type="checkbox" data-inc="${p.id}" ${checked}>ausblenden</label>` +
+          `<span class="name">${displayName}</span>` +
+          `<span class="id">(${displayId})</span>` +
           inCycle +
           `<div class="patch-actions">` +
             `<button id="${editButtonId}" class="btn btn-sm btn-primary" title="Patch bearbeiten">✏️</button>` +
@@ -454,13 +459,18 @@ export class PatchUI {
         // Button-Klick nicht Doppel-behandeln
         if (ev.target && ev.target.matches('button')) return;
         this.selectPatch(p.id);
+        // PATCH-UI: Wechsel zum Patch-Tab beim Klick
+        if (this.editor && this.editor.uiManager) {
+          this.editor.uiManager.switchTab('patch');
+        }
       });
       
       {
         const cb = li.querySelector('input[type="checkbox"]');
         if (cb) {
           cb.addEventListener('change', (ev) => {
-            this.toggleInclude(p.id, ev.target.checked);
+            // Invertiere Wert für Include-Logik
+            this.toggleInclude(p.id, !ev.target.checked);
           });
         }
       }
@@ -668,7 +678,7 @@ export class PatchUI {
     } catch (error) {
       console.error('Fehler bei der Patch-Bearbeitung:', error);
       if (window.showToast) window.showToast('error', 'Patch-Bearbeitung fehlgeschlagen: ' + error.message);
-    }
+    }    
   }
   
   /**
