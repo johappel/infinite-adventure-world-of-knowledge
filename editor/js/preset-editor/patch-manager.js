@@ -517,6 +517,12 @@ description: "Beschreibung hier einfügen"
             
             // Zeige das Ergebnis (Genesis + Patch) an
             await this.editor.previewRenderer.updatePreviewFromObject(result.state);
+            
+            // Stelle sicher, dass die Szene gerendert wird
+            if (this.editor.threeJSManager && this.editor.threeJSManager.renderer) {
+              this.editor.threeJSManager.renderer.render(this.editor.threeJSManager.scene, this.editor.threeJSManager.camera);
+            }
+            
             this.editor._setStatus('Patch-Vorschau mit Genesis angezeigt', 'success');
             return;
           } catch (patchError) {

@@ -70,6 +70,9 @@ export function createPatchKitPorts(nostrService) {
 
   const patchPort = {
     async listByWorld(worldId) {
+      return this.listPatchesByWorld(worldId);
+    },
+    async listPatchesByWorld(worldId) {
       // Service hat keine direkte listByWorld; implementiere via get({kinds:[30312]}) und Filter
       if (!nostrService?.get) return [];
       const evts = await nostrService.get({ kinds: [30312] }).catch(() => []);

@@ -596,4 +596,32 @@ try {
       });
     }
   });
+
+  // Globale Funktion: Aktualisiert die Patch-Vorschau analog zur internen Logik,
+  // berücksichtigt dabei dependencies (yamlProcessor, patchManager, worldId).
+  // Hinweis: Der optionale Parameter 'tab' wird akzeptiert, die Funktion führt jedoch
+  // ausschließlich die Patch-Vorschau-Aktualisierung aus, wie gewünscht.
+  window.render_world = async function(tab) {
+    try {
+      const editor = window.presetEditor;
+      if (!editor) {
+        console.error('[render_world] Kein presetEditor verfügbar. Warten Sie auf die Initialisierung (window.load) oder prüfen Sie Fehler in der Konsole.');
+        return;
+      }
+
+      const obj = editor.yamlProcessor.parseYaml();
+      if (obj) {
+        const normalizedPatch = editor.yamlProcessor.normalizePatchYaml(obj);
+        // targets_world für Validierung/Vorschau setzen
+        try {
+          if (normalizedPatch && normalizedPatch.metadata && editor.worldId) {
+            normalizedPatch.metadata.targets_world = editor.worldId;
+          }
+        } catch {}
+        await editor.patchManager._updatePatchPreview(normalizedPatch);
+      }
+    } catch (e) {
+      console.error('[render_world] Fehler beim Aktualisieren der Patch-Vorschau:', e);
+    }
+  };
 } catch {}
