@@ -6,6 +6,8 @@
  */
 
 import { YamlProcessor } from './preset-editor/yaml-processor.js';
+import { createPatchKitAPI } from './patchkit-wiring.js';
+import PatchKit from '../../libs/patchkit/index.js';
 
 /**
  * Heuristiken für Anzeige-Name und YAML-Extraktion
@@ -71,6 +73,7 @@ function chooseYamlFromData(data) {
 // Funktion zum Simulieren eines Input-Events, welches das Rendern des ThreeJS Canvas auslöst
 export function simulateInputEvent(element) {
   if (!element) return;
+
   
   // Erstelle ein neues Input-Event
   const inputEvent = new Event('input', {
@@ -108,7 +111,7 @@ export async function loadTemplates() {
       'worlds/presets/player_test.yaml',
       'worlds/presets/single_terrain.yaml',
       'worlds/presets/single_object.yaml',
-      'worlds/presets/single_persona.yaml'
+      'worlds/presets/single_persona.yaml',
     ];
     
     for (const file of templateFiles) {
@@ -363,7 +366,7 @@ export async function setupPresetSelect(editor) {
       worldFilesGroup.appendChild(opt);
     }
   }).catch(e => {
-    console.error('Fehler beim Laden der Welt-Dateien:', e);
+    console.error('Fehler beim Laden der welt-Dateien:', e);
     const opt = document.createElement('option');
     opt.disabled = true;
     opt.textContent = '(Fehler beim Laden der Liste)';
@@ -398,16 +401,9 @@ export async function setupPresetSelect(editor) {
         // URL-Parameter aktualisieren
         updateUrlParam(uniqueId);
         
-        // Aktualisiere die Vorschau - verwende die gleiche Methode wie in setupWorldSearch
+        // Wert setzen
         if (editor) {
           editor.worldId = uniqueId;
-          
-          // Now that the editor has the correct YAML, trigger the processing pipeline
-          yamlEditor.value = yamlContent;
-          simulateInputEvent(yamlEditor);
-          
-        } else {
-          console.error('Editor nicht verfügbar');
         }
         
         if (window.showToast) window.showToast('success', 'Auswahl geladen.');
@@ -455,8 +451,8 @@ export async function setupPresetSelect(editor) {
           editor.worldId = uniqueId;
           
           // Now that the editor has the correct YAML, trigger the processing pipeline
-          //simulateInputEvent(yamlEditor);
-          await editor._processYamlInput();
+          yamlEditor.value = yamlContent;
+          simulateInputEvent(yamlEditor);
         } else {
           console.error('Editor nicht verfügbar');
         }
@@ -465,7 +461,7 @@ export async function setupPresetSelect(editor) {
       } catch (e) {
         console.error('Fehler beim Laden der Welt-Datei:', e);
         if (window.showToast) window.showToast('error', 'Preset konnte nicht geladen werden: ' + (e?.message || e));
-      }
+      };
     }
   });
 }
@@ -536,7 +532,7 @@ export async function setupFromId(world_id, editor, nostrService) {
     if (!data) {
       throw new Error('Welt mit ID ' + world_id + ' nicht gefunden');
     }
-    
+
     // YAML-Text extrahieren (gleiche Logik wie in setupWorldSearch)
     let yamlText;
     try {
@@ -556,10 +552,10 @@ export async function setupFromId(world_id, editor, nostrService) {
       }
       if (!yamlText) throw new Error('Konnte keinen YAML-Inhalt aus den Daten extrahieren.');
     }
-    
+
     // YAML in den Editor schreiben
     yamlEditor.value = yamlText;
-    
+
     // Welt-ID setzen
     if (worldIdInput) {
       worldIdInput.value = world_id;
@@ -567,11 +563,24 @@ export async function setupFromId(world_id, editor, nostrService) {
     
     if (editor) {
       editor.worldId = world_id;
-      
-      // Input-Event simulieren, um die Verarbeitung auszulösen
       simulateInputEvent(yamlEditor);
     }
-    
+
+    // Laden der zugehörigen Patches
+    if (editor && editor.patchKitAPI) {
+      try {
+        const patches = await PatchKit.io.listPatchesByWorld(
+          world_id,
+          editor.patchKitAPI.io.patchPort
+        );
+        editor.currentPatches = patches;
+        if (window.showToast) window.showToast('info', `Geladene Patches: ${patches.length}`);
+      } catch (e) {
+        console.error('Patch-Laden fehlgeschlagen:', e);
+        if (window.showToast) window.showToast('error', 'Patches konnten nicht geladen werden');
+      }
+    }
+
     if (window.showToast) window.showToast('success', 'Welt erfolgreich geladen.');
     
   } catch (e) {
@@ -601,7 +610,8 @@ export function setupUrlParameterHandler(editor, nostrService) {
 export async function initLoadFunctionality(editor, nostrService) {
   // Lade Templates aus YAML-Dateien
   await loadTemplates();
-  
+  const patchKitAPI = await createPatchKitAPI(nostrService);
+  editor.patchKitAPI = patchKitAPI;
   setupWorldSearch(editor, nostrService);
   
   // Überprüfen, ob das presetSelect-Element existiert
