@@ -57,6 +57,7 @@ description: "Beschreibung hier einfügen"
   }
 
   async editPatch(patchId) {
+    console.log('[DEBUG PATCH MANAGER] Lade Patch in den Editor:', patchId);
     try {
       if (!this.editor.worldId) {
         this.editor._setStatus('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.', 'error');

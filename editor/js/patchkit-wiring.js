@@ -1,5 +1,5 @@
 /**
- * PatchKit Wiring
+ * PatchKit Wiring (Interface)
  * Bindet PatchKit-IO an den Nostr-Service und mappt auf die erwarteten Facade-Methoden der lokalen PatchKit-Implementierung.
  * Erwartet: libs/patchkit/index.js (ESM) verfügbar. Nostr-Service kann optional sein.
  *

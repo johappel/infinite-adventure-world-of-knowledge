@@ -482,6 +482,7 @@ export class PatchUI {
    * @param {string} patchId - Die ID des zu bearbeitenden Patches
    */
   async _editPatch(patchId) {
+    console.log('[DEBUG PATCH UI] Lade Patch:', patchId);
     try {
       if (!this.editor) {
         console.warn('Kein Editor-Referenz für Patch-Bearbeitung verfügbar');

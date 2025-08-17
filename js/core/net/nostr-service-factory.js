@@ -1,3 +1,6 @@
+// This file contains a corrected version of the getById function.
+// The rest of the file remains unchanged from your original provided code.
+
 import { APP_MODE, RELAYS, IDENTITY_STRATEGY } from './config.js';
 import { ensureUniqueWorldId as _ensureUniqueWorldId } from './unique-id.js';
 
@@ -58,7 +61,7 @@ async function getIdentity() {
 function parseGenesisNameFromYaml(yaml) {
   try {
     const spec = window.jsyaml?.load ? window.jsyaml.load(yaml) : null;
-    return  spec?.metadata?.name || '';
+    return spec?.metadata?.name || '';
   } catch { return ''; }
 }
 
@@ -131,7 +134,15 @@ function wrapInterface(serviceImpl) {
       const matched = (patches || []).filter(e => {
         try {
           const p = JSON.parse(e.content);
-          return p && p.id === id && typeof p.payload === 'string';
+          // Check for a match on the main 'id' field (the world ID)
+          const worldIdMatch = p && p.id === id && typeof p.payload === 'string';
+
+          // NEW: Check for a match on the nested 'metadata.id' field (the patch ID)
+          const patchIdMatch = p && p.payload && typeof p.payload === 'string' &&
+                                JSON.parse(p.payload)?.metadata?.id === id;
+
+          // Return true if either of the IDs match
+          return worldIdMatch || patchIdMatch;
         } catch { return false; }
       });
       if (matched.length) {
