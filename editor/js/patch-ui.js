@@ -26,7 +26,7 @@ export class PatchUI {
     // Liste: bevorzugt .patch-list-content innerhalb des Containers
     this.listEl =
       opts.listEl ||
-      (this.container ? this.container.querySelector('.patch-list-content') : null);
+       (this.container ? this.container.querySelector('.patch-list-content') : null);
 
     // Filter / Range sind im aktuellen Layout optional/nicht vorhanden
     this.filterEl = opts.filterEl || null;
@@ -49,10 +49,8 @@ export class PatchUI {
   }
 
   _bindEvents() {
-    if (this.filterEl)
-      this.filterEl.addEventListener('input', () => this._applyFilter());
-    if (this.rangeEl)
-      this.rangeEl.addEventListener('input', () => {
+    if (this.filterEl) this.filterEl.addEventListener('input', () => this._applyFilter());
+    if (this.rangeEl) this.rangeEl.addEventListener('input', () => {
         if (this.applyUntilValueEl) {
           const n = Number(this.rangeEl.value || 0);
           this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
@@ -68,7 +66,7 @@ export class PatchUI {
 
     try {
       const list = await this.patchKit.io.patchPort.listPatchesByWorld(this.worldId);
-      // Normalisieren/Parsen falls nötig
+      // Normalisieren; Parsen falls nötig
       this.patches = Array.isArray(list) ? list.map(x => this._ensurePatchObject(x)) : [];
       console.log('[DEBUG PATCHES] Patches geladen:', this.patches);
       // Initial: alle included
@@ -77,10 +75,10 @@ export class PatchUI {
       this._applyFilter();
       this._setupRange();
       this.renderList();
-      // Details- und Konflikt-Panels werden nicht mehr gerendert
+      // Detail- und Konflikt-Panels werden nicht mehr gerendert
       this.renderPreview();
 
-      // Container-Panel ein-/ausblenden je nach Datenlage
+      // Container-Panel ein-/ausblenden je nach Datenlage.
       if (this.container) {
         if (this.patches.length > 0) {
           this.container.classList.remove('hidden');
@@ -88,14 +86,14 @@ export class PatchUI {
           this.container.classList.add('hidden');
           if (this.listEl) {
             this.listEl.innerHTML = '<div class="empty">Keine Patches gefunden.</div>';
+
           }
         }
       }
 
       if (window.showToast) window.showToast('success', 'Patches geladen.');
     } catch (e) {
-      if (window.showToast)
-        window.showToast(
+      if (window.showToast) window.showToast(
           'error',
           'Fehler beim Laden der Patches: ' + e.message,
         );
@@ -116,6 +114,7 @@ export class PatchUI {
             try {
               const asObj = typeof oy === 'string' ? JSON.parse(oy) : oy;
               if (asObj && asObj.metadata) metaFromOY = asObj.metadata;
+
               // Falls operations leer, ggf. übernehmen
               if (asObj && Array.isArray(asObj.operations) && (!parsed.operations || parsed.operations.length === 0)) {
                 parsed.operations = asObj.operations;
@@ -149,8 +148,8 @@ export class PatchUI {
         }
         return parsed;
       }
-    } catch {}
-    // Fallback: sicherstellen, dass eine id vorhanden ist
+    } catch {
+    } // Fallback: sicherstellen, dass eine id vorhanden ist
     const p = { ...raw };
     try {
       // Auch im Fallback versuchen, originalYaml zu verwerten
@@ -184,12 +183,11 @@ export class PatchUI {
           if (metaFromOY.targets_world) p.metadata.targets_world = metaFromOY.targets_world;
         }
       }
-    } catch {}
-    if (!p.id)
-      p.id = p?.metadata?.id || p?.metadata?.patch_id || null;
+    } catch {
+    }
+    if (!p.id) p.id = p?.metadata?.id || p?.metadata?.patch_id || null;
     return p;
   }
-
   async _computeOrderMarkCycles() {
     // computeOrder erwartet vollständige Patch-Objekte (mit metadata.id/depends_on)
     const { ordered, cycles } = await this.patchKit.world.computeOrder(
@@ -200,9 +198,7 @@ export class PatchUI {
     );
 
     // Liste der angezeigten IDs extrahieren (metadata.id bevorzugt, Fallback p.id)
-    this.order = (ordered || [])
-      .map(p => p?.metadata?.id || p?.id)
-      .filter(Boolean);
+    this.order = (ordered || []).map((p) => p?.metadata?.id || p.id).filter(Boolean);
 
     // Cycle-Markierung auf Patches spiegeln
     const cycleNodes = new Set();
@@ -219,10 +215,7 @@ export class PatchUI {
     }
 
     if (cycleNodes.size && window.showToast) {
-      window.showToast(
-        'error',
-        `Zyklen erkannt (${cycleNodes.size}). Reihenfolge ggf. unvollständig.`,
-      );
+      window.showToast('error', `Zyklen erkannt (${cycleNodes.size}). Reihenfolge ggf. unvollständig.`);
     }
 
     // Konfliktliste optional, falls computeOrder diese liefert (MVP liefert nur cycles)
@@ -234,7 +227,7 @@ export class PatchUI {
     if (!q) {
       this.filtered = [...this.patches];
     } else {
-      this.filtered = this.patches.filter(p => {
+      this.filtered = this.patches.filter((p) => {
         const name = (p?.metadata?.name || '').toLowerCase();
         const auth = (p?.metadata?.author || '').toLowerCase();
         return (
@@ -252,6 +245,7 @@ export class PatchUI {
     if (Number(this.rangeEl.value) > this.order.length) {
       this.rangeEl.value = String(this.order.length);
     }
+
     // Standard: bis zum Ende previewen, wenn kein Wert gesetzt ist
     if (
       (!this.rangeEl.value || this.rangeEl.value === '0') &&
@@ -259,6 +253,7 @@ export class PatchUI {
     ) {
       this.rangeEl.value = String(this.order.length);
     }
+
     if (this.applyUntilValueEl) {
       const n = Number(this.rangeEl.value || 0);
       this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
@@ -298,7 +293,7 @@ export class PatchUI {
       if (!p) continue;
       if (!this.filtered.includes(p)) continue;
       const li = document.createElement('li');
-      li.className = 'patch-item' + (this.selectedId === p.id ? ' selected' : '');
+      li.className = 'patch-item' + (this.selectedId === p.id ? ' selected' : '') ;
       li.dataset.id = p.id;
       li.dataset.world = p.metadata?.targets_world || '';
       li.dataset.createdAt = p.metadata?.created_at || '';
@@ -311,7 +306,7 @@ export class PatchUI {
       const deleteButtonId = `delete-patch-${p.id}`;
 
       // Anzeige von Name und ID (Name (Patch-ID))
-      const displayName = this._esc(p?.metadata?.name || '');
+      const displayName = this._esc(p?.metadata?.name || '') ;
       const displayId = this._esc(p.id);
       const nameHtml = displayName ? `${displayName} <span class="id">(${displayId})</span>` : `<span class="id">${displayId}</span>`;
 
@@ -332,7 +327,7 @@ export class PatchUI {
         // Button-Klick nicht doppel-behandeln
         if (ev.target && ev.target.matches('button')) return;
         this.selectPatch(p.id);
-        // PATCH-UI: Wechsel zum Patch-Tab beim Klick
+        // PATCH-UI: Wechsel zum Patch-Tab beim Klick.
         if (this.editor && this.editor.uiManager) {
           this.editor.uiManager.switchTab('patch');
         }
@@ -363,7 +358,7 @@ export class PatchUI {
         deleteButton.addEventListener('click', (ev) => {
           ev.stopPropagation();
           this._deletePatch(p.id);
-        });
+        })
       }
 
       this.listEl.appendChild(li);
@@ -380,7 +375,7 @@ export class PatchUI {
     const n = this.rangeEl ? Number(this.rangeEl.value || 0) : this.order.length;
     const upTo = this.order.slice(0, n);
 
-    const byId = new Map(this.patches.map(p => [p.id, p]));
+    const byId = new Map(this.patches.map(p => [p.id, p]) ) ;
     const selectedPatches = [];
     for (const id of upTo) {
       if (this.includes.get(id)) {
@@ -414,6 +409,7 @@ export class PatchUI {
       }
 
       if (this.applyUntilValueEl && this.rangeEl) this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
+
     } catch (e) {
       if (window.showToast) window.showToast('error', 'Preview fehlgeschlagen: ' + e.message);
     }
@@ -429,7 +425,7 @@ export class PatchUI {
 
   /**
    * Setzt den PatchVisualizer für die 3D-Visualisierung
-   * @param {PatchVisualizer} patchVisualizer - Der PatchVisualizer
+   * @param {PatchVisualizer} patchVisualizer - Der PatchVisualizer.
    */
   setPatchVisualizer(patchVisualizer) {
     this.patchVisualizer = patchVisualizer;
@@ -461,8 +457,9 @@ export class PatchUI {
     }
   }
 
+
   /**
-   * Setzt die Visualisierung zurück
+   * Setzt die Visualisierung zurück.
    */
   resetVisualization() {
     if (this.patchVisualizer) {
@@ -470,8 +467,9 @@ export class PatchUI {
     }
   }
 
+
   /**
-   * Aktualisiert die Pulsier-Animationen für Konflikt-Materialien
+   * Aktualisiert die Pulsier-Animationen für Konflikt-Materialien.
    */
   updateAnimations() {
     if (this.patchVisualizer) {
@@ -488,23 +486,56 @@ export class PatchUI {
       if (!this.editor) {
         console.warn('Kein Editor-Referenz für Patch-Bearbeitung verfügbar');
         if (window.showToast) {
-          window.showToast('error', 'Patch-Bearbeitung nicht verfügbar');
+          window.showToast('error', 'Patch-Bearbeitung nicht möglich: Kein Editor verfügbar.');
         }
         return;
       }
 
-      // Rufe die editPatch-Methode des Editors auf
-      await this.editor.editPatch(patchId);
+      // Finde den Patch in der bereits geladenen Liste (wie bei selectPatch)
+      const patch = this.patches.find(p => p.id === patchId);
+      if (!patch) {
+        console.error('Patch nicht in der Liste gefunden:', patchId);
+        if (window.showToast) {
+          window.showToast('error', 'Patch nicht gefunden.');
+        }
+        return;
+      }
+
+      // Verwende die gleiche Logik wie selectPatch, aber lade direkt in den Editor
+      const yamlContent = patch.originalYaml || this.patchKit.patch.serialize(patch, 'yaml');
+      
+      // Setze den YAML-Content im Patch-Editor
+      const patchTextarea = document.getElementById('patch-yaml-editor');
+      if (patchTextarea) {
+        patchTextarea.value = yamlContent;
+      }
+
+      // Wechsle zum Patch-Tab
+      if (this.editor.uiManager) {
+        this.editor.uiManager.switchTab('patch');
+      }
+
+      // Setze die aktuelle Patch-ID im Editor
+      if (this.editor.patchManager) {
+        this.editor.currentPatchId = patchId;
+      }
+
+      // Aktualisiere den Tab-Namen
+      if (this.editor.uiManager && this.editor.uiManager._updatePatchTabName) {
+        this.editor.uiManager._updatePatchTabName(patch.metadata?.name || 'Patch');
+      }
+
+      if (window.showToast) {
+        window.showToast('success', 'Patch zur Bearbeitung geladen.');
+      }
     } catch (error) {
       console.error('Fehler bei der Patch-Bearbeitung:', error);
       if (window.showToast) {
-        window.showToast(
-          'error',
-          'Patch-Bearbeitung fehlgeschlagen: ' + error.message,
-        );
+        window.showToast('error', 'Fehler bei der Patch-Bearbeitung: ' + error.message);
       }
     }
   }
+
 
   /**
    * Löscht einen Patch
@@ -514,21 +545,24 @@ export class PatchUI {
     try {
       if (!this.editor) {
         console.warn('Kein Editor-Referenz für Patch-Löschung verfügbar');
+        return;
+      }
+
+      // Überprüfe, ob der PatchManager verfügbar ist
+      if (!this.editor.patchManager || typeof this.editor.patchManager.deletePatch !== 'function') {
+        console.error('PatchManager oder deletePatch-Methode nicht verfügbar.');
         if (window.showToast) {
-          window.showToast('error', 'Patch-Löschung nicht verfügbar');
+          window.showToast('error', 'Patch-Löschung nicht möglich: PatchManager nicht verfügbar.');
         }
         return;
       }
 
-      // Rufe die deletePatch-Methode des Editors auf
-      await this.editor.deletePatch(patchId);
+      // Rufe die deletePatch-Methode des PatchManagers auf
+      await this.editor.patchManager.deletePatch(patchId);
     } catch (error) {
       console.error('Fehler bei der Patch-Löschung:', error);
       if (window.showToast) {
-        window.showToast(
-          'error',
-          'Patch-Löschung fehlgeschlagen: ' + error.message,
-        );
+        window.showToast('error', 'Fehler bei der Patch-Löschung: ' + error.message);
       }
     }
   }

@@ -613,8 +613,13 @@ export async function initLoadFunctionality(editor, nostrService) {
   const patchKitAPI = await createPatchKitAPI(nostrService);
   editor.patchKitAPI = patchKitAPI;
   
-  // PATCH-UI: Initialisierung (DEBUG: Zeile 616)
+  // PATCH-UI: Initialisierung
   editor.patchUI = bootstrapPatchUI(patchKitAPI, editor.worldId);
+  
+  // FIX: Editor-Referenz nach der Initialisierung setzen
+  if (editor.patchUI && editor) {
+    editor.patchUI.setEditor(editor);
+  }
   
   setupWorldSearch(editor, nostrService);
   

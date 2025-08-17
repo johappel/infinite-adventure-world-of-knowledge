@@ -69,17 +69,48 @@ description: "Beschreibung hier einfügen"
       }
 
       // Lade den Patch vom Server
-      const patchEvent = await this.editor.patchKit.io?.patchPort?.getById
-        ? this.editor.patchKit.io.patchPort.getById(patchId)
-        : null;
+      let patchEvent = null;
+      if (this.editor.patchKit.io?.patchPort?.getById) {
+        try {
+          patchEvent = await this.editor.patchKit.io.patchPort.getById(patchId);
+        } catch (error) {
+          console.error('Fehler beim Laden des Patches:', error);
+          this.editor._setStatus('Fehler beim Laden des Patches: ' + error.message, 'error');
+          if (window.showToast) {
+            window.showToast('error', 'Patch konnte nicht geladen werden: ' + error.message);
+          }
+          return;
+        }
+      }
 
-      if (!patchEvent) {
-        this.editor._setStatus('Patch nicht gefunden.', 'error');
+      if (!patchEvent || (typeof patchEvent === 'object' && Object.keys(patchEvent).length === 0)) {
+        console.error('Patch nicht gefunden oder leer:', patchEvent);
+        this.editor._setStatus('Patch nicht gefunden oder leer.', 'error');
+        if (window.showToast) {
+          window.showToast('error', 'Patch konnte nicht geladen werden: Patch nicht gefunden oder leer.');
+        }
         return;
       }
 
-      // Parse den Patch
-      const patch = this.editor.patchKit.patch.parse(patchEvent?.yaml || patchEvent);
+      // Parse den Patch - verwende originalYaml falls verfügbar, sonst das Event direkt
+      let patch;
+      if (patchEvent.originalYaml && typeof patchEvent.originalYaml === 'string') {
+        // originalYaml ist bereits ein String, parse direkt
+        patch = this.editor.patchKit.patch.parse(patchEvent.originalYaml);
+      } else if (patchEvent.yaml && typeof patchEvent.yaml === 'string') {
+        // yaml ist bereits ein String, parse direkt
+        patch = this.editor.patchKit.patch.parse(patchEvent.yaml);
+      } else if (patchEvent.metadata && patchEvent.operations) {
+        // Event ist bereits ein geparster Patch
+        patch = patchEvent;
+      } else {
+        console.error('Unbekanntes Patch-Format:', patchEvent);
+        this.editor._setStatus('Unbekanntes Patch-Format.', 'error');
+        if (window.showToast) {
+          window.showToast('error', 'Patch-Format wird nicht unterstützt.');
+        }
+        return;
+      }
 
       // Setze die aktuelle Patch-ID
       this.editor.currentPatchId = patchId;
@@ -135,17 +166,28 @@ description: "Beschreibung hier einfügen"
       }
       
       // Lade den Patch vom Server, um zu prüfen, ob der aktuelle Benutzer der Autor ist
-      const patchEvent = await this.editor.patchKit.io?.patchPort?.getById
-        ? this.editor.patchKit.io.patchPort.getById(patchId)
-        : null;
+      let patchEvent = null;
+      if (this.editor.patchKit.io?.patchPort?.getById) {
+        patchEvent = await this.editor.patchKit.io.patchPort.getById(patchId);
+      }
         
       if (!patchEvent) {
         this.editor._setStatus('Patch nicht gefunden.', 'error');
         return;
       }
       
-      // Parse den Patch
-      const patch = this.editor.patchKit.patch.parse(patchEvent?.yaml || patchEvent);
+      // Parse den Patch - verwende originalYaml falls verfügbar, sonst das Event direkt
+      let patch;
+      if (patchEvent.originalYaml && typeof patchEvent.originalYaml === 'string') {
+        // originalYaml ist bereits ein String, parse direkt
+        patch = this.editor.patchKit.patch.parse(patchEvent.originalYaml);
+      } else if (patchEvent.yaml && typeof patchEvent.yaml === 'string') {
+        // yaml ist bereits ein String, parse direkt
+        patch = this.editor.patchKit.patch.parse(patchEvent.yaml);
+      } else {
+        // Fallback: verwende das Event direkt (falls es bereits geparst ist)
+        patch = patchEvent;
+      }
 
       // Ermittle author_npub aus aktiver Identität
       let author_npub = 'npub0';
@@ -289,16 +331,27 @@ description: "Beschreibung hier einfügen"
       }
       
       // Lade den Patch vom Server
-      const patchEvent = await this.editor.patchKit.io?.patchPort?.getById
-        ? this.editor.patchKit.io.patchPort.getById(patchId)
-        : null;
+      let patchEvent = null;
+      if (this.editor.patchKit.io?.patchPort?.getById) {
+        patchEvent = await this.editor.patchKit.io.patchPort.getById(patchId);
+      }
       
       if (!patchEvent) {
         throw new Error('Patch nicht gefunden.');
       }
       
-      // Parse den Patch
-      const patch = this.editor.patchKit.patch.parse(patchEvent?.yaml || patchEvent);
+      // Parse den Patch - verwende originalYaml falls verfügbar, sonst das Event direkt
+      let patch;
+      if (patchEvent.originalYaml && typeof patchEvent.originalYaml === 'string') {
+        // originalYaml ist bereits ein String, parse direkt
+        patch = this.editor.patchKit.patch.parse(patchEvent.originalYaml);
+      } else if (patchEvent.yaml && typeof patchEvent.yaml === 'string') {
+        // yaml ist bereits ein String, parse direkt
+        patch = this.editor.patchKit.patch.parse(patchEvent.yaml);
+      } else {
+        // Fallback: verwende das Event direkt (falls es bereits geparst ist)
+        patch = patchEvent;
+      }
 
       // Lade die Genesis-Daten
       const genesisData = await this.editor.previewRenderer._getCurrentGenesisData();
