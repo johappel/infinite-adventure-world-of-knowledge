@@ -482,6 +482,8 @@ export const world = {
   },
 
   async applyPatches(genesisObj, orderedPatches, options = {}) {
+    console.log('[DEBUG] Merge Patches mit genesisData:', genesisObj, 'und patches:', orderedPatches);
+
     // MVP world state is a deep clone of genesis.entities; operations apply sequentially
     const baseEntities = safeClone(genesisObj?.entities || {});
     const state = { entities: baseEntities, meta: { genesis_id: genesisObj?.metadata?.id } };
@@ -530,6 +532,7 @@ export const world = {
         }
       }
     }
+    console.log('[DEBUG] Welt gemerged :',  state);
     return { state, diffs, conflicts };
   },
 

@@ -165,6 +165,7 @@ export class PreviewRenderer {
         : null;
       
       if (genesisEvt) {
+
         const extractedYaml = this.editor.yamlProcessor.readWorldYAMLFromString(genesisEvt.yaml);
         if(extractedYaml){
             return extractedYaml;

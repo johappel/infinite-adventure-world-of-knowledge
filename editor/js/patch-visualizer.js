@@ -30,6 +30,7 @@ export class PatchVisualizer {
      * @returns {Promise<Object>} - Informationen über die visualisierten Patches
      */
     async visualizePatches(genesisData, patches, options = {}) {
+        console.log('[DEBUG applyPatches] visualizePatches:', patches, 'mit Genesis-Daten:', genesisData, 'und Optionen:', options);
         if (!this.threeJSManager || !this.threeJSManager.initialized) {
             throw new Error('Three.js Manager nicht initialisiert');
         }
@@ -50,7 +51,7 @@ export class PatchVisualizer {
 
             // Wende die Patches an und erhalte die Ergebnisse
             const patchResults = await this.applyPatchesForVisualization(genesisData, patches);
-
+            
             // Rendere die resultierende Welt
             await this.threeJSManager.renderWorld(patchResults.state);
 
@@ -89,9 +90,7 @@ export class PatchVisualizer {
             patchKit = window.presetEditor.patchKit;
         }
 
-        console.log('[DEBUG] Wende Patches an mit genesisData:', genesisData, 'und patches:', patches);
         const result = await patchKit.world.applyPatches(genesisData, patches);
-        console.log('[DEBUG] Patch-Anwendungsergebnis:', result);
         
         return result;
     }

@@ -551,6 +551,11 @@ export class YamlProcessor {
       return null;
     }
   }
+  parseYaml(str) {
+    return YamlProcessor.safeYamlParse(str);
+  }
+
+  
 
   /**
    * Validiert den aktuellen YAML-Content des Editors

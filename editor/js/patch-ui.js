@@ -390,19 +390,27 @@ export class PatchUI {
         if (p) selectedPatches.push(p);
       }
     }
+   
 
     try {
-      
       // Sicherstellen: Genesis und Visualizer verfügbar (verhindert Fallback, der die Welt ersetzt)
-      if (!this.genesisData && this.editor?.previewRenderer?._getCurrentGenesisData) {
+      if (!this.genesisData && await this.editor.previewRenderer._getCurrentGenesisData) {
         try {
           const g = await this.editor.previewRenderer._getCurrentGenesisData();
-          if (g) this.genesisData = g;
+          console.log('[DEBUG applyPatches] Aktuelle Genesis-Daten:', g);
+          //convert yaml to genesisData
+          const gen_obj = this.editor.yamlProcessor.parseYaml(g);
+          console.log('[DEBUG applyPatches] Konvertierte YAML zu Genesis-Daten:', gen_obj);
+
+          if (gen_obj) this.genesisData = gen_obj;
         } catch {}
       }
+
+      console.log('[DEBUG applyPatches] Genesis-Daten:', this.genesisData);
       if (!this.patchVisualizer && this.editor?.patchVisualizer) {
         this.setPatchVisualizer(this.editor.patchVisualizer);
       }
+      
 
       // Wenn Genesis-Daten und PatchVisualizer vorhanden sind, visualisiere die Patches
       if (this.genesisData && this.patchVisualizer) {
@@ -412,6 +420,7 @@ export class PatchUI {
         });
       } else {
         // Fallback: Nur die Patch-Anwendung ohne Visualisierung (keine 3D-Darstellung)
+        console.warn('[DEBUG applyPatches] Genesis-Daten oder PatchVisualizer fehlen, wende Patches ohne Visualisierung an.');
         const base = { entities: {} }; // minimale Basis-Welt
         await this.patchKit.world.applyPatches(base, selectedPatches);
       }

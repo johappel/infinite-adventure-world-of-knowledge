@@ -647,6 +647,7 @@ objects:
    * @param {Object} options - Optionen für die Visualisierung
    */
   async visualizePatches(patches, options = {}) {
+    console.log('[DEBUG applyPatches] Visualisiere Patches:', patches, 'mit Optionen:', options);
     try {
       if (!this.editor.patchVisualizer) {
         this.editor._setStatus('Patch-Visualizer nicht initialisiert', 'error');
