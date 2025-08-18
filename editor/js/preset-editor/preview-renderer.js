@@ -155,7 +155,6 @@ export class PreviewRenderer {
    * @returns {Object|null} - Die Genesis-Daten oder null bei Fehler
    */
   async _getCurrentGenesisData() {
-    const { YamlProcessor } = await import('./yaml-processor.js');
     try {
       if (!this.editor.worldId) {
         return null;
@@ -166,9 +165,7 @@ export class PreviewRenderer {
         : null;
       
       if (genesisEvt) {
-        
-
-        const extractedYaml = YamlProcessor.processStringToYaml(genesisEvt.yaml);
+        const extractedYaml = this.editor.yamlProcessor.readYamlFromString(genesisEvt.yaml);
         if(extractedYaml){
             return extractedYaml;
         }else{

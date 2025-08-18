@@ -3,6 +3,7 @@
  * Verwaltung von Patch-Operationen wie Erstellen, Bearbeiten, Löschen, Anwenden
  */
 
+
 export class PatchManager {
   constructor(editor) {
     this.editor = editor;
@@ -117,7 +118,10 @@ description: "Beschreibung hier einfügen"
       this.editor.currentPatchId = patchId;
 
       // Konvertiere den Patch in das benutzerfreundliche YAML-Format
+      // @todo: wir brauchen hier den YAML-Prozessor
+      
       const yamlText = patchEvent.originalYaml || this._convertPatchToYaml(patch);
+      
 
       // Setze den YAML-Content im Editor
       const yamlEditor = document.getElementById('patch-yaml-editor');

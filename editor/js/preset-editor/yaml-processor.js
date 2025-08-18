@@ -540,6 +540,17 @@ export class YamlProcessor {
       return null;
     }
   }
+  // Liest YAML aus content string eines nostr events 
+  readYamlFromString(str) {
+    try {
+      const obj = YamlProcessor.processStringToYaml(str);
+      return obj;
+    } catch (e) {
+      console.error('Fehler beim Lesen des YAML-Strings:', e);
+      this.editor._setStatus('Fehler beim Lesen des YAML-Strings: ' + e.message, 'error');
+      return null;
+    }
+  }
 
   /**
    * Validiert den aktuellen YAML-Content des Editors
