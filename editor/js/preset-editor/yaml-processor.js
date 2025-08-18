@@ -540,8 +540,8 @@ export class YamlProcessor {
       return null;
     }
   }
-  // Liest YAML aus content string eines nostr events 
-  readYamlFromString(str) {
+  // Liest YAML aus content string eines nostr genesis events 
+  readWorldYAMLFromString(str) {
     try {
       const obj = YamlProcessor.processStringToYaml(str);
       return obj;
@@ -632,10 +632,37 @@ export class YamlProcessor {
    */
   static safeYamlDump(obj) {
     try {
-      // Spezielle Behandlung für terrain.size - immer als Flow-Array
-      // Prüfe sowohl direkte terrain.size als auch normalisierte Struktur (terrain.terrain_1.size)
-      let terrainSize = null;
+      // Kopie des Objekts für Manipulationen
       let objCopy = JSON.parse(JSON.stringify(obj));
+      
+      // SPEZIALFALL: Wenn ein operations-Array vorliegt und ALLE Operationen vom Typ 'add' sind,
+      // dann konvertiere in das autorfreundliche Format: operations: "add" + objects: [ ...payloads... ]
+      try {
+        const ops = objCopy && objCopy.operations;
+        if (Array.isArray(ops) && ops.length > 0 && ops.every(op => op && op.type === 'add' && op.payload && typeof op.payload === 'object')) {
+          // Baue Autor-Objekt inkl. verfügbarer Metadaten (falls vorhanden)
+          const authorObj = {};
+          if (obj.name) authorObj.name = obj.name;
+          if (obj.description) authorObj.description = obj.description;
+          if (obj.id) authorObj.id = obj.id;
+          // operations als String und objects-Array aus payloads
+          authorObj.operations = "add";
+          authorObj.objects = ops.map(op => JSON.parse(JSON.stringify(op.payload)));
+          return jsyaml.dump(authorObj, {
+            lineWidth: 120,
+            indent: 2,
+            noRefs: true,
+            sortKeys: false,
+            flowLevel: 3
+          });
+        }
+      } catch (e) {
+        // Fehler hier dürfen den regulären Dump nicht verhindern
+        console.warn('Patch-Konvertierung übersprungen:', e);
+      }
+
+      // Spezielle Behandlung für terrain.size - immer als Flow-Array
+      let terrainSize = null;
       
       // Fall 1: Direkte terrain.size Struktur
       if (objCopy && objCopy.terrain && Array.isArray(objCopy.terrain.size)) {
@@ -644,7 +671,6 @@ export class YamlProcessor {
       }
       // Fall 2: Normalisierte Struktur mit terrain.terrain_1.size
       else if (objCopy && objCopy.terrain) {
-        // Suche nach terrain_X Schlüsseln
         const terrainKeys = Object.keys(objCopy.terrain).filter(key => key.startsWith('terrain_'));
         if (terrainKeys.length > 0) {
           const firstTerrainKey = terrainKeys[0];
@@ -678,7 +704,6 @@ export class YamlProcessor {
           yamlText = yamlText.replace(
             normalizedTerrainRegex,
             (match, content) => {
-              const lines = content.split('\n').filter(line => line.trim());
               const indentedSize = `    size: [${terrainSize.join(', ')}]`;
               return match + indentedSize + '\n';
             }
@@ -753,6 +778,7 @@ export class YamlProcessor {
     if (!obj || typeof obj !== 'object' || !YamlProcessor.isFactorySchema(obj)) return null;
     const md = obj.metadata || {};
     const entities = obj.entities || {};
+    const operations = obj.operations || null;
 
     // Erstes Value aus Map (z. B. environment_1, terrain_1)
     const firstValue = (m) => {
@@ -793,6 +819,8 @@ export class YamlProcessor {
     const personas = mapToArray(entities.personas);
     if (personas) spec.personas = personas;
 
+    if (operations) spec.operations = operations;
+
     if (obj.rules && typeof obj.rules === 'object' && Object.keys(obj.rules).length) {
       spec.rules = obj.rules;
     }
@@ -823,6 +851,7 @@ export class YamlProcessor {
 
     try {
       const parsed = JSON.parse(str);
+      console.log('[DEBUG] parsed String:', parsed);
 
       // Patch-Event: payload enthält den ursprünglichen YAML-Text
       if (parsed && typeof parsed.payload === 'string') {

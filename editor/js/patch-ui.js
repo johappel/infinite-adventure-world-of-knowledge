@@ -278,7 +278,12 @@ export class PatchUI {
     // Lade den Inhalt des Patches in den Editor
     const patch = this.patches.find(p => p.id === id);
     if (patch && this.editor && this.editor.patchTextarea) {
-      const yamlContent = patch.originalYaml || this.patchKit.patch.serialize(patch, 'yaml');
+      // const yamlContent = patch.originalYaml || this.patchKit.patch.serialize(patch, 'yaml');
+      // const yamlContent = this.patchKit.patch.serialize(patch, 'yaml');
+      console.log('[DEBUG PATCH] Lade Patch:', patch.originalYaml);
+      const yamlContent = this.editor.yamlProcessor.readWorldYAMLFromString(patch.originalYaml);
+      // this.editor.yamlProcessor.readWorldYAMLFromString(yamlContent);
+      // Setze den Inhalt des Patch-Editors
       this.editor.patchTextarea.value = yamlContent;
 
       // Wechsle zum Patch-Tab
@@ -352,7 +357,8 @@ export class PatchUI {
         editButton.addEventListener('click', async (ev) => {
           ev.stopPropagation();
           // HINWEIS: await hinzugefügt
-          await this._editPatch(p.id);
+          this.selectPatch(p.id);
+          // await this._editPatch(p.id);
         });
       }
 

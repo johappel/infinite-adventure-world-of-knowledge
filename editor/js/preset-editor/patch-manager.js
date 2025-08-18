@@ -193,7 +193,7 @@ description: "Beschreibung hier einfügen"
         // Fallback: verwende das Event direkt (falls es bereits geparst ist)
         patch = patchEvent;
       }
-
+      // @todo: author_npub ermitteln
       // Ermittle author_npub aus aktiver Identität
       let author_npub = 'npub0';
       try {
@@ -221,7 +221,7 @@ description: "Beschreibung hier einfügen"
       
       // Prüfe, ob der aktuelle Benutzer der Autor ist
       const patchAuthor = patch.metadata?.author_npub || patch.author_npub || patch.author || patch.pubkey;
-      const isAuthor = patchAuthor === author_npub;
+      const isAuthor = patchAuthor === author_npub || patchAuthor === 'npub0';
       
       if (!isAuthor) {
         this.editor._setStatus('Sie können nur Ihre eigenen Patches löschen.', 'error');
