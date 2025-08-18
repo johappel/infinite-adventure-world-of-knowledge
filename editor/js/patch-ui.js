@@ -317,10 +317,10 @@ export class PatchUI {
       // Schlanke Zeile wie gefordert (keine weiteren Details/Meta/Badges)
       li.innerHTML =
         '<div class="row">' +
-          `<label class="exclude-toggle"><input type="checkbox" data-inc="${p.id}" ${checked}>ausblenden</label>` +
+          `<!-- <label class="exclude-toggle"><input type="checkbox" data-inc="${p.id}" ${checked}>ausblenden</label> -->` +
           `<span class="name">${nameHtml}</span>` +
           `<div class="patch-actions">` +
-            `<button id="${editButtonId}" class="btn btn-sm btn-primary" title="Patch bearbeiten">✏️</button>` +
+            `<!-- <button id="${editButtonId}" class="btn btn-sm btn-primary" title="Patch bearbeiten">✏️</button> -->` +
             `<button id="${deleteButtonId}" class="btn btn-sm btn-danger" title="Patch löschen">🗑️</button>` +
           `</div>` +
         '</div>';

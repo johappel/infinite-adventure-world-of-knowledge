@@ -140,6 +140,7 @@ export class PresetEditor {
         // Prüfe zuerst, ob eine World ID verfügbar ist
         if (!this.worldId) {
           this._setStatus('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.', 'error');
+          console.warn('[PATCH ERROR] Keine World ID gesetzt');
           return;
         }
 
@@ -308,6 +309,27 @@ export class PresetEditor {
     // Buttons aus world-editor.html
     const newWorldBtn = document.getElementById('newWorldBtn');
     if (newWorldBtn) newWorldBtn.addEventListener('click', () => this.worldManager.createNewWorld());
+    
+    // Neuer Patch-Button: delegiere Aktion an PatchManager (bind einmalig)
+    const newPatchBtn = document.getElementById('newPatchBtn');
+    if (newPatchBtn && !newPatchBtn._listenerAdded) {
+      newPatchBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          if (!this.patchManager || typeof this.patchManager.createNewPatch !== 'function') {
+            console.warn('PatchManager nicht verfügbar');
+            return;
+          }
+          await this.patchManager.createNewPatch();
+          // UI aktualisieren (sichtbarkeit/disabled)
+          try { this.uiManager.updateUIState(); } catch {}
+        } catch (err) {
+          console.error('[Core] Fehler beim Erstellen eines neuen Patches:', err);
+          this._setStatus && this._setStatus('Neuer Patch fehlgeschlagen: ' + (err?.message || err), 'error');
+        }
+      });
+      newPatchBtn._listenerAdded = true;
+    }
     
     const loadWorldBtn = document.getElementById('loadWorldBtn');
     if (loadWorldBtn) loadWorldBtn.addEventListener('click', () => this.worldManager.loadWorldByIdFromInput());

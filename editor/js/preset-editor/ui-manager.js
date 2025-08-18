@@ -244,6 +244,9 @@ export class UIManager {
       const saveGenesisBtn = document.getElementById('saveGenesisBtn');
       
       if (worldTab && patchTab && worldEditor && patchEditor) {
+        const newWorldBtn = document.getElementById('newWorldBtn');
+        const newPatchBtn = document.getElementById('newPatchBtn');
+
         if (tabName === 'world') {
           worldTab.classList.add('active');
           patchTab.classList.remove('active');
@@ -253,6 +256,9 @@ export class UIManager {
           // Buttons: im Welt-Tab Genesis speichern sichtbar, Patch speichern ausblenden
           if (savePatchBtn) savePatchBtn.style.display = 'none';
           if (saveGenesisBtn) saveGenesisBtn.style.display = 'inline-block';
+          // Neuen-World-Button zeigen, NewPatch ausblenden
+          if (newWorldBtn) newWorldBtn.style.display = 'inline-block';
+          if (newPatchBtn) newPatchBtn.style.display = 'none';
         } else if (tabName === 'patch') {
           worldTab.classList.remove('active');
           patchTab.classList.add('active');
@@ -262,6 +268,9 @@ export class UIManager {
           // Buttons: im Patch-Tab Patch speichern sichtbar, Genesis speichern optional ausblenden
           if (savePatchBtn) savePatchBtn.style.display = 'inline-block';
           if (saveGenesisBtn) saveGenesisBtn.style.display = 'none';
+          // Neuen-Patch-Button zeigen, NewWorld ausblenden
+          if (newWorldBtn) newWorldBtn.style.display = 'none';
+          if (newPatchBtn) newPatchBtn.style.display = 'inline-block';
         }
       }
       
@@ -430,9 +439,6 @@ export class UIManager {
     }
   }
 
-  /**
-   * Aktualisiert den Status der UI-Elemente basierend auf dem aktuellen Zustand
-   */
   /**
    * Aktualisiert den Status der UI-Elemente basierend auf dem aktuellen Zustand
    */

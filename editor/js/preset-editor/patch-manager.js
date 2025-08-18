@@ -25,14 +25,12 @@ export class PatchManager {
         yamlEditor.value = `# Neuer Patch
 name: "Neuer Patch"
 description: "Beschreibung hier einfügen"
-
-# name: "Baum hinzufügen"
-# operations: add
-# objects
-#   - type: "tree"
-#     position: [2, 0, -2]
-#     scale: [1, 1, 1]
-#     color: "#1a4a1a"
+operations: add
+objects:
+   - type: "box"
+     position: [2, 0, -2]
+     scale: [1, 1, 1]
+     color: "#1a4a1a"
 `;
       }
 
