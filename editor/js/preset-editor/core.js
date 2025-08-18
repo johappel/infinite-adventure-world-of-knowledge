@@ -138,6 +138,7 @@ export class PresetEditor {
         }
       } else if (this.activeTab === 'patch') {
         // Prüfe zuerst, ob eine World ID verfügbar ist
+        this._getWorldId();
         if (!this.worldId) {
           this._setStatus('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.', 'error');
           console.warn('[PATCH ERROR] Keine World ID gesetzt');
@@ -286,11 +287,19 @@ export class PresetEditor {
       }
 
       this._setStatus('Bereit.', 'info');
+      this.worldIdInput = document.getElementById('worldIdInput');
+      
     } catch (err) {
       this._setStatus('Fehler bei Initialisierung: ' + err.message, 'error');
     }
   }
-
+  _getWorldId() {
+    if(this.worldIdInput.value) {
+        this.worldId = this.worldIdInput.value;
+        return this.worldId;
+    }
+    return null;
+  }
   /**
    * Bindet grundlegende UI-Events
    * @private
@@ -333,6 +342,7 @@ export class PresetEditor {
     
     const loadWorldBtn = document.getElementById('loadWorldBtn');
     if (loadWorldBtn) loadWorldBtn.addEventListener('click', () => this.worldManager.loadWorldByIdFromInput());
+      
     
     // Idempotente Bindung des Save-Buttons (nur einmal)
     this._bindSaveButton();
