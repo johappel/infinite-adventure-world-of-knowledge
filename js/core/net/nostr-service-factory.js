@@ -199,7 +199,7 @@ function wrapInterface(serviceImpl) {
     async saveOrUpdate({ id, name, type, yaml, originalYaml, pubkey }) {
       if (!id || !type || !yaml || !pubkey) throw new Error('Ungültige Parameter für saveOrUpdate');
       const now = Math.floor(Date.now() / 1000);
-
+ 
       if (type === 'genesis') {
         // Prüfe vorhandene Genesis mit gleicher d=id
         const existing = await this.getById(id);
@@ -223,7 +223,7 @@ function wrapInterface(serviceImpl) {
         await this.publish(evt);
         return { ok: true, id, kind: 30311, eventId: evt.id };
       }
-
+ 
       if (type === 'patch') {
         // Patch: 30312, content JSON mit payload
         // Verwende originalYaml falls vorhanden, sonst yaml
@@ -235,10 +235,46 @@ function wrapInterface(serviceImpl) {
         await this.publish(evt);
         return { ok: true, id, kind: 30312, eventId: evt.id };
       }
-
+ 
       throw new Error('Unbekannter Typ in saveOrUpdate');
     },
+    
 
+    // Delete-Funktion: löscht alle Patches einer Welt (oder sendet eine Lösch-Anweisung)
+    // Implementierung:
+    // - Wenn der konkrete Provider eine deleteById(id) Methode hat, rufe sie.
+    // - Sonst: publiziere ein 30313-Event mit action='delete' im Content (lokale Konvention).
+    async deleteById(id) {
+      if (!id) throw new Error('missing id for deleteById');
+      // If provider implements deleteById, delegate
+      if (typeof serviceImpl.deleteById === 'function') {
+        return serviceImpl.deleteById(id);
+      }
+      // Fallback: publish a delete notice (kind 30313)
+      const now = Math.floor(Date.now() / 1000);
+      const payload = { action: 'delete', id };
+      const draft = { kind: 30313, created_at: now, tags: [['d', id]], content: JSON.stringify(payload), pubkey: (await getIdentity()).pubkey };
+      const evt = await this.ensureSigned(draft);
+      await this.publish(evt);
+      return { ok: true, id, kind: 30313, eventId: evt.id };
+    },
+ 
+    // Löscht ein einzelnes Patch-Event anhand seiner Patch-ID (metadata.id oder eventId).
+    // Delegiert an den Provider falls implementiert, sonst publiziert eine 30313-Lösch-Notiz für das Patch.
+    async deletePatch(patchId) {
+      if (!patchId) throw new Error('missing patchId for deletePatch');
+      if (typeof serviceImpl.deletePatch === 'function') {
+        return serviceImpl.deletePatch(patchId);
+      }
+      // Fallback: publiziere Lösch-Notice für Patch (kind 30313)
+      const now = Math.floor(Date.now() / 1000);
+      const payload = { action: 'delete', target: 'patch', patchId };
+      const draft = { kind: 30313, created_at: now, tags: [['d', patchId]], content: JSON.stringify(payload), pubkey: (await getIdentity()).pubkey };
+      const evt = await this.ensureSigned(draft);
+      await this.publish(evt);
+      return { ok: true, patchId, kind: 30313, eventId: evt.id };
+    },
+ 
     // Small helpers for common filters
     filterForWorldATag(aTag, kinds) {
       const f = { kinds, '#a': [aTag] };

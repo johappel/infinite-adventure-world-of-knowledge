@@ -143,6 +143,16 @@ export function createPatchKitPorts(nostrService) {
         return nostrService.delete(id);
       }
       throw new Error('NostrService.delete ist nicht implementiert');
+    },
+
+    // Löscht ein einzelnes Patch-Objekt anhand seiner Patch-ID (metadata.id oder eventId).
+    // Delegiert an nostrService.deletePatch(patchId) falls vorhanden.
+    async deletePatch(patchId) {
+      if (!patchId) throw new Error('patchId fehlt für deletePatch');
+      if (nostrService?.deletePatch) {
+        return nostrService.deletePatch(patchId);
+      }
+      throw new Error('NostrService.deletePatch ist nicht implementiert');
     }
   };
 

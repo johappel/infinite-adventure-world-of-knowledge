@@ -259,7 +259,86 @@ export class DexieNostrService {
       throw error;
     }
   }
+ 
+  // Löscht ein einzelnes Patch-Event anhand seiner Patch-ID (metadata.id oder eventId).
+  // Liefert { ok: true, deleted: 1 } bei Erfolg oder { ok: false, reason }.
+  async deletePatch(patchId) {
+    try {
+      if (!patchId) return { ok: false, reason: 'missing_patchId' };
+      const allEvents = await this.db.events.toArray();
+      // Suche nach Zeilen, die ein Patch repräsentieren und bei denen entweder:
+      // - eventId gleich patchId ist (lokale Speicherung) oder
+      // - der parsed content ein payload.metadata.id === patchId enthält
+      const row = allEvents.find(r => {
+        if (!r || typeof r.content !== 'string') return false;
+        if (String(r.eventId) === String(patchId)) return true;
+        try {
+          const parsed = JSON.parse(r.content);
+          const payload = parsed && parsed.payload ? parsed.payload : null;
+          // payload kann ein stringified YAML oder JSON sein; versuchen zu parsen
+          let nested = null;
+          if (typeof payload === 'string') {
+            try { nested = JSON.parse(payload); } catch { nested = null; }
+          } else if (typeof payload === 'object') {
+            nested = payload;
+          }
+          if (nested && nested.metadata && String(nested.metadata.id) === String(patchId)) return true;
+        } catch (e) {
+          // ignore parse errors
+        }
+        return false;
+      });
+      if (!row) return { ok: false, reason: 'not_found' };
+      await this.db.events.delete(row.id);
+      // Informiere Subscriber über Löschung (lokale Lösch-Notice)
+      const deletionNotice = {
+        id: `deleted-patch:${patchId}:${Date.now()}`,
+        pubkey: null,
+        kind: 30313,
+        created_at: Math.floor(Date.now() / 1000),
+        content: JSON.stringify({ action: 'delete', target: 'patch', patchId }),
+        sig: '',
+        tags: [['d', patchId]]
+      };
+      this._notifySubscribers(deletionNotice);
+      return { ok: true, deleted: 1, patchId };
+    } catch (e) {
+      console.error('Fehler beim Löschen des Patches:', e);
+      throw e;
+    }
+  }
 
+  // Löscht alle Events, die zur angegebenen World ID gehören.
+  // Entfernt die Einträge aus der lokalen DB und informiert Subscribern über eine Lösch-Notification (kind 30313).
+  async deleteById(id) {
+    console.log('DexieNostrService.deleteById', id);
+    try {
+      if (!id) return { ok: false, reason: 'missing_id' };
+      // Finde alle Zeilen mit Tag d:id
+      const allEvents = await this.db.events.toArray();
+      const rows = allEvents.filter(e => (e.tags || []).includes(`d:${id}`));
+      if (!rows.length) return { ok: false, reason: 'not_found' };
+      // Lösche alle gefundenen Zeilen (verwende Dexie-IDs)
+      const ids = rows.map(r => r.id).filter(Boolean);
+      await this.db.events.bulkDelete(ids);
+      // Informiere Subscriber: Erzeuge eine Lösch-Event-Form (lokal)
+      const deletionNotice = {
+        id: `deleted:${id}:${Date.now()}`,
+        pubkey: null,
+        kind: 30313,
+        created_at: Math.floor(Date.now() / 1000),
+        content: JSON.stringify({ action: 'delete', id }),
+        sig: '',
+        tags: [['d', id]]
+      };
+      this._notifySubscribers(deletionNotice);
+      return { ok: true, id, deletedCount: ids.length };
+    } catch (e) {
+      console.error('Fehler beim Löschen der Events:', e);
+      throw e;
+    }
+  }
+ 
   // Hilfsmethode zum Extrahieren der World ID aus den Tags
   _extractWorldIdFromTags(tags) {
     if (!Array.isArray(tags)) return null;

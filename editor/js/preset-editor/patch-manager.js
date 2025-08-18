@@ -229,7 +229,7 @@ description: "Beschreibung hier einfügen"
       }
       
       // Lösche den Patch
-      await this.editor.patchKit.io.patchPort.delete(patchId);
+      await this.editor.patchKit.io.patchPort.deletePatch(patchId);
       
       // Setze die aktuelle Patch-ID zurück, wenn der gelöschte Patch gerade bearbeitet wird
       if (this.editor.currentPatchId === patchId) {
