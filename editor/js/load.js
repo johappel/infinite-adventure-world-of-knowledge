@@ -573,6 +573,7 @@ export async function setupFromId(world_id, editor, nostrService) {
     // PATCH-UI: Automatischer Patch-Ladevorgang (DEBUG: Zeile 585)
     if (editor && editor.patchUI) {
       try {
+        console.log('[DEBUG PATCH UI] setupFromId -> Load Patches');
         await editor.patchUI.load(world_id);
         if (window.showToast) window.showToast('info', 'Patches geladen und angezeigt.');
       } catch (e) {
@@ -601,6 +602,7 @@ export function setupUrlParameterHandler(editor, nostrService) {
       return;
     }
     setTimeout(async () => {
+      console.log('[DEBUG PATCH UI] Lade Welt von URL-Parameter: setupFromId ', worldId);
       await setupFromId(worldId, editor, nostrService);
     }, 500);
   }
@@ -633,5 +635,5 @@ export async function initLoadFunctionality(editor, nostrService) {
   }
 
   // URL-Parameter-Handler einrichten
-  setupUrlParameterHandler(editor, nostrService);
+  await setupUrlParameterHandler(editor, nostrService);
 }

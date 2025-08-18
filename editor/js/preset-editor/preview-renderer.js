@@ -41,6 +41,7 @@ export class PreviewRenderer {
       // Importiere den ThreeJSManager
       const { ThreeJSManager } = await import('../three-js-manager.js');
       
+
       // Initialisiere den Three.js Manager
       console.log('[DEBUG] Initialisiere ThreeJSManager mit Canvas-Objekt');
       this.editor.threeJSManager = new ThreeJSManager(this.editor.canvas);
@@ -170,52 +171,42 @@ export class PreviewRenderer {
    * @returns {Object|null} - Die Genesis-Daten oder null bei Fehler
    */
   async _getCurrentGenesisData() {
+    const { YamlProcessor } = await import('./yaml-processor.js');
     try {
       if (!this.editor.worldId) {
         return null;
       }
-      
       // Lade die Genesis direkt vom Server (nicht aus dem aktuellen YAML-Text, da das ein Patch sein könnte)
       const genesisEvt = await this.editor.patchKit.io?.genesisPort?.getById
-        ? this.editor.patchKit.io.genesisPort.getById(this.editor.worldId)
+        ? await this.editor.patchKit.io.genesisPort.getById(this.editor.worldId)
         : null;
       
       if (genesisEvt) {
-        try {
-          // Versuche verschiedene Formate für die Genesis-Daten
-          let genesisData = null;
-          if (typeof genesisEvt === 'string') {
-            // String -> direkt parsen
-            genesisData = this.editor.patchKit.genesis.parse(genesisEvt);
-          } else if (genesisEvt.yaml && typeof genesisEvt.yaml === 'string') {
-            // Objekt mit yaml-Property
-            genesisData = this.editor.patchKit.genesis.parse(genesisEvt.yaml);
-          } else if (genesisEvt.content && typeof genesisEvt.content === 'string') {
-            // Objekt mit content-Property
-            genesisData = this.editor.patchKit.genesis.parse(genesisEvt.content);
-          } else {
-            // Fallback: versuche das ganze Objekt zu parsen
-            genesisData = this.editor.patchKit.genesis.parse(genesisEvt);
-          }
-          
-          if (genesisData) {
-            return genesisData;
-          }
-        } catch (parseError) {
-          console.error('Fehler beim Parsen der Genesis-Daten:', parseError);
+        console.log('[DEBUG RENDER] Genesis-Daten geladen:', genesisEvt);
+        
+
+        const extractedYaml = YamlProcessor.processStringToYaml(genesisEvt.yaml);
+        if(extractedYaml){
+          console.log('[DEBUG RENDER] ---');
+          console.log("Konvertierter und formatierter YAML-Text:");
+          console.log(extractedYaml);
+            return extractedYaml;
+        }else{
+          console.error('[DEBUG RENDER] Kein gültiges YAML gefunden');
         }
+      
       }
       
       // Fallback: Versuche aus dem World-Tab YAML zu laden (nur wenn wir im World-Tab sind)
-      if (this.editor.activeTab === 'world') {
-        const yamlText = this.editor.getYamlText();
-        if (yamlText) {
-          const parsedYaml = this.editor.yamlProcessor.parseYaml();
-          if (parsedYaml) {
-            return this.editor.yamlProcessor.normalizeUserYaml(parsedYaml);
-          }
-        }
-      }
+      // if (this.editor.activeTab === 'world') {
+      //   const yamlText = this.editor.getYamlText();
+      //   if (yamlText) {
+      //     const parsedYaml = this.editor.yamlProcessor.parseYaml();
+      //     if (parsedYaml) {
+      //       return this.editor.yamlProcessor.normalizeUserYaml(parsedYaml);
+      //     }
+      //   }
+      // }
       
       return null;
     } catch (error) {

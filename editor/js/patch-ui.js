@@ -26,7 +26,7 @@ export class PatchUI {
     // Liste: bevorzugt .patch-list-content innerhalb des Containers
     this.listEl =
       opts.listEl ||
-       (this.container ? this.container.querySelector('.patch-list-content') : null);
+        (this.container ? this.container.querySelector('.patch-list-content') : null);
 
     // Filter / Range sind im aktuellen Layout optional/nicht vorhanden
     this.filterEl = opts.filterEl || null;
@@ -39,8 +39,8 @@ export class PatchUI {
     this.applyUntilValueEl = document.getElementById('applyUntilValue');
 
     // interner Zustand
-    this.patches = [];         // rohe Patches
-    this.filtered = [];        // gefilterte Anzeige
+    this.patches = [];       // rohe Patches
+    this.filtered = [];       // gefilterte Anzeige
     this.selectedId = null;    // ausgewählter Patch
     this.includes = new Map(); // id -> boolean (für Preview)
     this.order = [];           // anzuzeigende Reihenfolge (nach computeOrder)
@@ -50,12 +50,13 @@ export class PatchUI {
 
   _bindEvents() {
     if (this.filterEl) this.filterEl.addEventListener('input', () => this._applyFilter());
-    if (this.rangeEl) this.rangeEl.addEventListener('input', () => {
+    if (this.rangeEl) this.rangeEl.addEventListener('input', async () => {
         if (this.applyUntilValueEl) {
           const n = Number(this.rangeEl.value || 0);
           this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
         }
-        this.renderPreview();
+        // HINWEIS: Hier wurde await hinzugefügt, da renderPreview async ist.
+        await this.renderPreview();
       });
   }
 
@@ -76,7 +77,7 @@ export class PatchUI {
       this._setupRange();
       this.renderList();
       // Detail- und Konflikt-Panels werden nicht mehr gerendert
-      this.renderPreview();
+      await this.renderPreview();
 
       // Container-Panel ein-/ausblenden je nach Datenlage.
       if (this.container) {
@@ -260,11 +261,13 @@ export class PatchUI {
     }
   }
 
-  toggleInclude(id, value) {
+  // HINWEIS: Diese Methode wurde zu async gemacht
+  async toggleInclude(id, value) {
     // Wert wird direkt übernommen (keine Invertierung mehr nötig)
     this.includes.set(id, !!value);
-    this.renderList();   // aktualisiere Toggle-Status
-    this.renderPreview();
+    this.renderList();   // aktualisiere Toggle-Status
+    // HINWEIS: await hinzugefügt
+    await this.renderPreview();
   }
 
   selectPatch(id) {
@@ -346,18 +349,20 @@ export class PatchUI {
       // Event-Listener für den Bearbeiten-Button
       const editButton = li.querySelector(`#${editButtonId}`);
       if (editButton) {
-        editButton.addEventListener('click', (ev) => {
+        editButton.addEventListener('click', async (ev) => {
           ev.stopPropagation();
-          this._editPatch(p.id);
+          // HINWEIS: await hinzugefügt
+          await this._editPatch(p.id);
         });
       }
 
       // Event-Listener für den Löschen-Button
       const deleteButton = li.querySelector(`#${deleteButtonId}`);
       if (deleteButton) {
-        deleteButton.addEventListener('click', (ev) => {
+        deleteButton.addEventListener('click', async (ev) => {
           ev.stopPropagation();
-          this._deletePatch(p.id);
+          // HINWEIS: await hinzugefügt
+          await this._deletePatch(p.id);
         })
       }
 
@@ -385,10 +390,13 @@ export class PatchUI {
     }
 
     try {
+      
       // Sicherstellen: Genesis und Visualizer verfügbar (verhindert Fallback, der die Welt ersetzt)
       if (!this.genesisData && this.editor?.previewRenderer?._getCurrentGenesisData) {
         try {
+          console.log('[DEBUG-RENDER] _getCurrentGenesisData() aufgerufen');
           const g = await this.editor.previewRenderer._getCurrentGenesisData();
+          console.log('[DEBUG-RENDER] returned Genesis-Daten:', g);
           if (g) this.genesisData = g;
         } catch {}
       }
@@ -491,44 +499,44 @@ export class PatchUI {
         }
         return;
       }
-
+      await this.editor.patchManager.editPatch(patchId);
       // Finde den Patch in der bereits geladenen Liste (wie bei selectPatch)
-      const patch = this.patches.find(p => p.id === patchId);
-      if (!patch) {
-        console.error('Patch nicht in der Liste gefunden:', patchId);
-        if (window.showToast) {
-          window.showToast('error', 'Patch nicht gefunden.');
-        }
-        return;
-      }
+      // const patch = this.patches.find(p => p.id === patchId);
+      // if (!patch) {
+      //   console.error('Patch nicht in der Liste gefunden:', patchId);
+      //   if (window.showToast) {
+      //     window.showToast('error', 'Patch nicht gefunden.');
+      //   }
+      //   return;
+      // }
 
-      // Verwende die gleiche Logik wie selectPatch, aber lade direkt in den Editor
-      const yamlContent = patch.originalYaml || this.patchKit.patch.serialize(patch, 'yaml');
+      // // Verwende die gleiche Logik wie selectPatch, aber lade direkt in den Editor
+      // const yamlContent = patch.originalYaml || this.patchKit.patch.serialize(patch, 'yaml');
       
-      // Setze den YAML-Content im Patch-Editor
-      const patchTextarea = document.getElementById('patch-yaml-editor');
-      if (patchTextarea) {
-        patchTextarea.value = yamlContent;
-      }
+      // // Setze den YAML-Content im Patch-Editor
+      // const patchTextarea = document.getElementById('patch-yaml-editor');
+      // if (patchTextarea) {
+      //   patchTextarea.value = yamlContent;
+      // }
 
-      // Wechsle zum Patch-Tab
-      if (this.editor.uiManager) {
-        this.editor.uiManager.switchTab('patch');
-      }
+      // // Wechsle zum Patch-Tab
+      // if (this.editor.uiManager) {
+      //   this.editor.uiManager.switchTab('patch');
+      // }
 
-      // Setze die aktuelle Patch-ID im Editor
-      if (this.editor.patchManager) {
-        this.editor.currentPatchId = patchId;
-      }
+      // // Setze die aktuelle Patch-ID im Editor
+      // if (this.editor.patchManager) {
+      //   this.editor.currentPatchId = patchId;
+      // }
 
-      // Aktualisiere den Tab-Namen
-      if (this.editor.uiManager && this.editor.uiManager._updatePatchTabName) {
-        this.editor.uiManager._updatePatchTabName(patch.metadata?.name || 'Patch');
-      }
+      // // Aktualisiere den Tab-Namen
+      // if (this.editor.uiManager && this.editor.uiManager._updatePatchTabName) {
+      //   this.editor.uiManager._updatePatchTabName(patch.metadata?.name || 'Patch');
+      // }
 
-      if (window.showToast) {
-        window.showToast('success', 'Patch zur Bearbeitung geladen.');
-      }
+      // if (window.showToast) {
+      //   window.showToast('success', 'Patch zur Bearbeitung geladen.');
+      // }
     } catch (error) {
       console.error('Fehler bei der Patch-Bearbeitung:', error);
       if (window.showToast) {
