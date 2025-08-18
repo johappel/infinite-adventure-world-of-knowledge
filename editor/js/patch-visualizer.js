@@ -83,16 +83,15 @@ export class PatchVisualizer {
         let patchKit = null;
         
         // Debug-Informationen
-        console.log('[DEBUG] applyPatchesForVisualization aufgerufen');
-        console.log('[DEBUG] window.presetEditor verfügbar:', !!window.presetEditor);
-        console.log('[DEBUG] window.NostrServiceFactory verfügbar:', !!window.NostrServiceFactory);
-        console.log('[DEBUG] window.NostrService verfügbar:', !!window.NostrService);
+        // console.log('[DEBUG] applyPatchesForVisualization aufgerufen');
+        // console.log('[DEBUG] window.presetEditor verfügbar:', !!window.presetEditor);
+        // console.log('[DEBUG] window.NostrServiceFactory verfügbar:', !!window.NostrServiceFactory);
+        // console.log('[DEBUG] window.NostrService verfügbar:', !!window.NostrService);
         
         // Versuche 1: Hole den NostrService aus dem PresetEditor (falls verfügbar)
         try {
             if (window.presetEditor && window.presetEditor.nostrService) {
                 nostrService = window.presetEditor.nostrService;
-                console.log('[DEBUG] NostrService aus PresetEditor verwendet:', nostrService);
             } else {
                 console.log('[DEBUG] Kein NostrService im PresetEditor gefunden');
             }

@@ -30,20 +30,11 @@ export class PreviewRenderer {
 
   async _initThreePreview() {
     try {
-      console.log('[DEBUG] _initThreePreview() aufgerufen');
-      console.log('[DEBUG] Editor-Canvas:', this.editor.canvas);
-      if (this.editor.canvas) {
-        console.log('[DEBUG] Editor-Canvas-Tag-Name:', this.editor.canvas.tagName);
-        console.log('[DEBUG] Editor-Canvas-Client-Width:', this.editor.canvas.clientWidth);
-        console.log('[DEBUG] Editor-Canvas-Client-Height:', this.editor.canvas.clientHeight);
-      }
-      
       // Importiere den ThreeJSManager
       const { ThreeJSManager } = await import('../three-js-manager.js');
       
 
       // Initialisiere den Three.js Manager
-      console.log('[DEBUG] Initialisiere ThreeJSManager mit Canvas-Objekt');
       this.editor.threeJSManager = new ThreeJSManager(this.editor.canvas);
       
       // Initialisiere die Szene
@@ -60,7 +51,6 @@ export class PreviewRenderer {
         console.warn('[DEBUG] Konnte TerrainClickHandler nicht registrieren:', e);
       }
       
-      console.log('[DEBUG] Three.js Preview initialisiert');
     } catch (error) {
       console.error('Fehler bei der Initialisierung des Three.js Previews:', error);
       this.editor._setStatus('Three.js Initialisierung fehlgeschlagen: ' + error.message, 'error');
@@ -72,12 +62,9 @@ export class PreviewRenderer {
       
       
       if (!this.editor.threeJSManager || !this.editor.threeJSManager.initialized) {
-        console.warn('[DIAGNOSE] Three.js Manager nicht initialisiert, versuche Initialisierung...');
         if (this.editor.threeJSManager && !this.editor.threeJSManager.initialized) {
           await this.editor.threeJSManager.init();
-          console.log('[DIAGNOSE] Three.js Manager nachträglich initialisiert');
         } else {
-          console.warn('[DIAGNOSE] Three.js Manager existiert nicht, überspringe Vorschau');
           return;
         }
       }
@@ -101,12 +88,9 @@ export class PreviewRenderer {
         const zoneInScene = this.editor.threeJSManager.scene.children.includes(
           this.editor.threeJSManager.currentZone.group
         );
-        console.log('[DIAGNOSE] Zone in Szene gefunden:', zoneInScene);
       }
-      
       console.log('[DEBUG] Vorschau aktualisiert');
     } catch (error) {
-      console.error('[DIAGNOSE] Fehler bei der Aktualisierung der Vorschau:', error);
       this.editor._setStatus('Vorschau-Fehler: ' + error.message, 'error');
     }
   }
@@ -182,32 +166,17 @@ export class PreviewRenderer {
         : null;
       
       if (genesisEvt) {
-        console.log('[DEBUG RENDER] Genesis-Daten geladen:', genesisEvt);
         
 
         const extractedYaml = YamlProcessor.processStringToYaml(genesisEvt.yaml);
         if(extractedYaml){
-          console.log('[DEBUG RENDER] ---');
-          console.log("Konvertierter und formatierter YAML-Text:");
-          console.log(extractedYaml);
             return extractedYaml;
         }else{
-          console.error('[DEBUG RENDER] Kein gültiges YAML gefunden');
+          console.error('Kein gültiges YAML in _getCurrentGenesisData gefunden');
         }
       
       }
-      
-      // Fallback: Versuche aus dem World-Tab YAML zu laden (nur wenn wir im World-Tab sind)
-      // if (this.editor.activeTab === 'world') {
-      //   const yamlText = this.editor.getYamlText();
-      //   if (yamlText) {
-      //     const parsedYaml = this.editor.yamlProcessor.parseYaml();
-      //     if (parsedYaml) {
-      //       return this.editor.yamlProcessor.normalizeUserYaml(parsedYaml);
-      //     }
-      //   }
-      // }
-      
+            
       return null;
     } catch (error) {
       console.error('Fehler beim Laden der Genesis-Daten:', error);

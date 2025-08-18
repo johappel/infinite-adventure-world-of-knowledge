@@ -6,13 +6,7 @@ import { buildZoneFromSpec } from '../../js/world-generation/index.js';
 export class ThreeJSManager {
     constructor(canvas) {
         console.log('[DEBUG] ThreeJSManager Konstruktor aufgerufen mit canvas:', canvas);
-        console.log('[DEBUG] Canvas-Typ:', typeof canvas);
-        if (canvas) {
-            console.log('[DEBUG] Canvas-Tag-Name:', canvas.tagName);
-            console.log('[DEBUG] Canvas-Client-Width:', canvas.clientWidth);
-            console.log('[DEBUG] Canvas-Client-Height:', canvas.clientHeight);
-            console.log('[DEBUG] Canvas-addEventListener-Funktion:', typeof canvas.addEventListener);
-        }
+        
         this.canvas = canvas;
         this.scene = null;
         this.camera = null;
@@ -51,15 +45,7 @@ export class ThreeJSManager {
 
     async init() {
         try {
-            console.log('[DEBUG] ThreeJSManager.init() aufgerufen');
-            console.log('[DEBUG] Canvas in init():', this.canvas);
-            if (this.canvas) {
-                console.log('[DEBUG] Canvas-Tag-Name in init():', this.canvas.tagName);
-                console.log('[DEBUG] Canvas-Client-Width in init():', this.canvas.clientWidth);
-                console.log('[DEBUG] Canvas-Client-Height in init():', this.canvas.clientHeight);
-                console.log('[DEBUG] Canvas-addEventListener-Funktion in init():', typeof this.canvas.addEventListener);
-            }
-            
+           
             // Scene
             this.scene = new THREE.Scene();
             this.scene.background = new THREE.Color(0x87ceeb);
@@ -368,7 +354,6 @@ export class ThreeJSManager {
 
     // Konvertiert das Genesis-Format in das für die Weltgenerierung erwartete Format
     convertGenesisToWorldFormat(genesisData) {
-        console.log('🔄 [Integrationstest] convertGenesisToWorldFormat aufgerufen mit genesisData:', genesisData);
         
         if (!genesisData) {
             console.warn('⚠️ [Integrationstest] Keine genesisData übergeben, gebe leeres Objekt zurück');
@@ -381,78 +366,54 @@ export class ThreeJSManager {
             zone_id: genesisData.metadata?.id || 'default_zone'
         };
         
-        console.log('📋 [Integrationstest] Basis-Welt-Daten erstellt:', worldData);
         
         const entities = genesisData.entities || {};
-        console.log('📦 [Integrationstest] Entities gefunden:', Object.keys(entities));
         
         // Environment
         if (entities.environment) {
             const envKeys = Object.keys(entities.environment);
-            console.log('🌅 [Integrationstest] Environment-Keys:', envKeys);
             if (envKeys.length > 0) {
                 worldData.environment = entities.environment[envKeys[0]];
-                console.log('✅ [Integrationstest] Environment hinzugefügt:', worldData.environment);
             }
         }
         
         // Terrain
         if (entities.terrain) {
             const terrainKeys = Object.keys(entities.terrain);
-            console.log('🏔️ [Integrationstest] Terrain-Keys:', terrainKeys);
             if (terrainKeys.length > 0) {
                 worldData.terrain = entities.terrain[terrainKeys[0]];
-                console.log('✅ [Integrationstest] Terrain hinzugefügt:', worldData.terrain);
             }
         }
         
         // Objects
         if (entities.objects) {
             const objectsArray = Object.values(entities.objects);
-            console.log('📦 [Integrationstest] Objects gefunden:', objectsArray);
             worldData.objects = objectsArray;
-            console.log('📦 [Integrationstest] Objects hinzugefügt:', worldData.objects.length, 'Objekte');
         } else if (entities.object) {
             // Fallback für altes Format (Singular)
             const objectsArray = Object.values(entities.object);
-            console.log('📦 [Integrationstest] Objects (Fallback) gefunden:', objectsArray);
             worldData.objects = objectsArray;
-            console.log('📦 [Integrationstest] Objects (Fallback) hinzugefügt:', worldData.objects.length, 'Objekte');
-        } else {
-            console.log('📦 [Integrationstest] Keine Objects gefunden in entities:', Object.keys(entities));
-        }
+        } 
         
         // Personas
         if (entities.personas) {
             const personasArray = Object.values(entities.personas);
-            console.log('👤 [Integrationstest] Personas gefunden:', personasArray);
             worldData.personas = personasArray;
-            console.log('👤 [Integrationstest] Personas hinzugefügt:', worldData.personas.length, 'Personas');
         } else if (entities.persona) {
             // Fallback für altes Format (Singular)
             const personasArray = Object.values(entities.persona);
-            console.log('👤 [Integrationstest] Personas (Fallback) gefunden:', personasArray);
             worldData.personas = personasArray;
-            console.log('👤 [Integrationstest] Personas (Fallback) hinzugefügt:', worldData.personas.length, 'Personas');
-        } else {
-            console.log('👤 [Integrationstest] Keine Personas gefunden in entities:', Object.keys(entities));
-        }
+        } 
         
         // Portals
         if (entities.portals) {
             const portalsArray = Object.values(entities.portals);
-            console.log('🌀 [Integrationstest] Portals gefunden:', portalsArray);
             worldData.portals = portalsArray;
-            console.log('🌀 [Integrationstest] Portals hinzugefügt:', worldData.portals.length, 'Portale');
         } else if (entities.portal) {
             // Fallback für altes Format (Singular)
             const portalsArray = Object.values(entities.portal);
-            console.log('🌀 [Integrationstest] Portals (Fallback) gefunden:', portalsArray);
             worldData.portals = portalsArray;
-            console.log('🌀 [Integrationstest] Portals (Fallback) hinzugefügt:', worldData.portals.length, 'Portale');
-        } else {
-            console.log('🌀 [Integrationstest] Keine Portals gefunden in entities:', Object.keys(entities));
-        }
+        } 
 
         // Zähle alle Objekte außer Terrain und Environment
         worldData.objectCount = (worldData.objects?.length || 0) + (worldData.personas?.length || 0) + (worldData.portals?.length || 0);
@@ -466,20 +427,20 @@ export class ThreeJSManager {
                     worldData.extensions[extension.name] = extension.value !== undefined ? extension.value : extension;
                 }
             }
-            console.log('🔧 [Integrationstest] Extensions hinzugefügt:', Object.keys(worldData.extensions));
+            console.log('🔧 [DEBUG GenesisToWorld] Extensions hinzugefügt:', Object.keys(worldData.extensions));
         }
         
         // Camera
         if (entities.camera) {
             const cameraKeys = Object.keys(entities.camera);
-            console.log('📷 [Integrationstest] Camera-Keys:', cameraKeys);
+            console.log('📷 [DEBUG GenesisToWorld] Camera-Keys:', cameraKeys);
             if (cameraKeys.length > 0) {
                 worldData.camera = entities.camera[cameraKeys[0]];
-                console.log('✅ [Integrationstest] Camera hinzugefügt:', worldData.camera);
+                console.log('✅ [DEBUG GenesisToWorld] Camera hinzugefügt:', worldData.camera);
             }
         }
-        
-        console.log('🎉 [Integrationstest] Konvertierung abgeschlossen, gebe worldData zurück:', worldData);
+
+        console.log('🎉 [DEBUG GenesisToWorld] worldData:', worldData);
         return worldData;
     }
 

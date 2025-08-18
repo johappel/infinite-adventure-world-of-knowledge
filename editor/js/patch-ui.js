@@ -394,9 +394,7 @@ export class PatchUI {
       // Sicherstellen: Genesis und Visualizer verfügbar (verhindert Fallback, der die Welt ersetzt)
       if (!this.genesisData && this.editor?.previewRenderer?._getCurrentGenesisData) {
         try {
-          console.log('[DEBUG-RENDER] _getCurrentGenesisData() aufgerufen');
           const g = await this.editor.previewRenderer._getCurrentGenesisData();
-          console.log('[DEBUG-RENDER] returned Genesis-Daten:', g);
           if (g) this.genesisData = g;
         } catch {}
       }
@@ -490,7 +488,6 @@ export class PatchUI {
    * @param {string} patchId - Die ID des zu bearbeitenden Patches
    */
   async _editPatch(patchId) {
-    console.log('[DEBUG PATCH UI] Lade Patch:', patchId);
     try {
       if (!this.editor) {
         console.warn('Kein Editor-Referenz für Patch-Bearbeitung verfügbar');
@@ -500,43 +497,7 @@ export class PatchUI {
         return;
       }
       await this.editor.patchManager.editPatch(patchId);
-      // Finde den Patch in der bereits geladenen Liste (wie bei selectPatch)
-      // const patch = this.patches.find(p => p.id === patchId);
-      // if (!patch) {
-      //   console.error('Patch nicht in der Liste gefunden:', patchId);
-      //   if (window.showToast) {
-      //     window.showToast('error', 'Patch nicht gefunden.');
-      //   }
-      //   return;
-      // }
-
-      // // Verwende die gleiche Logik wie selectPatch, aber lade direkt in den Editor
-      // const yamlContent = patch.originalYaml || this.patchKit.patch.serialize(patch, 'yaml');
       
-      // // Setze den YAML-Content im Patch-Editor
-      // const patchTextarea = document.getElementById('patch-yaml-editor');
-      // if (patchTextarea) {
-      //   patchTextarea.value = yamlContent;
-      // }
-
-      // // Wechsle zum Patch-Tab
-      // if (this.editor.uiManager) {
-      //   this.editor.uiManager.switchTab('patch');
-      // }
-
-      // // Setze die aktuelle Patch-ID im Editor
-      // if (this.editor.patchManager) {
-      //   this.editor.currentPatchId = patchId;
-      // }
-
-      // // Aktualisiere den Tab-Namen
-      // if (this.editor.uiManager && this.editor.uiManager._updatePatchTabName) {
-      //   this.editor.uiManager._updatePatchTabName(patch.metadata?.name || 'Patch');
-      // }
-
-      // if (window.showToast) {
-      //   window.showToast('success', 'Patch zur Bearbeitung geladen.');
-      // }
     } catch (error) {
       console.error('Fehler bei der Patch-Bearbeitung:', error);
       if (window.showToast) {

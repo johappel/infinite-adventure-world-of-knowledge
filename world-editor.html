@@ -264,8 +264,7 @@ description: 'Eine Test-Welt für Presets'
         // Load-Funktionalität initialisieren (Suche und Preset-Auswahl)
         try {
           const nostrService = editor.nostrService || await window.NostrServiceFactory.getNostrService();
-          console.log('NostrService für Load-Funktionalität:', nostrService);
-          console.log('[DEBUG PATCH UI] -------------------------> initLoadFunctionality');
+          console.log('[DEBUG] NostrService für Load-Funktionalität');
           await initLoadFunctionality(editor, nostrService);
         } catch (e) {
           console.error('Fehler beim Initialisieren der Load-Funktionalität:', e);

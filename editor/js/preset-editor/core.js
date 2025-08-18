@@ -33,22 +33,12 @@ export class PresetEditor {
    * @param {Object} [opts.nostrFactory] - NostrServiceFactory für die Kommunikation
    */
   constructor(opts = {}) {
-    console.log('[DEBUG] PresetEditor Konstruktor aufgerufen mit opts:', opts);
     // Grundlegende DOM-Elemente
     this.worldTextarea = opts.textarea || document.getElementById('world-yaml-editor');
     this.patchTextarea = document.getElementById('patch-yaml-editor');
     this.textarea = this.worldTextarea; // Standardmäßig den World-Editor verwenden
     this.statusEl = opts.statusEl || document.getElementById('status-bar');
     this.canvas = opts.canvas || document.getElementById('preview-canvas');
-    
-    // Debug: Überprüfe das Canvas-Element
-    console.log('[DEBUG] Canvas-Element:', this.canvas);
-    console.log('[DEBUG] Canvas-Typ:', typeof this.canvas);
-    if (this.canvas) {
-      console.log('[DEBUG] Canvas-Tag-Name:', this.canvas.tagName);
-      console.log('[DEBUG] Canvas-Client-Width:', this.canvas.clientWidth);
-      console.log('[DEBUG] Canvas-Client-Height:', this.canvas.clientHeight);
-    }
     
     this.nostrFactory = opts.nostrFactory || window.NostrServiceFactory;
     
@@ -81,7 +71,6 @@ export class PresetEditor {
     // Event-Bindings
     this._bindBasicEvents();
     this._bindInputEvents();
-    console.log('[DEBUG] PresetEditor Konstruktor abgeschlossen');
   }
   
   /**
@@ -247,9 +236,7 @@ export class PresetEditor {
       // 2) Versuche, PatchKit via ESM zu importieren, um ggf. eine Factory zu bekommen
       let PK = null;
       try {
-        console.log('[DEBUG] Versuche PatchKit-Import über Importmap');
         const mod = await import('patchkit');
-        console.log('[DEBUG] PatchKit-Modul erfolgreich geladen:', mod);
         PK = mod?.default ?? mod;
         console.log('[DEBUG] PatchKit-API:', PK);
       } catch (e) {
@@ -590,7 +577,6 @@ try {
     if (window.bootstrapPresetEditor) {
       window.bootstrapPresetEditor().then(editor => {
         window.presetEditor = editor;
-        console.log('[DEBUG] PresetEditor global verfügbar gemacht');
       }).catch(err => {
         console.error('[DEBUG] Fehler beim globalen Verfügbar machen des PresetEditors:', err);
       });

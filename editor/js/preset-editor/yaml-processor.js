@@ -803,7 +803,7 @@ export class YamlProcessor {
   }
 
   /**
-   * Verarbeitet einen String zu YAML
+   * Verarbeitet einen String (nostrservice.yaml) zu YAML
    * @param {string} str - Der zu verarbeitende String
    * @returns {string|null} - Der verarbeitete YAML-String oder null
    */

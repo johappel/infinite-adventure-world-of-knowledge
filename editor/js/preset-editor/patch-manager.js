@@ -41,7 +41,6 @@ description: "Beschreibung hier einfügen"
       // Aktualisiere die Patch-UI, falls vorhanden
       if (this.editor.patchUI) {
         try {
-          console.log('[DEBUG PATCH UI] createNewPatch -> Load Patches');
           await this.editor.patchUI.load(this.editor.worldId);
         } catch (error) {
           console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
@@ -246,7 +245,6 @@ description: "Beschreibung hier einfügen"
       // Aktualisiere die Patch-UI, falls vorhanden
       if (this.editor.patchUI) {
         try {
-          console.log('[DEBUG PATCH UI] deletePatch -> Load Patches');
           await this.editor.patchUI.load(this.editor.worldId);
         } catch (error) {
           console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
@@ -308,7 +306,6 @@ description: "Beschreibung hier einfügen"
       // Aktualisiere die Patch-UI, falls vorhanden
       if (this.editor.patchUI) {
         try {
-          console.log('[DEBUG PATCH UI] saveAsPatch -> Load Patches');
           await this.editor.patchUI.load(this.editor.worldId);
         } catch (error) {
           console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
