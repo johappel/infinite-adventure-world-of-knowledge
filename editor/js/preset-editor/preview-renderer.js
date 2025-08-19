@@ -166,11 +166,10 @@ export class PreviewRenderer {
         : null;
       
       if (genesisEvt) {
-        console.log('[DEBUG] Genesis-Event-Object:', genesisEvt.yaml);
-        const extractedYaml = genesisEvt.yaml || genesisEvt.originalYaml;
-        if(extractedYaml){
-            return extractedYaml;
-        }else{
+        const extractedYamlObj = genesisEvt.yaml || genesisEvt.originalYaml;
+        if (extractedYamlObj) {
+            return extractedYamlObj;
+        } else{
           console.error('Kein gültiges YAML in _getCurrentGenesisData gefunden');
         }
       

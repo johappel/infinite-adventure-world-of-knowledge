@@ -422,9 +422,12 @@ export class PatchUI {
       // Sicherstellen: Genesis und Visualizer verfügbar (verhindert Fallback, der die Welt ersetzt)
       if (!this.genesisData && this.editor?.previewRenderer?._getCurrentGenesisData) {
         try {
+          
           const g = await this.editor.previewRenderer._getCurrentGenesisData();
           if (g) this.genesisData = g;
-        } catch {}
+        } catch {
+          console.error('Fehler beim Laden der Genesis-Daten:', error);
+        }
       }
       if (!this.patchVisualizer && this.editor?.patchVisualizer) {
         this.setPatchVisualizer(this.editor.patchVisualizer);
