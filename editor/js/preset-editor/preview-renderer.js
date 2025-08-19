@@ -166,7 +166,7 @@ export class PreviewRenderer {
         : null;
       
       if (genesisEvt) {
-        console.log('[DEBUG] Genesis-Event-Object:', genesisEvt);
+        console.log('[DEBUG] Genesis-Event-Object:', genesisEvt.yaml);
         const extractedYaml = genesisEvt.yaml || genesisEvt.originalYaml;
         if(extractedYaml){
             return extractedYaml;

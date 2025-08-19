@@ -485,6 +485,7 @@ export const world = {
   async applyPatches(genesisObj, orderedPatches, options = {}) {
     // Ziel: Ein zentrales, robustes applyPatches, das verschiedene Input-Formate
     // normalisiert und einheitlich anwendet. Liefert { state, diffs, conflicts }.
+    // state sollte eine normalisierte Version des Genesis-Objekts mit allen Patches sein.
     console.log("[DEBUG applyPatches] Applying patches to genesis world state...");
 
     // Helper: normalize genesis input (YAML/JSON/parsed)

@@ -44,14 +44,19 @@ export class PatchVisualizer {
 
             // Wenn keine Patches vorhanden sind, rendere nur die Genesis-Welt
             if (!patches || patches.length === 0) {
+                console.warn('Keine Patches zum Visualisieren, rendere nur Genesis-Welt');
                 await this.threeJSManager.renderWorld(genesisData);
                 return { appliedPatches: 0, conflicts: [] };
             }
 
             // Wende die Patches an und erhalte die Ergebnisse
+            console.log('[DEBUG visualizePatches] Basis genesisData:', genesisData);
+            console.log('[DEBUG visualizePatches] Wende Patches an:', patches);
+            
             const patchResults = await this.applyPatchesForVisualization(genesisData, patches);
 
             // Rendere die resultierende Welt
+            console.log('[DEBUG visualizePatches] Patch-Ergebnisse:', patchResults.state);
             await this.threeJSManager.renderWorld(patchResults.state);
 
             // Visualisiere die Patch-Auswirkungen
@@ -88,10 +93,8 @@ export class PatchVisualizer {
         if (window.presetEditor?.patchKit) {
             patchKit = window.presetEditor.patchKit;
         }
-
-        console.log('[DEBUG] Wende Patches an mit genesisData:', genesisData, 'und patches:', patches);
+        console.log('[DEBUG PATCHES] call patchKit.world.applyPatches');
         const result = await patchKit.world.applyPatches(genesisData, patches);
-        console.log('[DEBUG] Patch-Anwendungsergebnis:', result);
         
         return result;
     }

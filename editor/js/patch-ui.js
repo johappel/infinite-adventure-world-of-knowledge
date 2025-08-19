@@ -99,7 +99,6 @@ export class PatchUI {
       // Detail- und Konflikt-Panels werden nicht mehr gerendert
 
       // Vorschau rendern ------------------------------
-      console.log('[DEBUG PATCHES] call PatchUI.renderPreview');
       await this.renderPreview();
       // -----------------------------------------------
 
@@ -417,6 +416,7 @@ export class PatchUI {
       }
     }
 
+    console.log('[DEBUG PATCHES] PatchUI.renderPreview:', n, 'von', this.order.length, 'Patches:', selectedPatches);
     try {
       
       // Sicherstellen: Genesis und Visualizer verfügbar (verhindert Fallback, der die Welt ersetzt)

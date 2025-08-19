@@ -89,6 +89,7 @@ export class ThreeJSManager {
     }
 
     async renderWorld(worldData) {
+        console.log('[DEBUG] ThreeJSManager.renderWorld aufgerufen mit worldData:', worldData);
         
         if (!this.initialized) {
             await this.init();
@@ -354,7 +355,8 @@ export class ThreeJSManager {
 
     // Konvertiert das Genesis-Format in das für die Weltgenerierung erwartete Format
     convertGenesisToWorldFormat(genesisData) {
-        
+        console.log('[RENDER GENESIS] Konvertiere Genesis-Daten:', genesisData);
+
         if (!genesisData) {
             console.warn('⚠️ [Integrationstest] Keine genesisData übergeben, gebe leeres Objekt zurück');
             return {};
