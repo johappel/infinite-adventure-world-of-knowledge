@@ -74,17 +74,19 @@ function chooseYamlFromData(data) {
 
 // Funktion zum Simulieren eines Input-Events, welches das Rendern des ThreeJS Canvas auslöst
 export function simulateInputEvent(element) {
-  if (!element) return;
+  console.warn('[DEBUG] Simuliere Input-Event für Element abgeschaltet:', element);
+  return;
+  // if (!element) return;
 
   
-  // Erstelle ein neues Input-Event
-  const inputEvent = new Event('input', {
-    bubbles: true,
-    cancelable: true,
-  });
+  // // Erstelle ein neues Input-Event
+  // const inputEvent = new Event('input', {
+  //   bubbles: true,
+  //   cancelable: true,
+  // });
 
-  // Löse das Event aus
-  element.dispatchEvent(inputEvent);
+  // // Löse das Event aus
+  // element.dispatchEvent(inputEvent);
 }
 
 // Hilfsfunktion zum Aktualisieren/Entfernen des URL‑Parameters „world“
@@ -255,7 +257,9 @@ export function setupWorldSearch(editor, nostrService) {
             // PATCH-UI: Automatischer Patch-Ladevorgang (DEBUG: Zeile 585)
             if (editor && editor.patchUI) {
               try {
+                console.log('[DEBUG PATCHES] setupSearchWorld patchUI.load id:', data.id);
                 await editor.patchUI.load(data.id);
+                
                 if (window.showToast) window.showToast('info', 'Patches geladen und angezeigt.');
               } catch (e) {
                 console.error('Patch-UI Laden fehlgeschlagen:', e);
@@ -573,6 +577,7 @@ export async function setupFromId(world_id, editor, nostrService) {
     // PATCH-UI: Automatischer Patch-Ladevorgang (DEBUG: Zeile 585)
     if (editor && editor.patchUI) {
       try {
+        console.log('[DEBUG PATCHES] setupFromId patchUI.load id:', world_id); 
         await editor.patchUI.load(world_id);
         if (window.showToast) window.showToast('info', 'Patches geladen und angezeigt.');
       } catch (e) {

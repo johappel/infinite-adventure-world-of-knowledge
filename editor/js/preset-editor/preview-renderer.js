@@ -71,6 +71,7 @@ export class PreviewRenderer {
       
       // Das Objekt sollte bereits normalisiert sein, wenn es hier ankommt.
       // Direkt an den Three.js Manager weiterleiten.
+      console.log("[DEBUG updatePreviewFromObject] Normalized World Object:", normalizedWorldObj);
       const result = await this.editor.threeJSManager.renderWorld(normalizedWorldObj);
       if (result) {
         document.getElementById('objectCount').innerText = `Anzahl Objekte: ${result.objectCount}`;
@@ -165,7 +166,8 @@ export class PreviewRenderer {
         : null;
       
       if (genesisEvt) {
-        const extractedYaml = this.editor.yamlProcessor.readWorldYAMLFromString(genesisEvt.yaml);
+        console.log('[DEBUG] Genesis-Event-Object:', genesisEvt);
+        const extractedYaml = genesisEvt.yaml || genesisEvt.originalYaml;
         if(extractedYaml){
             return extractedYaml;
         }else{
@@ -179,6 +181,17 @@ export class PreviewRenderer {
       console.error('Fehler beim Laden der Genesis-Daten:', error);
       return null;
     }
+  }
+  async _getCurrentGenesisYaml() {
+    try {
+      const data = await this._getCurrentGenesisData();
+      if (data) {
+        return this.editor.yamlProcessor.writeWorldYAMLToString(data);
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Genesis-YAML:', error);
+    }
+    return null;
   }
 
   /**

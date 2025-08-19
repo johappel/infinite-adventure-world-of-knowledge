@@ -529,7 +529,7 @@ objects:
    */
   async _updatePatchPreview(normalizedPatch) {
     try {
-      console.log('[DEBUG] _updatePatchPreview aufgerufen mit:', normalizedPatch);
+      console.info('[DEBUG] _updatePatchPreview aufgerufen mit:', normalizedPatch);
       
       if (!normalizedPatch || !normalizedPatch.operations) {
         console.warn('[DEBUG] Keine gültigen Patch-Operationen gefunden');
@@ -587,7 +587,7 @@ objects:
         }
         
         // Fallback: Konvertiere den Patch in ein Genesis-Format und zeige ihn als Welt an
-        console.log('[DEBUG] Fallback: Zeige Patch als eigenständige Welt an');
+        console.warn('[DEBUG] Fallback: Zeige Patch als eigenständige Welt an');
         const genesisFormat = this.editor.previewRenderer._convertPatchToGenesisFormat(normalizedPatch);
         console.log('[DEBUG] Genesis-Format erstellt:', genesisFormat);
         await this.editor.previewRenderer.updatePreviewFromObject(genesisFormat);

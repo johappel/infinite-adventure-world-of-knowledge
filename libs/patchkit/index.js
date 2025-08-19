@@ -480,11 +480,64 @@ export const world = {
 
     return { ordered, cycles };
   },
-
   async applyPatches(genesisObj, orderedPatches, options = {}) {
-    // MVP world state is a deep clone of genesis.entities; operations apply sequentially
-    const baseEntities = safeClone(genesisObj?.entities || {});
-    const state = { entities: baseEntities, meta: { genesis_id: genesisObj?.metadata?.id } };
+    console.log('[DEBUG applyPatches] Merge Patches mit genesisData:', genesisObj, 'und patches:', orderedPatches);
+
+    // Normalize genesis input: patchkit historically expects (merged) genesisObj.entities =
+    // { objects: { id: obj }, portals: { id: portal }, personas: { ... } }
+    // The editor sometimes provides top-level collections (arrays or maps).
+    // Support both formats and a broader set of collections (objects, personas,
+    // portals, terrain, portals, portals -> duplicates filtered).
+    // { metadata: { "schema_version": '...', id: '...', name: '...', description: '...', author_npub: "...", "created_at": <timestamp> } }
+
+    let baseEntities = {};
+    if (genesisObj && typeof genesisObj === 'object') {
+      if (genesisObj.entities && typeof genesisObj.entities === 'object') {
+        baseEntities = safeClone(genesisObj.entities);
+      } else {
+        // Collect common entity collections if present at top-level
+        const knownCollections = ['objects', 'personas', 'portals', 'terrain', 'portals', 'portals'];
+        // de-duplicate while preserving order
+        const uniqCollections = Array.from(new Set(knownCollections));
+        for (const col of uniqCollections) {
+          const arrOrObj = genesisObj[col];
+          if (arrOrObj == null) continue;
+          // Initialize bucket if not present
+          baseEntities[col] = baseEntities[col] || {};
+          // If collection is an array (editor may provide arrays), convert to id->obj map
+          if (Array.isArray(arrOrObj)) {
+            for (const item of arrOrObj) {
+              // keep provided id, otherwise generate one
+              const id = item?.id || generateUniqueId(8);
+              // Avoid overwriting if an id collision occurs; generate another id
+              let finalId = id;
+              let tries = 0;
+              while (baseEntities[col][finalId] && tries < 5) {
+                finalId = generateUniqueId(8);
+                tries++;
+              }
+              baseEntities[col][finalId] = safeClone(item);
+            }
+          } else if (typeof arrOrObj === 'object') {
+            // If already an object map keyed by id, clone entries
+            for (const [k, v] of Object.entries(arrOrObj)) {
+              const finalId = k || (v?.id || generateUniqueId(8));
+              baseEntities[col][finalId] = safeClone(v);
+            }
+          } else {
+            // ignore unexpected types
+          }
+          // If the bucket ended up empty (no valid entries), remove it
+          if (Object.keys(baseEntities[col]).length === 0) {
+            delete baseEntities[col];
+          }
+        }
+      }
+    } else {
+      baseEntities = {};
+    }
+
+    const state = { entities: baseEntities, metadata: { genesis_id: genesisObj?.metadata?.id } };
     const diffs = [];
     const conflicts = [];
 
@@ -530,8 +583,64 @@ export const world = {
         }
       }
     }
+    console.log('[DEBUG] Welt gemerged :',  state);
     return { state, diffs, conflicts };
   },
+  
+  // async applyPatches(genesisObj, orderedPatches, options = {}) {
+  //   console.log("[DEBUG applyPatches] Applying patches to genesis world state...");
+  //   console.log("[DEBUG applyPatches] Genesis Object:", genesisObj);
+  //   console.log("[DEBUG applyPatches] Ordered Patches:", orderedPatches);
+  //   // MVP world state is a deep clone of genesis.entities; operations apply sequentially
+  //   const baseEntities = safeClone(genesisObj?.entities || {});
+  //   const state = { entities: baseEntities, meta: { genesis_id: genesisObj?.metadata?.id } };
+  //   const diffs = [];
+  //   const conflicts = [];
+
+  //   function getEntity(t, id) {
+  //     state.entities[t] = state.entities[t] || {};
+  //     return state.entities[t][id];
+  //   }
+  //   function ensureEntity(t, id) {
+  //     state.entities[t] = state.entities[t] || {};
+  //     if (!state.entities[t][id]) state.entities[t][id] = {};
+  //     return state.entities[t][id];
+  //   }
+
+  //   for (const p of (orderedPatches || [])) {
+  //     for (const op of (p.operations || [])) {
+  //       if (op.type === "add") {
+  //         const id = op.entity_id || generateUniqueId(8);
+  //         if (getEntity(op.entity_type, id)) {
+  //           conflicts.push({ kind: "add_duplicate", entity: { type: op.entity_type, id }, patches: [p.metadata.id] });
+  //           continue;
+  //         }
+  //         ensureEntity(op.entity_type, id);
+  //         Object.assign(state.entities[op.entity_type][id], safeClone(op.payload || {}));
+  //         diffs.push({ kind: "add", entity: { type: op.entity_type, id }, from: undefined, to: state.entities[op.entity_type][id] });
+  //       } else if (op.type === "update") {
+  //         const cur = getEntity(op.entity_type, op.entity_id);
+  //         if (!cur) {
+  //           conflicts.push({ kind: "update_missing", entity: { type: op.entity_type, id: op.entity_id }, patches: [p.metadata.id] });
+  //           continue;
+  //         }
+  //         const before = safeClone(cur);
+  //         Object.assign(cur, safeClone(op.changes || {}));
+  //         diffs.push({ kind: "update", entity: { type: op.entity_type, id: op.entity_id }, from: before, to: safeClone(cur) });
+  //       } else if (op.type === "delete") {
+  //         const cur = getEntity(op.entity_type, op.entity_id);
+  //         if (!cur) {
+  //           conflicts.push({ kind: "delete_missing", entity: { type: op.entity_type, id: op.entity_id }, patches: [p.metadata.id] });
+  //           continue;
+  //         }
+  //         const before = safeClone(cur);
+  //         delete state.entities[op.entity_type][op.entity_id];
+  //         diffs.push({ kind: "delete", entity: { type: op.entity_type, id: op.entity_id }, from: before, to: undefined });
+  //       }
+  //     }
+  //   }
+  //   return { state, diffs, conflicts };
+  // },
 
   diffAgainstWorld(patchObj, state) {
     const changes = [];

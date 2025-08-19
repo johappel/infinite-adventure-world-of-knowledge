@@ -72,12 +72,17 @@ export class PatchUI {
       console.log('[DEBUG PATCHES] Patches geladen:', this.patches);
       // Initial: alle included
       this.includes = new Map(this.patches.map(p => [p.id, true]));
+      console.log('[DEBUG PATCHES] nicht ausgeblendete Includes:', this.includes);
       await this._computeOrderMarkCycles();
       this._applyFilter();
       this._setupRange();
       this.renderList();
       // Detail- und Konflikt-Panels werden nicht mehr gerendert
+
+      // Vorschau rendern ------------------------------
+      console.log('[DEBUG PATCHES] call PatchUI.renderPreview');
       await this.renderPreview();
+      // -----------------------------------------------
 
       // Container-Panel ein-/ausblenden je nach Datenlage.
       if (this.container) {
@@ -406,6 +411,7 @@ export class PatchUI {
 
       // Wenn Genesis-Daten und PatchVisualizer vorhanden sind, visualisiere die Patches
       if (this.genesisData && this.patchVisualizer) {
+        console.log('[DEBUG PATCHES] call PatchUI.visualizePatches:', n, 'von', this.order.length);
         await this.patchVisualizer.visualizePatches(this.genesisData, selectedPatches, {
           showConflicts: true,
           highlightIntensity: 0.7,
@@ -413,6 +419,7 @@ export class PatchUI {
       } else {
         // Fallback: Nur die Patch-Anwendung ohne Visualisierung (keine 3D-Darstellung)
         const base = { entities: {} }; // minimale Basis-Welt
+        console.warn('[DEBUG PATCHES] Fallback: Genesis-Daten oder PatchVisualizer fehlen, wende Patches ohne Visualisierung an.');
         await this.patchKit.world.applyPatches(base, selectedPatches);
       }
 
