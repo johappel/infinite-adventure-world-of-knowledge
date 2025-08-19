@@ -7,6 +7,18 @@
 export class PatchManager {
   constructor(editor) {
     this.editor = editor;
+
+    // Expose a synchronous normalization helper on the editor so other UI parts
+    // (e.g. PatchUI) can call the same normalization logic without turning
+    // their callers async. This delegates to _ensureNormalizedPatch below.
+    if (this.editor) {
+      try {
+        this.editor.ensureNormalizedPatch = async (p) => await this._ensureNormalizedPatch(p);
+        this.editor.ensureNormalizedPatchSync = (p) => this._ensureNormalizedPatchSync(p);
+      } catch (e) {
+        console.warn('Konnte ensureNormalizedPatch nicht registrieren:', e);
+      }
+    }
   }
 
   async createNewPatch() {
@@ -294,8 +306,20 @@ objects:
       }
 
       // Normalisiere das YAML-Objekt für das Speichern als Patch
-      const normalizedPatch = this.editor.yamlProcessor.normalizePatchYaml(obj);
-      
+      let normalizedPatch = null;
+      try {
+        if (this.editor && typeof this.editor.ensureNormalizedPatchSync === 'function') {
+          normalizedPatch = this.editor.ensureNormalizedPatchSync(obj);
+        }
+      } catch (e) { console.warn('ensureNormalizedPatchSync failed:', e); }
+      if (!normalizedPatch && this.editor && typeof this.editor.ensureNormalizedPatch === 'function') {
+        try { normalizedPatch = await this.editor.ensureNormalizedPatch(obj); } catch (e) { console.warn('ensureNormalizedPatch failed:', e); }
+      }
+      if (!normalizedPatch && this.editor?.yamlProcessor?.normalizePatchYaml) {
+        normalizedPatch = this.editor.yamlProcessor.normalizePatchYaml(obj);
+      }
+      if (!normalizedPatch) throw new Error('Patch-Normalisierung fehlgeschlagen');
+
       // Setze die World-ID als Ziel
       normalizedPatch.metadata.targets_world = this.editor.worldId;
       
@@ -432,8 +456,19 @@ objects:
           // Wechsle zum Patch-Tab
           this.editor.uiManager.switchTab('patch');
           
-          // Aktualisiere die Vorschau
-          const normalizedPatch = this.editor.yamlProcessor.normalizePatchYaml(obj);
+          // Aktualisiere die Vorschau mittels zentraler Normalisierung
+          let normalizedPatch = null;
+          try {
+            if (this.editor && typeof this.editor.ensureNormalizedPatchSync === 'function') {
+              normalizedPatch = this.editor.ensureNormalizedPatchSync(obj);
+            }
+          } catch (e) { console.warn('ensureNormalizedPatchSync failed:', e); }
+          if (!normalizedPatch && this.editor && typeof this.editor.ensureNormalizedPatch === 'function') {
+            try { normalizedPatch = await this.editor.ensureNormalizedPatch(obj); } catch (e) { console.warn('ensureNormalizedPatch failed:', e); }
+          }
+          if (!normalizedPatch && this.editor?.yamlProcessor?.normalizePatchYaml) {
+            normalizedPatch = this.editor.yamlProcessor.normalizePatchYaml(obj);
+          }
           await this._updatePatchPreview(normalizedPatch);
           
           if (window.showToast) window.showToast('success', 'Patch importiert');
@@ -505,6 +540,114 @@ objects:
     } catch (error) {
       console.error('Fehler bei der Konvertierung des Patches zu YAML:', error);
       return '';
+    }
+  }
+  
+  /**
+   * noch nicht implementiert und getestet:
+   * Versucht, ein beliebiges Patch-Input in ein normalisiertes Patch-Objekt zu konvertieren.
+   * Erwartetes Ergebnis: Objekt mit operations Array und metadata
+   * Rückgabe: normalisiertes Patch-Objekt oder null bei Fehler
+   */
+  async _ensureNormalizedPatch(inputPatch) {
+    try {
+      if (!inputPatch) return null;
+      
+      // Bereits normalisiert?
+      if (inputPatch.operations && Array.isArray(inputPatch.operations)) {
+        return inputPatch;
+      }
+      
+      // Delegate to the synchronous helper which implements a robust, multi-format
+      // normalization path. This keeps callers that require async compatibility
+      // while providing a single place to maintain the normalization logic.
+      try {
+        const syncResult = this._ensureNormalizedPatchSync(inputPatch);
+        if (syncResult) return syncResult;
+      } catch (e) {
+        console.warn('Fehler beim Delegieren an _ensureNormalizedPatchSync:', e);
+      }
+      
+      return null;
+    } catch (e) {
+      console.error('Fehler in _ensureNormalizedPatch:', e);
+      return null;
+    }
+  }
+
+  // Synchronized version used by UI lists that expect sync behavior
+  _ensureNormalizedPatchSync(inputPatch) {
+    try {
+      if (!inputPatch) return null;
+
+      // Already normalized?
+      if (inputPatch.operations && Array.isArray(inputPatch.operations)) return inputPatch;
+
+      // If patchKit.parse is present try parsing raw event/string
+      try {
+        if (typeof inputPatch === 'string') {
+          // Try JSON first
+          try {
+            const asJson = JSON.parse(inputPatch);
+            const normalized = this.editor?.yamlProcessor?.normalizePatchYaml(asJson);
+            if (normalized) return normalized;
+          } catch {}
+          // Try YAML
+          try {
+            const asYaml = this.editor?.yamlProcessor?.safeYamlParse(inputPatch);
+            const normalized = this.editor?.yamlProcessor?.normalizePatchYaml(asYaml);
+            if (normalized) return normalized;
+          } catch {}
+        }
+
+        if (inputPatch.originalYaml && typeof inputPatch.originalYaml === 'string') {
+          // patchKit.parse may accept the originalYaml/event and return an object
+          if (this.editor?.patchKit?.patch?.parse) {
+            const parsed = this.editor.patchKit.patch.parse(inputPatch.originalYaml);
+            const normalized = this.editor?.yamlProcessor?.normalizePatchYaml(parsed);
+            if (normalized) return normalized;
+          }
+          // fallback: try yaml parse
+          try {
+            const parsed = this.editor?.yamlProcessor?.safeYamlParse(inputPatch.originalYaml);
+            const normalized = this.editor?.yamlProcessor?.normalizePatchYaml(parsed);
+            if (normalized) return normalized;
+          } catch {}
+        }
+
+        if (inputPatch.yaml && typeof inputPatch.yaml === 'string') {
+          if (this.editor?.patchKit?.patch?.parse) {
+            const parsed = this.editor.patchKit.patch.parse(inputPatch.yaml);
+            const normalized = this.editor?.yamlProcessor?.normalizePatchYaml(parsed);
+            if (normalized) return normalized;
+          }
+          try {
+            const parsed = this.editor?.yamlProcessor?.safeYamlParse(inputPatch.yaml);
+            const normalized = this.editor?.yamlProcessor?.normalizePatchYaml(parsed);
+            if (normalized) return normalized;
+          } catch {}
+        }
+
+        // If it's already an object with metadata/operations try direct normalization
+        if (inputPatch.metadata && inputPatch.operations) {
+          const normalized = this.editor?.yamlProcessor?.normalizePatchYaml(inputPatch);
+          if (normalized) return normalized;
+          return inputPatch; // if normalization returned falsy, return original object
+        }
+
+        if (typeof inputPatch === 'object') {
+          const normalized = this.editor?.yamlProcessor?.normalizePatchYaml(inputPatch);
+          if (normalized) return normalized;
+        }
+      } catch (e) {
+        // swallow and continue to generic fallback
+        console.warn('Fehler beim synchronen Normalisieren des Patches:', e);
+      }
+
+      return null;
+    } catch (e) {
+      console.error('Fehler in _ensureNormalizedPatchSync:', e);
+      return null;
     }
   }
 

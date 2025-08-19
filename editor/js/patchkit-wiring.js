@@ -79,35 +79,47 @@ export function createPatchKitPorts(nostrService) {
       const out = [];
       for (const e of evts) {
         try {
-          const p = JSON.parse(e.content);
+          const c = JSON.parse(e.content);
           // Unterstütze beide Formate:
           // - neues Mapping: p.target === worldId
           // - Legacy (Service-intern): p.target === 'world' && p.id === worldId
-          const isNew = p && p.target === worldId;
-          const isLegacy = p && p.target === 'world' && p.id === worldId;
+          const isNew = c && c.target === worldId;
+          const isLegacy = c && c.target === 'world' && c.id === worldId;
+          // console.log('[DEBUG PATCHES] Patch:', 'isNew:', isNew, 'isLegacy:', isLegacy);
+
+          // Prüfe, ob payload vorhanden und ein String ist
+          const payload = c.payload || null;  
+          const p = typeof payload === 'string' ? JSON.parse(payload) : c;
+          // console.log('[DEBUG PATCHES] Original Patch-Objekt:', p);
+          
           if (isNew || isLegacy) {
             const targets_world = isNew ? p.target : p.id;
             const patchObj = {
+              id: p.metadata.id || p.id || e.id || '',
+              name: p.metadata.name || p.name || '',
               metadata: {
                 schema_version: 'patchkit/1.0',
-                id: p.id || e.id || '',
-                name: p.name || '',
-                description: p.description || '',
+                id: p.metadata.id || p.id || e.id || '',
+                name: p.metadata.name || p.name || '',
+                description: p.metadata.description || p.description || '',
                 author_npub: e.pubkey || '',
                 created_at: e.created_at || 0,
                 version: p.version || '',
-                targets_world,
+                targets_world: worldId || targets_world || '',
                 depends_on: Array.isArray(p.depends_on) ? p.depends_on : [],
                 overrides: Array.isArray(p.overrides) ? p.overrides : []
               },
               operations: Array.isArray(p.operations) ? p.operations : []
             };
-            if (p.payload) {
-              patchObj.originalYaml = p.payload;
+            if (payload) {
+              patchObj.originalYaml = payload;
             }
+            // console.log('[DEBUG PATCHES] patchObj:', patchObj);
             out.push(patchObj);
           }
-        } catch { /* ignore */ }
+        } catch { /* ignore */ 
+          console.warn('[DEBUG PATCHES] Fehler beim Verarbeiten des Patch-Events:', e.id, e.content);
+        }
       }
       return out;
     },

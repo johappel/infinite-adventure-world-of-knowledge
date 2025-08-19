@@ -67,15 +67,34 @@ export class PatchUI {
 
     try {
       const list = await this.patchKit.io.patchPort.listPatchesByWorld(this.worldId);
-      // Normalisieren; Parsen falls nötig
-      this.patches = Array.isArray(list) ? list.map(x => this._ensurePatchObject(x)) : [];
-      console.log('[DEBUG PATCHES] Patches geladen:', this.patches);
+      // Normalisieren; Parsen falls nötig. Verwende zentrale Normalizer wenn verfügbar.
+      this.patches = [];
+      if (Array.isArray(list)) {
+        for (const raw of list) {
+          let p = null;
+          try {
+            // Prefer editor-provided synchronous normalizer for UI performance
+            if (this.editor && typeof this.editor.ensureNormalizedPatchSync === 'function') {
+              p = this.editor.ensureNormalizedPatchSync(raw) || null;
+            }
+          } catch (e) {
+            console.warn('ensureNormalizedPatchSync failed:', e);
+            p = null;
+          }
+          // Fallbacks: async normalizer or local fallback
+          if (!p && this.editor && typeof this.editor.ensureNormalizedPatch === 'function') {
+            try { p = await this.editor.ensureNormalizedPatch(raw); } catch (e) { p = null; }
+          }
+          if (!p) p = this._ensurePatchObject(raw);
+          this.patches.push(p);
+        }
+      }
       // Initial: alle included
-      this.includes = new Map(this.patches.map(p => [p.id, true]));
-      console.log('[DEBUG PATCHES] nicht ausgeblendete Includes:', this.includes);
+      this.includes = new Map(this.patches.map(p => [p.metadata.id, true]));
       await this._computeOrderMarkCycles();
       this._applyFilter();
       this._setupRange();
+      // Liste rendern ------------------------------
       this.renderList();
       // Detail- und Konflikt-Panels werden nicht mehr gerendert
 
@@ -295,8 +314,10 @@ export class PatchUI {
   renderList() {
     if (!this.listEl) return;
     this.listEl.innerHTML = '';
+    console.log('[DEBUG PATCHES] call PatchUI.renderList', this.patches);
 
     const byId = new Map(this.patches.map(p => [p.id, p]));
+    console.log('[DEBUG PATCHES] Patches nach ID:', byId);
     for (const id of this.order) {
       const p = byId.get(id);
       if (!p) continue;
