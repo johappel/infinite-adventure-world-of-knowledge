@@ -525,71 +525,13 @@ export function setupRenderResetButtons(editor) {
 
 // Funktion zum Laden einer Welt anhand ihrer ID
 export async function setupFromId(world_id, editor, nostrService) {
-  const yamlEditor = document.getElementById('world-yaml-editor');
-  const worldIdInput = document.getElementById('worldIdInput');
-
-  if (!yamlEditor) {
-    console.error('YAML-Editor nicht gefunden');
-    if (window.showToast) window.showToast('error', 'Editor nicht verfügbar');
+  if (!world_id) {
+    console.warn('setupFromId: Keine Welt-ID angegeben');
+    if (window.showToast) window.showToast('error', 'Keine Welt-ID angegeben');
     return;
   }
-
   try {
-    // Nostr-Service abrufen
-    const nostr = await window.NostrServiceFactory.getNostrService(); // Verwende getNostrService direkt
-    
-    // Welt anhand der ID abrufen
-    const data = await nostr.getById(world_id);
-
-    if (!data) {
-      throw new Error('Welt mit ID ' + world_id + ' nicht gefunden');
-    }
-
-    // YAML-Text extrahieren (gleiche Logik wie in setupWorldSearch)
-    let yamlText;
-    try {
-      yamlText = chooseYamlFromData(data);
-    } catch {
-      // Ultimativer Fallback: content parsen oder Objekt dumpen (nur wenn kein Factory-Schema)
-      if (typeof data?.content === 'string') {
-        try {
-          const parsed = YamlProcessor.safeYamlParse(data.content);
-          yamlText = YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(parsed));
-        } catch {}
-      }
-      if (!yamlText && typeof data === 'object' && !YamlProcessor.isFactorySchema(data)) {
-        try {
-          yamlText = YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(data));
-        } catch {}
-      }
-      if (!yamlText) throw new Error('Konnte keinen YAML-Inhalt aus den Daten extrahieren.');
-    }
-
-    // YAML in den Editor schreiben
-    yamlEditor.value = yamlText;
-
-    // Welt-ID setzen
-    if (worldIdInput) worldIdInput.value = world_id;
-
-    if (editor) {
-      editor.worldId = world_id;
-      simulateInputEvent(yamlEditor);
-    }
-
-    // PATCH-UI: Automatischer Patch-Ladevorgang (DEBUG: Zeile 585)
-    if (editor && editor.patchUI) {
-      try {
-        console.log('[DEBUG PATCHES] setupFromId patchUI.load id:', world_id); 
-        const results = await editor.patchUI.load(world_id);
-        console.log('[DEBUG PATCHES] setupFromId patchUI.load results:', results);
-        if (window.showToast) window.showToast('info', 'Patches geladen und angezeigt.');
-        return results;
-      } catch (e) {
-        console.error('Patch-UI Laden fehlgeschlagen:', e);
-        if (window.showToast) window.showToast('error', 'Patch-Anzeige fehlgeschlagen');
-      }
-    }
-
+    await window.presetEditor.worldManager.loadWorldById(worldId);
     if (window.showToast) window.showToast('success', 'Welt erfolgreich geladen.');
     
   } catch (e) {
@@ -602,16 +544,12 @@ export async function setupFromId(world_id, editor, nostrService) {
 export async function setupUrlParameterHandler(editor, nostrService) {
   const urlParams = new URLSearchParams(window.location.search);
   const worldId = urlParams.get('world');
-
-  if (worldId) {
-    // Wenn die aktuelle Welt bereits geladen ist, nicht erneut laden
-    if (editor && editor.worldId === worldId) {
-      console.log('World already loaded from URL, skipping reload.');
-      return;
-    }
-    return await setupFromId(worldId, editor, nostrService);
-
+  if (!worldId) {
+    return;
   }
+  console.info('[DEBUG] setupUrlParameterHandler: Welt-ID aus URL-Parameter:', worldId);
+  await window.presetEditor.worldManager.loadWorldById(worldId);
+  // await window.presetEditor.worldManager.loadWorldCurrentYaml();
 }
 
 // Hauptfunktion zum Initialisieren der Load-Funktionalität

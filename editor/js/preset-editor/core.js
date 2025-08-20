@@ -130,7 +130,9 @@ export class PresetEditor {
         if (valid) {
           this._setStatus('YAML gültig', 'success');
           this.uiManager._setValidationErrorsUI([]);
-          await this.previewRenderer.updatePreviewFromObject(normalized);
+          // Aktualisiere die Vorschau
+          await this.renderWorldPreview();
+          // await this.previewRenderer.updatePreviewFromObject(normalized);
         } else {
           const errors = Array.isArray(res?.errors) ? res.errors : [];
           this._setStatus('YAML ungültig – Details unten.', 'error');
@@ -589,14 +591,8 @@ try {
     const r = (n) => Math.round(n * 100) / 100;
     return { x: r(v.x), y: r(v.y), z: r(v.z) };
   }
-  renderWorldPreview() {
-    const worldId = this.worldId;
-    if (!worldId) {
-      console.error('[Editor] Keine Welt-ID vorhanden.');
-      return;
-    }
-    console.log(`[DEBUG] Vorschau für Welt: ${worldId}`);
-    // Hier könnte der Code zur Aktualisierung der 3D-Vorschau eingefügt werden
+  async renderWorldPreview() {
+    await presetEditor.worldManager.loadWorldCurrentYaml();
   }
 }
 

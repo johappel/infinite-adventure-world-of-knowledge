@@ -99,7 +99,7 @@ export class PatchUI {
       // Detail- und Konflikt-Panels werden nicht mehr gerendert
 
       // Vorschau rendern ------------------------------
-      const results = await this.renderPreview();
+      await this.renderPreview();
       // -----------------------------------------------
 
       // Container-Panel ein-/ausblenden je nach Datenlage.
@@ -116,7 +116,7 @@ export class PatchUI {
       }
 
       if (window.showToast) window.showToast('success', 'Patches geladen.');
-      return results;
+      
     } catch (e) {
       if (window.showToast) window.showToast(
           'error',
@@ -437,7 +437,7 @@ export class PatchUI {
       // Wenn Genesis-Daten und PatchVisualizer vorhanden sind, visualisiere die Patches
       if (this.genesisData && this.patchVisualizer) {
         console.log('[DEBUG PATCHES] call PatchUI.visualizePatches:', n, 'von', this.order.length);
-          results = await this.patchVisualizer.visualizePatches(this.genesisData, selectedPatches, {
+          await this.patchVisualizer.visualizePatches(this.genesisData, selectedPatches, {
           showConflicts: true,
           highlightIntensity: 0.7,
         });
@@ -450,7 +450,6 @@ export class PatchUI {
 
       if (this.applyUntilValueEl && this.rangeEl) this.applyUntilValueEl.textContent = `${n}/${this.order.length}`;
       
-      return results;
 
     } catch (e) {
       if (window.showToast) window.showToast('error', 'Preview fehlgeschlagen: ' + e.message);

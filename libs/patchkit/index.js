@@ -480,272 +480,323 @@ export const world = {
 
     return { ordered, cycles };
   },
-  
-  
+
   async applyPatches(genesisObj, orderedPatches, options = {}) {
-    // Ziel: Ein zentrales, robustes applyPatches, das verschiedene Input-Formate
-    // normalisiert und einheitlich anwendet. Liefert { state, diffs, conflicts }.
-    // state sollte eine normalisierte Version des Genesis-Objekts mit allen Patches sein.
-    console.log("[DEBUG applyPatches] Applying patches to genesis world state...");
+    // MVP world state is a deep clone of genesis.entities; operations apply sequentially
+    const baseEntities = safeClone(genesisObj?.entities || {});
+    const state = { entities: baseEntities, meta: { genesis_id: genesisObj?.metadata?.id } };
+    const diffs = [];
+    const conflicts = [];
 
-    // --- Neue Helfer: canonical key mapping für Entity-Collections ---
-    function canonicalEntityKey(k) {
-      if (!k) return k;
-      const s = String(k).toLowerCase().trim();
-      // Sammele bekannte Sammlungs-Typen und mappe auf die canonical collection-key (meist plural)
-      const map = {
-        'object': 'objects', 'objects': 'objects',
-        'portal': 'portals', 'portals': 'portals',
-        'persona': 'personas', 'personas': 'personas',
-        'person': 'personas',
-        // environment/terrain/camera bleiben in singular form unter entities (wie bisher)
-        'environment': 'environment',
-        'terrain': 'terrain',
-        'camera': 'camera'
-      };
-      return map[s] || (s.endsWith('s') ? s : s + 's'); // default: make plural
+    function getEntity(t, id) {
+      state.entities[t] = state.entities[t] || {};
+      return state.entities[t][id];
+    }
+    function ensureEntity(t, id) {
+      state.entities[t] = state.entities[t] || {};
+      if (!state.entities[t][id]) state.entities[t][id] = {};
+      return state.entities[t][id];
     }
 
-    // Helper: normalize genesis input (YAML/JSON/parsed)
-    function normalizeGenesis(g) {
-      if (!g) return { metadata: {}, entities: {} };
-      // If string - try JSON then YAML
-      if (typeof g === 'string') {
-        try { return JSON.parse(g); } catch {};
-        try {
-          const ylib = ensureYamlLib();
-          if (ylib && typeof ylib.parse === 'function') return ylib.parse(g);
-        } catch {};
-        return { metadata: {}, entities: {} };
-      }
-      // If it looks like an event with content/yaml/originalYaml
-      const contentStr = (g.content && typeof g.content === 'string') ? g.content
-                       : (g.originalYaml && typeof g.originalYaml === 'string') ? g.originalYaml
-                       : (g.yaml && typeof g.yaml === 'string') ? g.yaml
-                       : null;
-      if (contentStr) {
-        try { return JSON.parse(contentStr); } catch {};
-        try {
-          const ylib = ensureYamlLib();
-          if (ylib && typeof ylib.parse === 'function') return ylib.parse(contentStr);
-        } catch {};
-      }
-      // Already an object — but ensure entity keys use canonical collections (merge singular/plural)
-      const ng = safeClone(g);
-      ng.entities = ng.entities || {};
-      const merged = {};
-      for (const key of Object.keys(ng.entities)) {
-        const canon = canonicalEntityKey(key);
-        merged[canon] = merged[canon] || {};
-        // copy entries from this collection into canonical collection
-        const val = ng.entities[key] || {};
-        // if val is array -> convert to keyed objects? keep as-is (caller should provide keyed map)
-        if (Array.isArray(val)) {
-          // convert array of objects to keyed map by id or generated id
-          for (const it of val) {
-            const id = it && (it.id || it._id) ? (it.id || it._id) : generateUniqueId(8);
-            merged[canon][id] = safeClone(it);
-            if (!merged[canon][id].id) merged[canon][id].id = id;
+    for (const p of (orderedPatches || [])) {
+      for (const op of (p.operations || [])) {
+        if (op.type === "add") {
+          const id = op.entity_id || generateUniqueId(8);
+          if (getEntity(op.entity_type, id)) {
+            conflicts.push({ kind: "add_duplicate", entity: { type: op.entity_type, id }, patches: [p.metadata.id] });
+            continue;
           }
-        } else if (typeof val === 'object' && val !== null) {
-          for (const id of Object.keys(val)) {
-            merged[canon][id] = safeClone(val[id]);
-            if (!merged[canon][id].id) merged[canon][id].id = id;
+          ensureEntity(op.entity_type, id);
+          Object.assign(state.entities[op.entity_type][id], safeClone(op.payload || {}));
+          diffs.push({ kind: "add", entity: { type: op.entity_type, id }, from: undefined, to: state.entities[op.entity_type][id] });
+        } else if (op.type === "update") {
+          const cur = getEntity(op.entity_type, op.entity_id);
+          if (!cur) {
+            conflicts.push({ kind: "update_missing", entity: { type: op.entity_type, id: op.entity_id }, patches: [p.metadata.id] });
+            continue;
           }
+          const before = safeClone(cur);
+          Object.assign(cur, safeClone(op.changes || {}));
+          diffs.push({ kind: "update", entity: { type: op.entity_type, id: op.entity_id }, from: before, to: safeClone(cur) });
+        } else if (op.type === "delete") {
+          const cur = getEntity(op.entity_type, op.entity_id);
+          if (!cur) {
+            conflicts.push({ kind: "delete_missing", entity: { type: op.entity_type, id: op.entity_id }, patches: [p.metadata.id] });
+            continue;
+          }
+          const before = safeClone(cur);
+          delete state.entities[op.entity_type][op.entity_id];
+          diffs.push({ kind: "delete", entity: { type: op.entity_type, id: op.entity_id }, from: before, to: undefined });
         }
       }
-      ng.entities = merged;
-      return ng;
     }
-
-    // Helper: normalize single patch/potential event into canonical patch object
-    function normalizePatch(p) {
-      if (!p) return null;
-
-      // If string: try JSON then YAML
-      if (typeof p === 'string') {
-        try { const j = JSON.parse(p); if (j) return j; } catch {}
-        try {
-          const ylib = ensureYamlLib();
-          if (ylib && typeof ylib.parse === 'function') {
-            const y = ylib.parse(p); if (y) return y;
-          }
-        } catch {}
-      }
-
-      // If patch event-like (originalYaml or yaml or content)
-      if (p.originalYaml && typeof p.originalYaml === 'string') {
-        try { const parsed = JSON.parse(p.originalYaml); if (parsed) return parsed; } catch {}
-        try {
-          const ylib = ensureYamlLib();
-          if (ylib && typeof ylib.parse === 'function') {
-            const parsed = ylib.parse(p.originalYaml); if (parsed) return parsed;
-          }
-        } catch {}
-      }
-      if (p.yaml && typeof p.yaml === 'string') {
-        try { const parsed = JSON.parse(p.yaml); if (parsed) return parsed; } catch {}
-        try {
-          const ylib = ensureYamlLib();
-          if (ylib && typeof ylib.parse === 'function') {
-            const parsed = ylib.parse(p.yaml); if (parsed) return parsed;
-          }
-        } catch {}
-      }
-      if (p.content && typeof p.content === 'string') {
-        try { const parsed = JSON.parse(p.content); if (parsed) return parsed; } catch {}
-        try {
-          const ylib = ensureYamlLib();
-          if (ylib && typeof ylib.parse === 'function') {
-            const parsed = ylib.parse(p.content); if (parsed) return parsed;
-          }
-        } catch {}
-      }
-
-      // If already a patch-object
-      if (p.operations && Array.isArray(p.operations)) return p;
-
-      // Try to extract operations or compatible shapes
-      const candidate = { metadata: p.metadata || {}, operations: [] };
-      // If p has objects/portals/personas lists, convert to add ops (support arrays and maps)
-      const entityArrays = ['objects','portals','personas','object','portal','persona'];
-      for (const key of entityArrays) {
-        const canon = canonicalEntityKey(key);
-        const val = p[key];
-        if (!val) continue;
-        if (Array.isArray(val)) {
-          for (const e of val) {
-            candidate.operations.push({ type: 'add', entity_type: canon, payload: safeClone(e) });
-          }
-        } else if (typeof val === 'object') {
-          for (const id of Object.keys(val)) {
-            const payload = safeClone(val[id]);
-            if (!payload.id) payload.id = id;
-            candidate.operations.push({ type: 'add', entity_type: canon, payload });
-          }
-        }
-      }
-      // environment/terrain/camera as update ops
-      for (const k of ['environment','terrain','camera']) {
-        if (p[k]) candidate.operations.push({ type: 'update', entity_type: k, entity_id: (p[k] && p[k].id) || undefined, changes: safeClone(p[k]) });
-      }
-
-      if (candidate.operations.length) return candidate;
-      return null;
-    }
-
-    try {
-      // Normalize inputs
-      const genesis = normalizeGenesis(genesisObj) || { metadata: {}, entities: {} };
-      const patches = Array.isArray(orderedPatches) ? orderedPatches.map(normalizePatch).filter(Boolean) : [];
-
-      console.log('[DEBUG applyPatches] Normalized Genesis Object:', genesis);
-      console.log('[DEBUG applyPatches] Normalized Patches:', patches);
-
-      // Prepare state — build a complete, normalised genesis object we will mutate
-      const resultGenesis = safeClone(genesis) || {};
-      resultGenesis.metadata = resultGenesis.metadata || { schema_version: "patchkit/1.0", id: generateUniqueId(12), name: "" };
-      resultGenesis.entities = resultGenesis.entities || {};
-      resultGenesis.rules = resultGenesis.rules || {};
-
-      // state returned is the full genesis-shaped object
-      const state = resultGenesis;
-      const diffs = [];
-      const conflicts = [];
-
-      // Helpers operate on state.entities (which is the real genesis.entities)
-      function getEntityCollectionKey(rawType) {
-        return canonicalEntityKey(rawType);
-      }
-      function getEntity(t, id) {
-        const col = getEntityCollectionKey(t);
-        state.entities[col] = state.entities[col] || {};
-        return state.entities[col][id];
-      }
-      function ensureEntity(t, id) {
-        const col = getEntityCollectionKey(t);
-        state.entities[col] = state.entities[col] || {};
-        if (!state.entities[col][id]) state.entities[col][id] = {};
-        return state.entities[col][id];
-      }
-
-      // Apply patches sequentially
-      for (const p of patches) {
-        if (!p || !Array.isArray(p.operations)) continue;
-        for (const op of p.operations) {
-          const typ = String(op.type || '').toLowerCase();
-          if (typ === 'add') {
-            // Determine ID: prefer explicit entity_id, then payload.id, otherwise generate
-            const id = op.entity_id || (op.payload && (op.payload.id || op.payload._id)) || generateUniqueId(8);
-            const rawEt = op.entity_type || (op.payload && op.payload.type) || 'objects';
-            const entityCollection = getEntityCollectionKey(rawEt);
-            const entityTypeForDiff = entityCollection; // keep collection key in diffs
-            // If already exists -> conflict (or treat as update)
-            if (getEntity(entityCollection, id)) {
-              conflicts.push({ reason: 'add-exists', patch: p, op, id, entityType: entityCollection });
-              // convert to update
-              const ent = ensureEntity(entityCollection, id);
-              Object.assign(ent, safeClone(op.payload || {}));
-              diffs.push({ kind: 'conflict-add-existing-updated', entity: { type: entityTypeForDiff, id }, from: undefined, to: safeClone(ent) });
-            } else {
-              ensureEntity(entityCollection, id);
-              Object.assign(state.entities[entityCollection][id], safeClone(op.payload || {}));
-              if (!state.entities[entityCollection][id].id) state.entities[entityCollection][id].id = id;
-              diffs.push({ kind: 'add', entity: { type: entityTypeForDiff, id }, from: undefined, to: safeClone(state.entities[entityCollection][id]) });
-            }
-          } else if (typ === 'update') {
-            // Special keys: environment/terrain/camera are top-level updates but stored as collections too
-            const rawEt = op.entity_type || op.target || (op.payload && op.payload.type) || null;
-            const entityCollection = getEntityCollectionKey(rawEt);
-            if (['environment','terrain','camera'].includes(entityCollection)) {
-              state.entities[entityCollection] = state.entities[entityCollection] || {};
-              let envId = op.entity_id || Object.keys(state.entities[entityCollection])[0] || (entityCollection + "_1");
-              const beforeEnv = state.entities[entityCollection][envId] ? safeClone(state.entities[entityCollection][envId]) : undefined;
-              state.entities[entityCollection][envId] = Object.assign({}, state.entities[entityCollection][envId] || {}, safeClone(op.changes || op.payload || {}));
-              if (!state.entities[entityCollection][envId].id) state.entities[entityCollection][envId].id = envId;
-              diffs.push({ kind: 'update', entity: { type: entityCollection, id: envId }, from: beforeEnv, to: safeClone(state.entities[entityCollection][envId]) });
-              continue;
-            }
-
-            const id = op.entity_id || (op.target_id || (op.payload && (op.payload.id || op.payload._id)));
-            if (!id) {
-              conflicts.push({ reason: 'update-no-id', patch: p, op });
-              continue;
-            }
-            const existing = getEntity(entityCollection, id);
-            if (!existing) {
-              conflicts.push({ reason: 'update-missing', patch: p, op, id, entityType: entityCollection });
-              ensureEntity(entityCollection, id);
-              Object.assign(state.entities[entityCollection][id], safeClone(op.changes || op.payload || {}));
-              if (!state.entities[entityCollection][id].id) state.entities[entityCollection][id].id = id;
-              diffs.push({ kind: 'create-on-update', entity: { type: entityCollection, id }, from: undefined, to: safeClone(state.entities[entityCollection][id]) });
-            } else {
-              const before = safeClone(existing);
-              Object.assign(existing, safeClone(op.changes || op.payload || {}));
-              diffs.push({ kind: 'update', entity: { type: entityCollection, id }, from: before, to: safeClone(existing) });
-            }
-          } else if (typ === 'remove' || typ === 'delete') {
-            const entityCollection = getEntityCollectionKey(op.entity_type || op.target || '');
-            const id = op.entity_id || op.target_id || (op.payload && (op.payload.id || op.payload._id));
-            if (!id) { conflicts.push({ reason: 'remove-no-id', patch: p, op }); continue; }
-            const existing = getEntity(entityCollection, id);
-            if (!existing) { conflicts.push({ reason: 'remove-missing', patch: p, op, id, entityType: entityCollection }); continue; }
-            const before = safeClone(existing);
-            delete state.entities[entityCollection][id];
-            diffs.push({ kind: 'remove', entity: { type: entityCollection, id }, from: before, to: undefined });
-          } else {
-            console.warn('[applyPatches] Unrecognized op type:', op.type, op);
-            conflicts.push({ reason: 'unknown-op', patch: p, op });
-          }
-        }
-      }
-
-      return { state, diffs, conflicts };
-    } catch (e) {
-      console.error('[applyPatches] Fehler beim Anwenden der Patches:', e);
-      return { state: genesis?.entities ? { entities: genesis.entities } : { entities: {} }, diffs: [], conflicts: [{ reason: 'exception', error: String(e) }] };
-    }
+    return { state, diffs, conflicts };
   },
+  
+  // async applyPatches(genesisObj, orderedPatches, options = {}) {
+  //   // Ziel: Ein zentrales, robustes applyPatches, das verschiedene Input-Formate
+  //   // normalisiert und einheitlich anwendet. Liefert { state, diffs, conflicts }.
+  //   // state sollte eine normalisierte Version des Genesis-Objekts mit allen Patches sein.
+  //   console.log("[DEBUG applyPatches] Applying patches to genesis world state...");
+
+  //   // --- Neue Helfer: canonical key mapping für Entity-Collections ---
+  //   function canonicalEntityKey(k) {
+  //     if (!k) return k;
+  //     const s = String(k).toLowerCase().trim();
+  //     // Sammele bekannte Sammlungs-Typen und mappe auf die canonical collection-key (meist plural)
+  //     const map = {
+  //       'object': 'objects', 'objects': 'objects',
+  //       'portal': 'portals', 'portals': 'portals',
+  //       'persona': 'personas', 'personas': 'personas',
+  //       'person': 'personas',
+  //       // environment/terrain/camera bleiben in singular form unter entities (wie bisher)
+  //       'environment': 'environment',
+  //       'terrain': 'terrain',
+  //       'camera': 'camera'
+  //     };
+  //     return map[s] || (s.endsWith('s') ? s : s + 's'); // default: make plural
+  //   }
+
+  //   // Helper: normalize genesis input (YAML/JSON/parsed)
+  //   function normalizeGenesis(g) {
+  //     if (!g) return { metadata: {}, entities: {} };
+  //     // If string - try JSON then YAML
+  //     if (typeof g === 'string') {
+  //       try { return JSON.parse(g); } catch {};
+  //       try {
+  //         const ylib = ensureYamlLib();
+  //         if (ylib && typeof ylib.parse === 'function') return ylib.parse(g);
+  //       } catch {};
+  //       return { metadata: {}, entities: {} };
+  //     }
+  //     // If it looks like an event with content/yaml/originalYaml
+  //     const contentStr = (g.content && typeof g.content === 'string') ? g.content
+  //                      : (g.originalYaml && typeof g.originalYaml === 'string') ? g.originalYaml
+  //                      : (g.yaml && typeof g.yaml === 'string') ? g.yaml
+  //                      : null;
+  //     if (contentStr) {
+  //       try { return JSON.parse(contentStr); } catch {};
+  //       try {
+  //         const ylib = ensureYamlLib();
+  //         if (ylib && typeof ylib.parse === 'function') return ylib.parse(contentStr);
+  //       } catch {};
+  //     }
+  //     // Already an object — but ensure entity keys use canonical collections (merge singular/plural)
+  //     const ng = safeClone(g);
+  //     ng.entities = ng.entities || {};
+  //     const merged = {};
+  //     for (const key of Object.keys(ng.entities)) {
+  //       const canon = canonicalEntityKey(key);
+  //       merged[canon] = merged[canon] || {};
+  //       // copy entries from this collection into canonical collection
+  //       const val = ng.entities[key] || {};
+  //       // if val is array -> convert to keyed objects? keep as-is (caller should provide keyed map)
+  //       if (Array.isArray(val)) {
+  //         // convert array of objects to keyed map by id or generated id
+  //         for (const it of val) {
+  //           const id = it && (it.id || it._id) ? (it.id || it._id) : generateUniqueId(8);
+  //           merged[canon][id] = safeClone(it);
+  //           if (!merged[canon][id].id) merged[canon][id].id = id;
+  //         }
+  //       } else if (typeof val === 'object' && val !== null) {
+  //         for (const id of Object.keys(val)) {
+  //           merged[canon][id] = safeClone(val[id]);
+  //           if (!merged[canon][id].id) merged[canon][id].id = id;
+  //         }
+  //       }
+  //     }
+  //     ng.entities = merged;
+  //     return ng;
+  //   }
+
+  //   // Helper: normalize single patch/potential event into canonical patch object
+  //   function normalizePatch(p) {
+  //     if (!p) return null;
+
+  //     // If string: try JSON then YAML
+  //     if (typeof p === 'string') {
+  //       try { const j = JSON.parse(p); if (j) return j; } catch {}
+  //       try {
+  //         const ylib = ensureYamlLib();
+  //         if (ylib && typeof ylib.parse === 'function') {
+  //           const y = ylib.parse(p); if (y) return y;
+  //         }
+  //       } catch {}
+  //     }
+
+  //     // If patch event-like (originalYaml or yaml or content)
+  //     if (p.originalYaml && typeof p.originalYaml === 'string') {
+  //       try { const parsed = JSON.parse(p.originalYaml); if (parsed) return parsed; } catch {}
+  //       try {
+  //         const ylib = ensureYamlLib();
+  //         if (ylib && typeof ylib.parse === 'function') {
+  //           const parsed = ylib.parse(p.originalYaml); if (parsed) return parsed;
+  //         }
+  //       } catch {}
+  //     }
+  //     if (p.yaml && typeof p.yaml === 'string') {
+  //       try { const parsed = JSON.parse(p.yaml); if (parsed) return parsed; } catch {}
+  //       try {
+  //         const ylib = ensureYamlLib();
+  //         if (ylib && typeof ylib.parse === 'function') {
+  //           const parsed = ylib.parse(p.yaml); if (parsed) return parsed;
+  //         }
+  //       } catch {}
+  //     }
+  //     if (p.content && typeof p.content === 'string') {
+  //       try { const parsed = JSON.parse(p.content); if (parsed) return parsed; } catch {}
+  //       try {
+  //         const ylib = ensureYamlLib();
+  //         if (ylib && typeof ylib.parse === 'function') {
+  //           const parsed = ylib.parse(p.content); if (parsed) return parsed;
+  //         }
+  //       } catch {}
+  //     }
+
+  //     // If already a patch-object
+  //     if (p.operations && Array.isArray(p.operations)) return p;
+
+  //     // Try to extract operations or compatible shapes
+  //     const candidate = { metadata: p.metadata || {}, operations: [] };
+  //     // If p has objects/portals/personas lists, convert to add ops (support arrays and maps)
+  //     const entityArrays = ['objects','portals','personas','object','portal','persona'];
+  //     for (const key of entityArrays) {
+  //       const canon = canonicalEntityKey(key);
+  //       const val = p[key];
+  //       if (!val) continue;
+  //       if (Array.isArray(val)) {
+  //         for (const e of val) {
+  //           candidate.operations.push({ type: 'add', entity_type: canon, payload: safeClone(e) });
+  //         }
+  //       } else if (typeof val === 'object') {
+  //         for (const id of Object.keys(val)) {
+  //           const payload = safeClone(val[id]);
+  //           if (!payload.id) payload.id = id;
+  //           candidate.operations.push({ type: 'add', entity_type: canon, payload });
+  //         }
+  //       }
+  //     }
+  //     // environment/terrain/camera as update ops
+  //     for (const k of ['environment','terrain','camera']) {
+  //       if (p[k]) candidate.operations.push({ type: 'update', entity_type: k, entity_id: (p[k] && p[k].id) || undefined, changes: safeClone(p[k]) });
+  //     }
+
+  //     if (candidate.operations.length) return candidate;
+  //     return null;
+  //   }
+
+  //   try {
+  //     // Normalize inputs
+  //     const genesis = normalizeGenesis(genesisObj) || { metadata: {}, entities: {} };
+  //     const patches = Array.isArray(orderedPatches) ? orderedPatches.map(normalizePatch).filter(Boolean) : [];
+
+  //     console.log('[DEBUG applyPatches] Normalized Genesis Object:', genesis);
+  //     console.log('[DEBUG applyPatches] Normalized Patches:', patches);
+
+  //     // Prepare state — build a complete, normalised genesis object we will mutate
+  //     const resultGenesis = safeClone(genesis) || {};
+  //     resultGenesis.metadata = resultGenesis.metadata || { schema_version: "patchkit/1.0", id: generateUniqueId(12), name: "" };
+  //     resultGenesis.entities = resultGenesis.entities || {};
+  //     resultGenesis.rules = resultGenesis.rules || {};
+
+  //     // state returned is the full genesis-shaped object
+  //     const state = resultGenesis;
+  //     const diffs = [];
+  //     const conflicts = [];
+
+  //     // Helpers operate on state.entities (which is the real genesis.entities)
+  //     function getEntityCollectionKey(rawType) {
+  //       return canonicalEntityKey(rawType);
+  //     }
+  //     function getEntity(t, id) {
+  //       const col = getEntityCollectionKey(t);
+  //       state.entities[col] = state.entities[col] || {};
+  //       return state.entities[col][id];
+  //     }
+  //     function ensureEntity(t, id) {
+  //       const col = getEntityCollectionKey(t);
+  //       state.entities[col] = state.entities[col] || {};
+  //       if (!state.entities[col][id]) state.entities[col][id] = {};
+  //       return state.entities[col][id];
+  //     }
+
+  //     // Apply patches sequentially
+  //     for (const p of patches) {
+  //       if (!p || !Array.isArray(p.operations)) continue;
+  //       for (const op of p.operations) {
+  //         const typ = String(op.type || '').toLowerCase();
+  //         if (typ === 'add') {
+  //           // Determine ID: prefer explicit entity_id, then payload.id, otherwise generate
+  //           const id = op.entity_id || (op.payload && (op.payload.id || op.payload._id)) || generateUniqueId(8);
+  //           const rawEt = op.entity_type || (op.payload && op.payload.type) || 'objects';
+  //           const entityCollection = getEntityCollectionKey(rawEt);
+  //           const entityTypeForDiff = entityCollection; // keep collection key in diffs
+  //           // If already exists -> conflict (or treat as update)
+  //           if (getEntity(entityCollection, id)) {
+  //             conflicts.push({ reason: 'add-exists', patch: p, op, id, entityType: entityCollection });
+  //             // convert to update
+  //             const ent = ensureEntity(entityCollection, id);
+  //             Object.assign(ent, safeClone(op.payload || {}));
+  //             diffs.push({ kind: 'conflict-add-existing-updated', entity: { type: entityTypeForDiff, id }, from: undefined, to: safeClone(ent) });
+  //           } else {
+  //             ensureEntity(entityCollection, id);
+  //             Object.assign(state.entities[entityCollection][id], safeClone(op.payload || {}));
+  //             if (!state.entities[entityCollection][id].id) state.entities[entityCollection][id].id = id;
+  //             diffs.push({ kind: 'add', entity: { type: entityTypeForDiff, id }, from: undefined, to: safeClone(state.entities[entityCollection][id]) });
+  //           }
+  //         } else if (typ === 'update') {
+  //           // Special keys: environment/terrain/camera are top-level updates but stored as collections too
+  //           const rawEt = op.entity_type || op.target || (op.payload && op.payload.type) || null;
+  //           const entityCollection = getEntityCollectionKey(rawEt);
+  //           if (['environment','terrain','camera'].includes(entityCollection)) {
+  //             state.entities[entityCollection] = state.entities[entityCollection] || {};
+  //             let envId = op.entity_id || Object.keys(state.entities[entityCollection])[0] || (entityCollection + "_1");
+  //             const beforeEnv = state.entities[entityCollection][envId] ? safeClone(state.entities[entityCollection][envId]) : undefined;
+  //             state.entities[entityCollection][envId] = Object.assign({}, state.entities[entityCollection][envId] || {}, safeClone(op.changes || op.payload || {}));
+  //             if (!state.entities[entityCollection][envId].id) state.entities[entityCollection][envId].id = envId;
+  //             diffs.push({ kind: 'update', entity: { type: entityCollection, id: envId }, from: beforeEnv, to: safeClone(state.entities[entityCollection][envId]) });
+  //             continue;
+  //           }
+
+  //           const id = op.entity_id || (op.target_id || (op.payload && (op.payload.id || op.payload._id)));
+  //           if (!id) {
+  //             conflicts.push({ reason: 'update-no-id', patch: p, op });
+  //             continue;
+  //           }
+  //           const existing = getEntity(entityCollection, id);
+  //           if (!existing) {
+  //             conflicts.push({ reason: 'update-missing', patch: p, op, id, entityType: entityCollection });
+  //             ensureEntity(entityCollection, id);
+  //             Object.assign(state.entities[entityCollection][id], safeClone(op.changes || op.payload || {}));
+  //             if (!state.entities[entityCollection][id].id) state.entities[entityCollection][id].id = id;
+  //             diffs.push({ kind: 'create-on-update', entity: { type: entityCollection, id }, from: undefined, to: safeClone(state.entities[entityCollection][id]) });
+  //           } else {
+  //             const before = safeClone(existing);
+  //             Object.assign(existing, safeClone(op.changes || op.payload || {}));
+  //             diffs.push({ kind: 'update', entity: { type: entityCollection, id }, from: before, to: safeClone(existing) });
+  //           }
+  //         } else if (typ === 'remove' || typ === 'delete') {
+  //           const entityCollection = getEntityCollectionKey(op.entity_type || op.target || '');
+  //           const id = op.entity_id || op.target_id || (op.payload && (op.payload.id || op.payload._id));
+  //           if (!id) { conflicts.push({ reason: 'remove-no-id', patch: p, op }); continue; }
+  //           const existing = getEntity(entityCollection, id);
+  //           if (!existing) { conflicts.push({ reason: 'remove-missing', patch: p, op, id, entityType: entityCollection }); continue; }
+  //           const before = safeClone(existing);
+  //           delete state.entities[entityCollection][id];
+  //           diffs.push({ kind: 'remove', entity: { type: entityCollection, id }, from: before, to: undefined });
+  //         } else {
+  //           console.warn('[applyPatches] Unrecognized op type:', op.type, op);
+  //           conflicts.push({ reason: 'unknown-op', patch: p, op });
+  //         }
+  //       }
+  //     }
+
+  //     return { state, diffs, conflicts };
+  //   } catch (e) {
+  //     console.error('[applyPatches] Fehler beim Anwenden der Patches:', e);
+  //     return { state: genesis?.entities ? { entities: genesis.entities } : { entities: {} }, diffs: [], conflicts: [{ reason: 'exception', error: String(e) }] };
+  //   }
+  // },
 };
 
 

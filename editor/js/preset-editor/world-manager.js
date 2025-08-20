@@ -181,9 +181,6 @@ personas:
       // Setze den YAML-Content im Editor
       this.editor.setYamlText(yamlText);
       
-      // Aktualisiere die Vorschau
-      await this.editor.previewRenderer.updatePreviewFromObject(genesis);
-      
       // Aktualisiere die Patch-UI, falls vorhanden
       if (this.editor.uiManager && typeof this.editor.uiManager.updatePatchList === 'function') {
         try {
@@ -192,9 +189,90 @@ personas:
           console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
         }
       }
+      // Aktualisiere die Vorschau
+      //await this.editor.previewRenderer.updatePreviewFromObject(genesis);
+      await this.loadWorldCurrentYaml();
+
+      
       
       if (window.showToast) window.showToast('success', 'Welt geladen');
       this.editor._setStatus('Welt geladen: ' + worldId, 'success');
+    } catch (e) {
+      console.error(e);
+      if (window.showToast) window.showToast('error', 'Laden fehlgeschlagen: ' + e.message);
+      this.editor._setStatus('Laden fehlgeschlagen: ' + e.message, 'error');
+    }
+  }
+  // Lädt die aktuelle Welt basierend auf dem YAML-Inhalt
+  async loadWorldCurrentYaml() {
+    try {
+      const yamlText = this.editor.getYamlText();
+      if (!yamlText) {
+        throw new Error('Kein YAML-Inhalt zum Laden');
+      }
+      const obj = this.editor.yamlProcessor.parseYaml();
+      if (!obj) {
+        throw new Error('Ungültiges YAML');
+      }
+      const genesis = this.editor.yamlProcessor.normalizeUserYaml(obj);
+      const worldId = this.editor._getWorldId();
+      
+      if (worldId) {
+        genesis.metadata.id = worldId;
+        //list patches
+        const list = await this.editor.patchKit.io.patchPort.listPatchesByWorld(worldId);
+        // Normalisieren; Parsen falls nötig. Verwende zentrale Normalizer wenn verfügbar.
+        const patches = [];
+        if (Array.isArray(list)) {
+          for (const raw of list) {
+            let p = null;
+            try {
+              // Prefer editor-provided synchronous normalizer for UI performance
+              if (this.editor && typeof this.editor.ensureNormalizedPatchSync === 'function') {
+                p = await this.editor.ensureNormalizedPatchSync(raw) || null;
+              }
+            } catch (e) {
+              console.warn('ensureNormalizedPatchSync failed:', e);
+              p = null;
+            }
+            // Fallbacks: async normalizer or local fallback
+            if (!p && this.editor && typeof this.editor.ensureNormalizedPatch === 'function') {
+              try { p = await this.editor.ensureNormalizedPatch(raw); } catch (e) { p = null; }
+            }
+            if (!p) p = this._ensurePatchObject(raw);
+            patches.push(p);
+          }
+        }
+        
+        // Wende den Patch auf die Genesis-Daten an
+        const result = await this.editor.patchKit.world.applyPatches(genesis, patches);
+        console.log('[DEBUG] Patch angewendet, Ergebnis:', result);
+        
+        // Zeige das Ergebnis (Genesis + Patch) an
+        await this.editor.previewRenderer.updatePreviewFromObject(result.state);
+        
+        // Stelle sicher, dass die Szene gerendert wird
+        if (this.editor.threeJSManager && this.editor.threeJSManager.renderer) {
+          this.editor.threeJSManager.renderer.render(this.editor.threeJSManager.scene, this.editor.threeJSManager.camera);
+        }
+
+        console.log('[DEBUG loadWorldCurrentYaml] Geladene Patches:', patches);
+        
+         // Aktualisiere die Vorschau
+        // await this.editor.previewRenderer.updatePreviewFromObject(genesis);
+        // if(patches && patches.length > 0) {
+        //   for (const patch of patches) {
+        //     console.log('[DEBUG loadWorldCurrentYaml] Render Patch:', patch);
+        //     const yamlContent = this.editor.yamlProcessor.readWorldYAMLFromString(patch.originalYaml);
+        //     this.editor.patchTextarea.value = yamlContent;
+        //     await this.editor.previewRenderer.updatePreviewFromObject(patch);
+            
+        //   }
+        // }
+
+      }
+
+     
     } catch (e) {
       console.error(e);
       if (window.showToast) window.showToast('error', 'Laden fehlgeschlagen: ' + e.message);
@@ -242,6 +320,8 @@ personas:
       this.editor._setStatus('Speichern fehlgeschlagen: ' + e.message, 'error');
     }
   }
+
+  
 
   /**
    * Speichert die aktuelle Welt als neue Welt mit einer neuen ID

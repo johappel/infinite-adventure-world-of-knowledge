@@ -50,9 +50,6 @@ export class PatchVisualizer {
             }
 
             // Wende die Patches an und erhalte die Ergebnisse
-            console.log('[DEBUG visualizePatches] Basis genesisData:', genesisData);
-            console.log('[DEBUG visualizePatches] Wende Patches an:', patches);
-            
             const patchResults = await this.applyPatchesForVisualization(genesisData, patches);
 
             // Rendere die resultierende Welt

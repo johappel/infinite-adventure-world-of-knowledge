@@ -279,7 +279,8 @@ export class UIManager {
         const obj = this.editor.yamlProcessor.parseYaml();
         if (obj) {
           const normalized = this.editor.yamlProcessor.normalizeUserYaml(obj);
-          this.editor.previewRenderer.updatePreviewFromObject(normalized);
+          this.editor.renderWorldPreview();
+          // this.editor.previewRenderer.updatePreviewFromObject(normalized);
         }
       } else if (tabName === 'patch') {
         const obj = this.editor.yamlProcessor.parseYaml();
