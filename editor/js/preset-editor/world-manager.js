@@ -16,6 +16,7 @@
  * // Aktuelle Welt speichern
  * await worldManager.saveCurrent();
  */
+
 export class WorldManager {
   /**
    * Erstellt eine neue WorldManager-Instanz
@@ -160,6 +161,7 @@ personas:
       
       // Parse die Genesis-Daten
       const genesis = this.editor.patchKit.genesis.parse(genesisEvt?.yaml || genesisEvt);
+      console.log('[DEBUG] Geladene Genesis-Daten type:', typeof genesis);
       
       // Setze die World-ID
       this.editor.worldId = worldId;
@@ -169,11 +171,12 @@ personas:
       if (worldIdInput) {
         worldIdInput.value = worldId;
       }
-      
       // Konvertiere in das benutzerfreundliche YAML-Format
-      const yamlText = this.editor.yamlProcessor.serializeYaml(
-        this.editor.yamlProcessor.denormalizeUserYaml(genesis)
-      );
+      const serializedYaml = this.editor.yamlProcessor.denormalizeUserYaml(genesis);
+      
+      console.log('[DEBUG] Serialisiertes YAML:', serializedYaml);
+      const yamlText = window.chooseYamlFromData(genesisEvt);
+      
       
       // Setze den YAML-Content im Editor
       this.editor.setYamlText(yamlText);

@@ -540,6 +540,17 @@ export class YamlProcessor {
       return null;
     }
   }
+  readFactoryToAuthorSpec(data) {
+    try {
+      const yaml = YamlProcessor.factoryToAuthorSpec(data);
+      return yaml;
+    } catch (e) {
+      console.error('Fehler beim Lesen des Factory-to-Author-Spec:', e);
+      this.editor._setStatus('Fehler beim Lesen des Factory-to-Author-Spec: ' + e.message, 'error');
+      return null;
+    }
+  }
+
   // Liest YAML aus content string eines nostr genesis events 
   readWorldYAMLFromString(str) {
     try {

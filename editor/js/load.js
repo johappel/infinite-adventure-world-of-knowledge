@@ -41,7 +41,7 @@ function getDisplayNameFromItem(it) {
  * Wählt den bestmöglichen YAML-Text aus einem Such-/Lade-Resultat.
  * Bevorzugt: originalYaml > yaml > content(payload) > Objekt (mit Factory‑Mapping)
  */
-function chooseYamlFromData(data) {
+export function chooseYamlFromData(data) {
 
   // Explizite String-Felder bevorzugen und ggf. konvertieren
   if (data && typeof data === 'object') {
@@ -71,6 +71,8 @@ function chooseYamlFromData(data) {
   }
   throw new Error('Kein YAML-Inhalt verfügbar');
 }
+
+window.chooseYamlFromData = chooseYamlFromData;
 
 // Funktion zum Simulieren eines Input-Events, welches das Rendern des ThreeJS Canvas auslöst
 export function simulateInputEvent(element) {
@@ -578,8 +580,10 @@ export async function setupFromId(world_id, editor, nostrService) {
     if (editor && editor.patchUI) {
       try {
         console.log('[DEBUG PATCHES] setupFromId patchUI.load id:', world_id); 
-        await editor.patchUI.load(world_id);
+        const results = await editor.patchUI.load(world_id);
+        console.log('[DEBUG PATCHES] setupFromId patchUI.load results:', results);
         if (window.showToast) window.showToast('info', 'Patches geladen und angezeigt.');
+        return results;
       } catch (e) {
         console.error('Patch-UI Laden fehlgeschlagen:', e);
         if (window.showToast) window.showToast('error', 'Patch-Anzeige fehlgeschlagen');
@@ -595,7 +599,7 @@ export async function setupFromId(world_id, editor, nostrService) {
 }
 
 // Funktion zum Prüfen und Verarbeiten des URL-Query-Parameters
-export function setupUrlParameterHandler(editor, nostrService) {
+export async function setupUrlParameterHandler(editor, nostrService) {
   const urlParams = new URLSearchParams(window.location.search);
   const worldId = urlParams.get('world');
 
@@ -605,9 +609,8 @@ export function setupUrlParameterHandler(editor, nostrService) {
       console.log('World already loaded from URL, skipping reload.');
       return;
     }
-    setTimeout(async () => {
-      await setupFromId(worldId, editor, nostrService);
-    }, 500);
+    return await setupFromId(worldId, editor, nostrService);
+
   }
 }
 
@@ -638,5 +641,5 @@ export async function initLoadFunctionality(editor, nostrService) {
   }
 
   // URL-Parameter-Handler einrichten
-  await setupUrlParameterHandler(editor, nostrService);
+  return await setupUrlParameterHandler(editor, nostrService);
 }

@@ -58,14 +58,15 @@ export class PatchVisualizer {
             // Rendere die resultierende Welt
             console.log('[DEBUG visualizePatches] Patch-Ergebnisse:', patchResults.state);
             await this.threeJSManager.renderWorld(patchResults.state);
-
+            
             // Visualisiere die Patch-Auswirkungen
             await this.visualizePatchEffects(patchResults.diffs, patchResults.conflicts, options);
 
             return {
                 appliedPatches: patches.length,
                 conflicts: patchResults.conflicts,
-                diffs: patchResults.diffs
+                diffs: patchResults.diffs,
+                worldData: patchResults.state
             };
         } catch (error) {
             console.error('Fehler bei der Patch-Visualisierung:', error);

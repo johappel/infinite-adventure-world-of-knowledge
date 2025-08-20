@@ -89,8 +89,10 @@ export class ThreeJSManager {
     }
 
     async renderWorld(worldData) {
+        window.__worldData = worldData;
         console.log('[DEBUG] ThreeJSManager.renderWorld aufgerufen mit worldData:', worldData);
-        
+        console.log('🎉[DEBUG] type:', typeof worldData);
+
         if (!this.initialized) {
             await this.init();
         }
@@ -100,8 +102,11 @@ export class ThreeJSManager {
             
             // Konvertiere das Genesis-Format in das für die Weltgenerierung erwartete Format
             const convertedWorldData = this.convertGenesisToWorldFormat(worldData);
+            console.log('🎉[DEBUG] Konvertierte Welt-Daten:', convertedWorldData);
+            console.dir(convertedWorldData);
             const spec = resolveWorldSpec(convertedWorldData);
-            
+            console.log('🎉[DEBUG] Konvertierte Welt-Spezifikation:', spec);
+
             const rng = Math.random;
             
             // Zone OHNE Umgebung bauen (nur Geometrie)
@@ -355,13 +360,21 @@ export class ThreeJSManager {
 
     // Konvertiert das Genesis-Format in das für die Weltgenerierung erwartete Format
     convertGenesisToWorldFormat(genesisData) {
-        console.log('[RENDER GENESIS] Konvertiere Genesis-Daten:', genesisData);
 
         if (!genesisData) {
             console.warn('⚠️ [Integrationstest] Keine genesisData übergeben, gebe leeres Objekt zurück');
             return {};
         }
-        
+        //wenn genesisData ein string ist, erst umwandeln
+        if (typeof genesisData === 'string') {
+            try {
+                genesisData = JSON.parse(genesisData);
+            } catch (error) {
+                console.error('⚠️ [STRING CONVERTER] Fehler beim Parsen von genesisData:', error);
+                return {};
+            }
+        }
+
         const worldData = {
             name: genesisData.metadata?.name || 'Unbenannte Welt',
             description: genesisData.metadata?.description || '',
@@ -442,7 +455,6 @@ export class ThreeJSManager {
             }
         }
 
-        console.log('🎉 [DEBUG GenesisToWorld] worldData:', worldData);
         return worldData;
     }
 
@@ -452,6 +464,7 @@ export class ThreeJSManager {
             console.warn('Keine Patch-Daten oder keine aktuelle Zone vorhanden');
             return;
         }
+        console.log('Visualisiere Patch-Daten:', patchData);
 
         const {
             addedColor = 0x00ff00,    // Grün für hinzugefügte Entities

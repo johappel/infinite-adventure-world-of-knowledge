@@ -569,7 +569,7 @@ try {
       // Direktes Processing statt auf Debounce zu warten
       const prevTab = this.activeTab;
       this.activeTab = 'world';
-      await this._processYamlInput();
+      // await this._processYamlInput();
       this.activeTab = prevTab;
       // Zusätzlich ein Input-Event dispatchen (für Listener anderer Teile)
       try {
@@ -588,6 +588,15 @@ try {
   _roundPoint(v) {
     const r = (n) => Math.round(n * 100) / 100;
     return { x: r(v.x), y: r(v.y), z: r(v.z) };
+  }
+  renderWorldPreview() {
+    const worldId = this.worldId;
+    if (!worldId) {
+      console.error('[Editor] Keine Welt-ID vorhanden.');
+      return;
+    }
+    console.log(`[DEBUG] Vorschau für Welt: ${worldId}`);
+    // Hier könnte der Code zur Aktualisierung der 3D-Vorschau eingefügt werden
   }
 }
 
@@ -626,6 +635,8 @@ try {
         console.error('[render_world] Kein presetEditor verfügbar. Warten Sie auf die Initialisierung (window.load) oder prüfen Sie Fehler in der Konsole.');
         return;
       }
+      const world_id = "world_ow4vji1e";
+      console.dir(editor);
 
       const obj = editor.yamlProcessor.parseYaml();
       if (obj) {
