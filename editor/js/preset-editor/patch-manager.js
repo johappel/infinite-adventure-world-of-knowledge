@@ -79,7 +79,7 @@ objects:
         this.editor._setStatus('Keine Patch ID angegeben.', 'error');
         return;
       }
-
+      console.info('[DEBUG PATCH MANAGER] Selected Patch:', this.editor.patchKit.io?.patchPort?.getById);
       // Lade den Patch vom Server
       let patchEvent = null;
       if (this.editor.patchKit.io?.patchPort?.getById) {

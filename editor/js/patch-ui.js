@@ -299,8 +299,28 @@ export class PatchUI {
     this.renderList();
     //this.renderDetail(); // Nicht mehr aufrufen
 
-    // Lade den Inhalt des Patches in den Editor
-    const patch = this.patches.find(p => p.id === id);
+    // DEBUG: Zeige alle Patches mit dieser ID und ihren Zeitstempel
+    const patchesWithSameId = this.patches.filter(p => p.id === id);
+    console.log('[DEBUG PATCHES] selectPatch: Alle Patches mit ID', id, ':', patchesWithSameId.map(p => ({
+      id: p.id,
+      created_at: p.metadata?.created_at,
+      name: p.metadata?.name,
+      hasOriginalYaml: !!p.originalYaml
+    })));
+
+    // Finde die letzte Bearbeitung (höchster created_at Wert)
+    const patch = patchesWithSameId.sort((a, b) => {
+      const aTime = a.metadata?.created_at || 0;
+      const bTime = b.metadata?.created_at || 0;
+      return bTime - aTime; // Absteigend sortieren für neueste zuerst
+    })[0];
+
+    console.log('[DEBUG PATCHES] selectPatch: Ausgewählter Patch (neueste Revision):', patch ? {
+      id: patch.id,
+      created_at: patch.metadata?.created_at,
+      name: patch.metadata?.name
+    } : 'Kein Patch gefunden');
+
     if (patch && this.editor && this.editor.patchTextarea) {
       const yamlContent = this.editor.yamlProcessor.readWorldYAMLFromString(patch.originalYaml);
       // Setze den Inhalt des Patch-Editors
