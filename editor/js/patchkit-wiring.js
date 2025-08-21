@@ -76,7 +76,7 @@ export function createPatchKitPorts(nostrService) {
       // Service hat keine direkte listByWorld; implementiere via get({kinds:[30312]}) und Filter
       if (!nostrService?.get) return [];
       const evts = await nostrService.get({ kinds: [30312] }).catch(() => []);
-      const out = [];
+      const allPatches = [];
       for (const e of evts) {
         try {
           const c = JSON.parse(e.content);
@@ -88,7 +88,7 @@ export function createPatchKitPorts(nostrService) {
           // console.log('[DEBUG PATCHES] Patch:', 'isNew:', isNew, 'isLegacy:', isLegacy);
 
           // Prüfe, ob payload vorhanden und ein String ist
-          const payload = c.payload || null;  
+          const payload = c.payload || null;
           const p = typeof payload === 'string' ? JSON.parse(payload) : c;
           // console.log('[DEBUG PATCHES] Original Patch-Objekt:', p);
           
@@ -115,13 +115,42 @@ export function createPatchKitPorts(nostrService) {
               patchObj.originalYaml = payload;
             }
             // console.log('[DEBUG PATCHES] patchObj:', patchObj);
-            out.push(patchObj);
+            allPatches.push(patchObj);
           }
-        } catch { /* ignore */ 
+        } catch { /* ignore */
           console.warn('[DEBUG PATCHES] Fehler beim Verarbeiten des Patch-Events:', e.id, e.content);
         }
       }
-      return out;
+
+      // DEBUG: Zeige alle gefundenen Patches vor der Filterung
+      console.log('[DEBUG PATCHES] listPatchesByWorld: Alle Patches vor Filterung:', allPatches.map(p => ({
+        id: p.id,
+        created_at: p.metadata?.created_at,
+        name: p.metadata?.name
+      })));
+
+      // Gruppiere Patches nach ID und behalte nur die neueste Revision (höchster created_at)
+      const patchMap = new Map();
+      for (const patch of allPatches) {
+        const existingPatch = patchMap.get(patch.id);
+        const currentTime = patch.metadata?.created_at || 0;
+        const existingTime = existingPatch?.metadata?.created_at || 0;
+
+        if (!existingPatch || currentTime > existingTime) {
+          patchMap.set(patch.id, patch);
+        }
+      }
+
+      const latestPatches = Array.from(patchMap.values());
+      
+      // DEBUG: Zeige die gefilterten Patches
+      console.log('[DEBUG PATCHES] listPatchesByWorld: Neueste Revisionen nach Filterung:', latestPatches.map(p => ({
+        id: p.id,
+        created_at: p.metadata?.created_at,
+        name: p.metadata?.name
+      })));
+
+      return latestPatches;
     },
     async getById(id) {
       return nostrService?.getById ? nostrService.getById(id) : notImpl('getById')();

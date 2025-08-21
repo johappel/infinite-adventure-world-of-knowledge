@@ -67,6 +67,7 @@ export class PatchUI {
 
     try {
       const list = await this.patchKit.io.patchPort.listPatchesByWorld(this.worldId);
+      console.log('[DEBUG ORDER PATCHES] PatchUI.load:', list);
       // Normalisieren; Parsen falls nötig. Verwende zentrale Normalizer wenn verfügbar.
       this.patches = [];
       if (Array.isArray(list)) {
@@ -426,6 +427,7 @@ export class PatchUI {
 
   async renderPreview() {
     // Erzeuge Vorschau der Anwendung bis zum N-ten Patch unter Berücksichtigung includes
+    console.info('[DEBUG ORDER PATCHES] PatchUI.renderPreview:', this.order.length);
     if (!this.patchKit) return;
     const n = this.rangeEl ? Number(this.rangeEl.value || 0) : this.order.length;
     const upTo = this.order.slice(0, n);
