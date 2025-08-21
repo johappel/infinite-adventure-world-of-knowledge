@@ -325,6 +325,7 @@ export class PresetEditor {
     const newPatchBtn = document.getElementById('newPatchBtn');
     if (newPatchBtn && !newPatchBtn._listenerAdded) {
       newPatchBtn.addEventListener('click', async (e) => {
+        console.log('[Core] Neuer Patch-Button geklickt');
         e.preventDefault();
         try {
           if (!this.patchManager || typeof this.patchManager.createNewPatch !== 'function') {

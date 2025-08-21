@@ -273,6 +273,7 @@ body {
   font-size: 12px;
   color: #8e8e90;
   margin-left: 4px;
+  display: inline list-item;
 }
 .patch-item{
   padding: 0.5rem 1rem;

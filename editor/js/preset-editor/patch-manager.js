@@ -23,7 +23,7 @@ export class PatchManager {
 
   async createNewPatch() {
     try {
-      if (!this.editor.worldId) {
+      if (!this.editor._getWorldId()) {
         this.editor._setStatus('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.', 'error');
         return;
       }
