@@ -343,12 +343,15 @@ export class YamlProcessor {
 
       // 1) Kopie erstellen
       const src = JSON.parse(JSON.stringify(userYaml));
-
+      if (typeof src !== 'object') {
+        throw new Error('Ungültiges Patch-YAML-Format');
+      }
+      
       // 2) Metadaten sicherstellen
       const normalized = {
         metadata: {
           schema_version: 'patchkit/1.0',
-          id: src?.metadata?.id || 'patch_' + Math.random().toString(36).slice(2, 10),
+          id: (src?.metadata?.id || src.id || 'patch_' + Math.random().toString(36).slice(2, 10)),
           name: (src?.metadata?.name || src?.name || 'Patch'),
           description: (src?.metadata?.description || src?.description || ''),
           author_npub: (src?.metadata?.author_npub || src?.author_npub || 'npub0'),
@@ -358,6 +361,7 @@ export class YamlProcessor {
         },
         operations: []
       };
+
 
       // 3) Falls bereits eine gültige operations-Liste im Autorformat existiert, validieren und übernehmen
       const isArrayOps = Array.isArray(src.operations);
@@ -505,7 +509,6 @@ export class YamlProcessor {
           });
         }
       }
-
       return normalized;
     } catch (e) {
       console.error('Fehler bei der Normalisierung des Patch-YAML:', e);

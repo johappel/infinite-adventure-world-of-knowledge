@@ -199,7 +199,9 @@ function wrapInterface(serviceImpl) {
     async saveOrUpdate({ id, name, type, yaml, originalYaml, pubkey }) {
       if (!id || !type || !yaml || !pubkey) throw new Error('Ungültige Parameter für saveOrUpdate');
       const now = Math.floor(Date.now() / 1000);
- 
+
+      console.log('[nostr] saveOrUpdate', { id, type, yaml, originalYaml, pubkey });
+
       if (type === 'genesis') {
         // Prüfe vorhandene Genesis mit gleicher d=id
         const existing = await this.getById(id);
@@ -228,7 +230,7 @@ function wrapInterface(serviceImpl) {
         // Patch: 30312, content JSON mit payload
         // Verwende originalYaml falls vorhanden, sonst yaml
         const payloadToSave = originalYaml || yaml;
-
+        
         const payload = { action: 'update', target: 'world', id, payload: payloadToSave };
         const draft = { kind: 30312, created_at: now, tags: [], content: JSON.stringify(payload), pubkey };
         const evt = await this.ensureSigned(draft);

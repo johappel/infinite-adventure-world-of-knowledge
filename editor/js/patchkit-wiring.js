@@ -148,7 +148,9 @@ export function createPatchKitPorts(nostrService) {
         originalYaml: signedPatch.originalYaml,
         pubkey: ident.pubkey
       };
-      console.log('[DEBUG saveAsPatch] payload', payload);
+      console.log('[DEBUG patchPort.save] signedPatch metadata:', md);
+      console.log('[DEBUG patchPort.save] payload id:', payload.id, 'targets_world:', md.targets_world, 'patch_id:', md.id);
+      console.log('[DEBUG patchPort.save] full payload:', payload);
       return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
     },
     async delete(id) {

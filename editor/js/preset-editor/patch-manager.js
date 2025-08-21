@@ -294,7 +294,7 @@ objects:
           throw new Error('Keine World ID gesetzt. Bitte laden oder erstellen Sie zuerst eine Welt.');
         }
       }
-      console.log('[DEBUG saveAsPatch] World ID:', this.editor.activeTab);
+      console.log('[DEBUG saveAsPatch] World ID:', this.editor.worldId);
       const yamlText = this.editor.getYamlText('patch');
       if (!yamlText) {
         throw new Error('Kein YAML-Inhalt zum Speichern');
@@ -306,7 +306,7 @@ objects:
       }
 
       console.log('[DEBUG saveAsPatch] parsedYaml:', obj, yamlText);
-
+      
       // Normalisiere das YAML-Objekt für das Speichern als Patch
       let normalizedPatch = null;
       try {
@@ -324,10 +324,6 @@ objects:
 
       // Setze die World-ID als Ziel
       normalizedPatch.metadata.targets_world = this.editor.worldId;
-
-      console.log('[DEBUG saveAsPatch] normalizedPatch:', normalizedPatch);
-      
-
       // Speichere den Patch
       const result = await this.editor.patchKit.io.patchPort.save(normalizedPatch);
       
