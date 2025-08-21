@@ -297,16 +297,17 @@ export class PatchUI {
   selectPatch(id) {
     this.selectedId = id;
     this.renderList();
-    //this.renderDetail(); // Nicht mehr aufrufen
+    this.renderDetail(); // Nicht mehr aufrufen
+    // FALSCH: const patch = this.patches.find(p => p.id === id); findet nur den ersten patch
 
-    // DEBUG: Zeige alle Patches mit dieser ID und ihren Zeitstempel
+    // Finde alle Patches mit derselben Patch ID
     const patchesWithSameId = this.patches.filter(p => p.id === id);
-    console.log('[DEBUG PATCHES] selectPatch: Alle Patches mit ID', id, ':', patchesWithSameId.map(p => ({
-      id: p.id,
-      created_at: p.metadata?.created_at,
-      name: p.metadata?.name,
-      hasOriginalYaml: !!p.originalYaml
-    })));
+    // console.log('[DEBUG PATCHES] selectPatch: Alle Patches mit ID', id, ':', patchesWithSameId.map(p => ({
+    //   id: p.id,
+    //   created_at: p.metadata?.created_at,
+    //   name: p.metadata?.name,
+    //   hasOriginalYaml: !!p.originalYaml
+    // })));
 
     // Finde die letzte Bearbeitung (höchster created_at Wert)
     const patch = patchesWithSameId.sort((a, b) => {
@@ -315,11 +316,11 @@ export class PatchUI {
       return bTime - aTime; // Absteigend sortieren für neueste zuerst
     })[0];
 
-    console.log('[DEBUG PATCHES] selectPatch: Ausgewählter Patch (neueste Revision):', patch ? {
-      id: patch.id,
-      created_at: patch.metadata?.created_at,
-      name: patch.metadata?.name
-    } : 'Kein Patch gefunden');
+    // console.log('[DEBUG PATCHES] selectPatch: Ausgewählter Patch (neueste Revision):', patch ? {
+    //   id: patch.id,
+    //   created_at: patch.metadata?.created_at,
+    //   name: patch.metadata?.name
+    // } : 'Kein Patch gefunden');
 
     if (patch && this.editor && this.editor.patchTextarea) {
       const yamlContent = this.editor.yamlProcessor.readWorldYAMLFromString(patch.originalYaml);
@@ -336,10 +337,10 @@ export class PatchUI {
   renderList() {
     if (!this.listEl) return;
     this.listEl.innerHTML = '';
-    console.log('[DEBUG PATCHES] call PatchUI.renderList', this.patches);
+    // console.log('[DEBUG PATCHES] call PatchUI.renderList', this.patches);
 
     const byId = new Map(this.patches.map(p => [p.id, p]));
-    console.log('[DEBUG PATCHES] Patches nach ID:', byId);
+    // console.log('[DEBUG PATCHES] Patches nach ID:', byId);
     for (const id of this.order) {
       const p = byId.get(id);
       if (!p) continue;
@@ -360,16 +361,15 @@ export class PatchUI {
       // Anzeige von Name und ID (Name (Patch-ID))
       const displayName = this._esc(p?.metadata?.name || '') ;
       const displayId = this._esc(p.id);
-      const nameHtml = displayName ? `${displayName} <span class="id">(${displayId})</span>` : `<span class="id">${displayId}</span>`;
+      const nameHtml = displayName ? `${displayName} <span class="patch-id">(${displayId})</span>` : `<span class="id">${displayId}</span>`;
 
       // Schlanke Zeile wie gefordert (keine weiteren Details/Meta/Badges)
       li.innerHTML =
-        '<div class="row">' +
-          `<!-- <label class="exclude-toggle"><input type="checkbox" data-inc="${p.id}" ${checked}>ausblenden</label> -->` +
+        '<div class="patches row">' +
           `<span class="name">${nameHtml}</span>` +
           `<div class="patch-actions">` +
-            `<!-- <button id="${editButtonId}" class="btn btn-sm btn-primary" title="Patch bearbeiten">✏️</button> -->` +
-            `<button id="${deleteButtonId}" class="btn btn-sm btn-danger" title="Patch löschen">🗑️</button>` +
+            `<label class="exclude-toggle"><input type="checkbox" title="ausblenden" data-inc="${p.id}" ${checked}></label>` +
+            `<button id="${deleteButtonId}" class="btn-danger btn-delete" title="Patch löschen">❌</button>` +
           `</div>` +
         '</div>';
 
