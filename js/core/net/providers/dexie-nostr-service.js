@@ -31,6 +31,7 @@ export class DexieNostrService {
       try {
         // Extrahiere die World ID aus den Tags
         const worldId = this._extractWorldIdFromTags(event.tags);
+        console.log('[DEBUG saveAsPatch] DexieNostrService.publish', event.kind, 'World ID:', worldId,event);
         
         if (worldId) {
           // Prüfe, ob bereits ein Event mit dieser World ID in den Tags existiert

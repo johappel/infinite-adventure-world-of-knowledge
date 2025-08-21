@@ -148,6 +148,7 @@ export function createPatchKitPorts(nostrService) {
         originalYaml: signedPatch.originalYaml,
         pubkey: ident.pubkey
       };
+      console.log('[DEBUG saveAsPatch] payload', payload);
       return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
     },
     async delete(id) {

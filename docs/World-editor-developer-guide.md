@@ -226,7 +226,7 @@ Verwaltet alle Operationen im Zusammenhang mit Patches.
 async createNewPatch()
 
 // Patch bearbeiten
-async editPatch(patchId)
+async selectPatch(patchId)
 
 // Patch löschen
 async deletePatch(patchId)

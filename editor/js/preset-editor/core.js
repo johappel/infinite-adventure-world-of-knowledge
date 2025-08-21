@@ -435,7 +435,11 @@ export class PresetEditor {
    * Gibt den aktuellen YAML-Text des aktiven Editors zurück
    * @returns {string} Der YAML-Text
    */
-  getYamlText() {
+  getYamlText(tab=null) {
+    if (tab === 'patch' || tab === 'world') {
+      this.activeTab = tab;
+    }
+
     // Verwende den richtigen Editor basierend auf dem aktiven Tab
     if (this.activeTab === 'world') {
       return this.worldTextarea ? this.worldTextarea.value : '';
@@ -449,7 +453,10 @@ export class PresetEditor {
    * Setzt den YAML-Text des aktiven Editors
    * @param {string} text - Der zu setzende YAML-Text
    */
-  setYamlText(text) {
+  setYamlText(text,tab=null) {
+    if (tab === 'patch' || tab === 'world') {
+      this.activeTab = tab;
+    }
     // Verwende den richtigen Editor basierend auf dem aktiven Tab
     if (this.activeTab === 'world') {
       if (this.worldTextarea) this.worldTextarea.value = text;

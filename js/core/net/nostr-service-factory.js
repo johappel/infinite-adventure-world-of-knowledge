@@ -228,7 +228,7 @@ function wrapInterface(serviceImpl) {
         // Patch: 30312, content JSON mit payload
         // Verwende originalYaml falls vorhanden, sonst yaml
         const payloadToSave = originalYaml || yaml;
-        
+
         const payload = { action: 'update', target: 'world', id, payload: payloadToSave };
         const draft = { kind: 30312, created_at: now, tags: [], content: JSON.stringify(payload), pubkey };
         const evt = await this.ensureSigned(draft);

@@ -297,7 +297,7 @@ export class PatchUI {
   selectPatch(id) {
     this.selectedId = id;
     this.renderList();
-    // this.renderDetail(); // Nicht mehr aufrufen
+    //this.renderDetail(); // Nicht mehr aufrufen
 
     // Lade den Inhalt des Patches in den Editor
     const patch = this.patches.find(p => p.id === id);
@@ -308,6 +308,8 @@ export class PatchUI {
 
       // Wechsle zum Patch-Tab
       this.editor.uiManager.switchTab('patch');
+      this.editor.currentPatchId = id;
+
     }
   }
 
