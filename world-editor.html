@@ -286,8 +286,8 @@ description: 'Eine Test-Welt für Presets'
             window.showToast('info', 'Angemeldet als npub: ' + ident.pubkey);
           }
         } catch {}
-
         console.log('Bootstrap erfolgreich abgeschlossen.');
+        render_world();
       } catch (e) {
         console.error('Bootstrap-Fehler:', e);
         if (window.showToast) window.showToast('error', 'Bootstrap fehlgeschlagen: ' + e.message);

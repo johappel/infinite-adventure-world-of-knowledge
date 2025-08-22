@@ -230,7 +230,7 @@ body {
   color: #4fc3f7; text-align: center;
 }
 .status-bar {
-  background: #007acc; color: white; padding: 5px 15px; font-size: 12px; display: flex; justify-content: space-between;
+  background: #007acc; color: white; padding: 5px 15px; font-size: 12px; display: flex; justify-content: space-between; z-index: 3; position: relative;
 }
 
 .sidebar-content {

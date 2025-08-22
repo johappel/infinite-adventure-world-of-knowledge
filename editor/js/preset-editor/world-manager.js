@@ -33,7 +33,7 @@ export class WorldManager {
   async createNewWorld() {
     try {
       const newWorldId = 'world_' + Math.random().toString(36).slice(2, 10);
-      this.editor.worldId = newWorldId;
+      this.editor._setWorldId(newWorldId);
 
       const newWorldTemplate = `
 # Basis-Metadaten
@@ -208,17 +208,22 @@ personas:
     try {
       const yamlText = this.editor.getYamlText();
       if (!yamlText) {
-        throw new Error('Kein YAML-Inhalt zum Laden');
+        console.warn('Kein YAML-Inhalt zum Laden');
+        return;
       }
       const obj = this.editor.yamlProcessor.parseYaml();
       if (!obj) {
         throw new Error('Ungültiges YAML');
       }
       const genesis = this.editor.yamlProcessor.normalizeUserYaml(obj);
-      const worldId = this.editor._getWorldId();
-      
+      let worldId = this.editor._getWorldId();
+      if(worldId !== genesis.metadata.id) {
+        // Wenn die World-ID nicht übereinstimmt, aktualisiere sie
+        this.editor._setWorldId(genesis.metadata.id);
+        worldId = genesis.metadata.id;
+      }
+
       if (worldId) {
-        genesis.metadata.id = worldId;
         //list patches
         const list = await this.editor.patchKit.io.patchPort.listPatchesByWorld(worldId);
         // Normalisieren; Parsen falls nötig. Verwende zentrale Normalizer wenn verfügbar.
@@ -243,34 +248,19 @@ personas:
             patches.push(p);
           }
         }
-        
-        // Wende den Patch auf die Genesis-Daten an
-        const result = await this.editor.patchKit.world.applyPatches(genesis, patches);
-        console.log('[DEBUG] Patch angewendet, Ergebnis:', result);
-        
-        // Zeige das Ergebnis (Genesis + Patch) an
-        await this.editor.previewRenderer.updatePreviewFromObject(result.state);
-        
+        await this.editor.patchUI.load(worldId, genesis, patches); 
         // Stelle sicher, dass die Szene gerendert wird
         if (this.editor.threeJSManager && this.editor.threeJSManager.renderer) {
           this.editor.threeJSManager.renderer.render(this.editor.threeJSManager.scene, this.editor.threeJSManager.camera);
         }
 
-        console.log('[DEBUG loadWorldCurrentYaml] Geladene Patches:', patches);
         
-         // Aktualisiere die Vorschau
-        // await this.editor.previewRenderer.updatePreviewFromObject(genesis);
-        // if(patches && patches.length > 0) {
-        //   for (const patch of patches) {
-        //     console.log('[DEBUG loadWorldCurrentYaml] Render Patch:', patch);
-        //     const yamlContent = this.editor.yamlProcessor.readWorldYAMLFromString(patch.originalYaml);
-        //     this.editor.patchTextarea.value = yamlContent;
-        //     await this.editor.previewRenderer.updatePreviewFromObject(patch);
-            
-        //   }
-        // }
 
+      }else{
+        await this.editor.patchUI.load(worldId, genesis); 
       }
+      // Setze den Editor-Status
+      this.editor._setStatus('Welt geladen: ' + worldId, 'success');
 
      
     } catch (e) {
@@ -287,6 +277,7 @@ personas:
   async saveCurrent() {
     try {
       console.log('[DEBUG] saveCurrent aufgerufen – Start');
+      this.editor._getWorldId();
       if (!this.editor.worldId) {
         // Neue Welt erstellen, wenn keine ID vorhanden
         await this.createNewWorld();
@@ -307,8 +298,11 @@ personas:
       const normalized = this.editor.yamlProcessor.normalizeUserYaml(obj);
       
       // Stelle sicher, dass die ID korrekt gesetzt ist
-      normalized.metadata.id = this.editor.worldId;
-      
+      if(normalized.metadata.id !== this.editor.worldId) {
+        console.warn('[DEBUG] World-ID im YAML stimmt nicht überein, aktualisiere ID aus dem Inputfeld');
+        normalized.metadata.id = this.editor.worldId;
+      }
+
       // Speichere die Welt
       const result = await this.editor.patchKit.io.genesisPort.save(normalized);
       

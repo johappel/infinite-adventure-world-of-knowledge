@@ -484,7 +484,7 @@ export const world = {
   async applyPatches(genesisObj, orderedPatches, options = {}) {
     // MVP world state is a deep clone of genesis.entities; operations apply sequentially
     const baseEntities = safeClone(genesisObj?.entities || {});
-    const state = { entities: baseEntities, meta: { genesis_id: genesisObj?.metadata?.id } };
+    const state = { entities: baseEntities, meta: { genesis_id: genesisObj?.metadata?.id }, metadata: genesisObj.metadata };
     const diffs = [];
     const conflicts = [];
 

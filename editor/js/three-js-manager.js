@@ -48,7 +48,8 @@ export class ThreeJSManager {
            
             // Scene
             this.scene = new THREE.Scene();
-            this.scene.background = new THREE.Color(0x87ceeb);
+            // Background-Color für die Szene setzen. Alternative: 0x87ceeb : hellblau
+            this.scene.background = new THREE.Color(0x000000);
 
             // Make scene globally available for environment fog
             window.worldEditor = { scene: this.scene };
@@ -75,6 +76,10 @@ export class ThreeJSManager {
             directionalLight.position.set(10, 20, 10);
             directionalLight.castShadow = true;
             this.scene.add(directionalLight);
+
+            // Nebel
+            // const fog = new THREE.FogExp2(0x000000, 0.1);
+            // this.scene.fog = fog;
 
             // Interaktions-Events binden
             this._initCameraControls();

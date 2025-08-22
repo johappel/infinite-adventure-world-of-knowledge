@@ -75,8 +75,10 @@ export function chooseYamlFromData(data) {
 window.chooseYamlFromData = chooseYamlFromData;
 
 // Funktion zum Simulieren eines Input-Events, welches das Rendern des ThreeJS Canvas auslöst
-export function simulateInputEvent(element) {
+export async function simulateInputEvent(element) {
   console.warn('[DEBUG] Simuliere Input-Event für Element abgeschaltet:', element);
+  console.warn('[DEBUG] wir nutzen nun render currentYaml');
+  await window.presetEditor.worldManager.loadWorldCurrentYaml();
   return;
   // if (!element) return;
 
@@ -547,9 +549,8 @@ export async function setupUrlParameterHandler(editor, nostrService) {
   if (!worldId) {
     return;
   }
-  console.info('[DEBUG] setupUrlParameterHandler: Welt-ID aus URL-Parameter:', worldId);
   await window.presetEditor.worldManager.loadWorldById(worldId);
-  // await window.presetEditor.worldManager.loadWorldCurrentYaml();
+  
 }
 
 // Hauptfunktion zum Initialisieren der Load-Funktionalität

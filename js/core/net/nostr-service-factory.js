@@ -165,7 +165,7 @@ function wrapInterface(serviceImpl) {
       const q = String(query || '').trim().toLowerCase();
       if (!q) return [];
       // Hole lokal verfügbare Genesis und Patches und filtere clientseitig
-      const evts = await this.get({ kinds: [30311, 30312] }).catch(() => []);
+      const evts = await this.get({ kinds: [30311] }).catch(() => []);
       const results = [];
       for (const e of evts) {
         if (e.kind === 30311) {

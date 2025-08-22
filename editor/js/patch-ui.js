@@ -60,34 +60,49 @@ export class PatchUI {
       });
   }
 
-  async load(worldId) {
+  async load(worldId, genesisData=null, patches=null) {
     if (!this.patchKit) throw new Error('PatchKit nicht initialisiert');
     if (!worldId && !this.worldId) throw new Error('World ID fehlt');
     this.worldId = worldId || this.worldId;
 
+    this.genesisData = genesisData || this.genesisData;
+    this.patches = patches || this.patches;
+
     try {
+      if(!this.genesisData) {
+        const genesisEvt = await this.editor.patchKit.io.genesisPort.getById(worldId);
+        if (!genesisEvt) {
+          throw new Error('Welt nicht gefunden');
+        }
+        this.genesisData = genesisEvt? this.editor.patchKit.genesis.parse(genesisEvt?.yaml) : null;
+        
+      }
+      this.genesisData = this.editor.yamlProcessor.normalizeUserYaml(this.genesisData);
+      
       const list = await this.patchKit.io.patchPort.listPatchesByWorld(this.worldId);
       console.log('[DEBUG ORDER PATCHES] PatchUI.load:', list);
       // Normalisieren; Parsen falls nötig. Verwende zentrale Normalizer wenn verfügbar.
-      this.patches = [];
-      if (Array.isArray(list)) {
-        for (const raw of list) {
-          let p = null;
-          try {
-            // Prefer editor-provided synchronous normalizer for UI performance
-            if (this.editor && typeof this.editor.ensureNormalizedPatchSync === 'function') {
-              p = this.editor.ensureNormalizedPatchSync(raw) || null;
+      if(!this.patches){
+        this.patches = [];
+        if (Array.isArray(list)) {
+          for (const raw of list) {
+            let p = null;
+            try {
+              // Prefer editor-provided synchronous normalizer for UI performance
+              if (this.editor && typeof this.editor.ensureNormalizedPatchSync === 'function') {
+                p = this.editor.ensureNormalizedPatchSync(raw) || null;
+              }
+            } catch (e) {
+              console.warn('ensureNormalizedPatchSync failed:', e);
+              p = null;
             }
-          } catch (e) {
-            console.warn('ensureNormalizedPatchSync failed:', e);
-            p = null;
+            // Fallbacks: async normalizer or local fallback
+            if (!p && this.editor && typeof this.editor.ensureNormalizedPatch === 'function') {
+              try { p = await this.editor.ensureNormalizedPatch(raw); } catch (e) { p = null; }
+            }
+            if (!p) p = this._ensurePatchObject(raw);
+            this.patches.push(p);
           }
-          // Fallbacks: async normalizer or local fallback
-          if (!p && this.editor && typeof this.editor.ensureNormalizedPatch === 'function') {
-            try { p = await this.editor.ensureNormalizedPatch(raw); } catch (e) { p = null; }
-          }
-          if (!p) p = this._ensurePatchObject(raw);
-          this.patches.push(p);
         }
       }
       // Initial: alle included
@@ -101,6 +116,7 @@ export class PatchUI {
 
       // Vorschau rendern ------------------------------
       await this.renderPreview();
+        
       // -----------------------------------------------
 
       // Container-Panel ein-/ausblenden je nach Datenlage.
