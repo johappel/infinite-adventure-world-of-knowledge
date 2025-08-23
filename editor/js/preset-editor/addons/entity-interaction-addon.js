@@ -130,9 +130,9 @@ export class EntityInteractionAddon extends InteractionAddon {
     console.log('[EntityInteraction] Canvas Click, hoveredEntity:', this.hoveredEntity);
     console.log('[EntityInteraction] originalHoveredEntity:', this.originalHoveredEntity);
     
-    // Entity selektieren und Dialog öffnen
-    // Verwende die ursprüngliche Entity-Referenz, nicht das Hover-Mesh
-    this.selectedEntity = this.originalHoveredEntity || this.hoveredEntity;
+    // Verwende die auflösbare, bearbeitbare Entity (kann ein Elternobjekt sein)
+    const base = this.originalHoveredEntity || this.hoveredEntity;
+    this.selectedEntity = this._resolveEditableEntity(base);
     console.log('[EntityInteraction] selectedEntity gesetzt:', this.selectedEntity);
     
     this._openEntityDialog();
@@ -159,16 +159,16 @@ export class EntityInteractionAddon extends InteractionAddon {
     // Raycaster für Entity-Erkennung
     threeJS.raycaster.setFromCamera(mouse, threeJS.camera);
     
-    // Alle Objekte in der Szene durchsuchen (außer Terrain)
+    // Alle Objekte in der Szene durchsuchen (außer Terrain, Skybox und Hover-Hilfsmesh)
     const targets = [];
     threeJS.scene.traverse(child => {
       if (child.isMesh && child.visible) {
-        // Terrain und Skybox ignorieren
-        const isTerrain = child.userData?.isTerrain || 
+        const isTerrain = child.userData?.isTerrain ||
                          (child.name && /terrain|ground|floor/i.test(child.name));
         const isSkybox = child.userData?.isSkybox;
+        const isHoverHelper = child === this.hoverMesh || child.userData?.isHoverHelper === true;
         
-        if (!isTerrain && !isSkybox) {
+        if (!isTerrain && !isSkybox && !isHoverHelper) {
           targets.push(child);
         }
       }
@@ -190,16 +190,18 @@ export class EntityInteractionAddon extends InteractionAddon {
    * @private
    */
   _handleEntityHover(entityObject) {
-    if (this.hoveredEntity === entityObject) return;
+    // Ermittle die tatsächlich bearbeitbare Entity (nicht das Hover-Mesh oder Hilfsmeshes)
+    const target = this._resolveEditableEntity(entityObject);
+    if (this.hoveredEntity === target) return;
     
     this._clearHover();
-    this.hoveredEntity = entityObject;
+    this.hoveredEntity = target;
     
-    // Speichere die ursprüngliche Entity-Referenz (nicht das Hover-Mesh)
-    this.originalHoveredEntity = entityObject;
+    // Speichere die ursprüngliche Entity-Referenz
+    this.originalHoveredEntity = target;
     
-    // Hover-Mesh an Entity positionieren
-    this._updateHoverMesh(entityObject);
+    // Hover-Mesh an der Ziel-Entity positionieren
+    this._updateHoverMesh(target);
   }
   
   /**
@@ -228,6 +230,7 @@ export class EntityInteractionAddon extends InteractionAddon {
     this.hoverMesh = new THREE.Mesh(geometry, material);
     this.hoverMesh.visible = false;
     this.hoverMesh.renderOrder = 999; // Immer oben rendern
+    this.hoverMesh.userData.isHoverHelper = true;
     
     if (this.editor.threeJSManager && this.editor.threeJSManager.scene) {
       this.editor.threeJSManager.scene.add(this.hoverMesh);
@@ -285,40 +288,38 @@ export class EntityInteractionAddon extends InteractionAddon {
   _openEntityDialog() {
     console.log('[EntityInteraction] _openEntityDialog aufgerufen, selectedEntity:', this.selectedEntity);
     console.log('[EntityInteraction] hoveredEntity:', this.hoveredEntity);
-    
-    if (!this.selectedEntity) {
-      console.error('[EntityInteraction] FEHLER: selectedEntity ist null!');
-      
-      // Fallback: Versuche hoveredEntity zu verwenden
-      if (this.hoveredEntity) {
-        console.log('[EntityInteraction] Verwende hoveredEntity als Fallback');
-        this.selectedEntity = this.hoveredEntity;
-      } else {
-        console.error('[EntityInteraction] KEINE ENTITY GEFUNDEN! Dialog wird nicht geöffnet.');
-        this._showToast('error', 'Keine Entity ausgewählt');
-        return;
-      }
+
+    // 1) Ermittele die zu bearbeitende Entity
+    let entity = this.selectedEntity || this.originalHoveredEntity || this.hoveredEntity;
+    if (!entity) {
+      console.error('[EntityInteraction] KEINE ENTITY GEFUNDEN! Dialog wird nicht geöffnet.');
+      this._showToast('error', 'Keine Entity ausgewählt');
+      return;
     }
-    
-    console.log('[EntityInteraction] Öffne Dialog für Entity:', this.selectedEntity);
-    
-    this._closeDialog(); // Vorherigen Dialog schließen
-    
+
+    console.log('[EntityInteraction] Öffne Dialog für Entity:', entity);
+
+    // 2) Vorherigen Dialog schließen (setzt selectedEntity aktuell auf null)
+    this._closeDialog();
+
+    // 3) Nach dem Schließen die Entity-Referenz wiederherstellen
+    this.selectedEntity = entity;
+
     try {
-      // Dialog erstellen
+      // 4) Dialog erstellen
       this.entityDialog = this._createDialog();
       console.log('[EntityInteraction] Dialog erstellt:', this.entityDialog);
-      
+
       document.body.appendChild(this.entityDialog);
       console.log('[EntityInteraction] Dialog zum DOM hinzugefügt');
-      
-      // Dialog-Inhalt füllen
+
+      // 5) Dialog-Inhalt füllen (selectedEntity ist gesetzt)
       this._populateDialog();
       console.log('[EntityInteraction] Dialog-Inhalt erfolgreich befüllt');
-      
+
     } catch (error) {
       console.error('[EntityInteraction] Fehler beim Öffnen des Dialogs:', error);
-      
+
       // Fallback: Einfache Fehlermeldung anzeigen
       if (this.entityDialog && this.entityDialog.parentElement) {
         const errorMsg = document.createElement('div');
@@ -328,7 +329,7 @@ export class EntityInteractionAddon extends InteractionAddon {
         this.entityDialog.appendChild(errorMsg);
       } else {
         // Notfall-Fallback: Alert anzeigen
-        alert(`Entity Dialog Fehler: ${error.message}\n\nBitte konsolen für Details öffnen.`);
+        alert(`Entity Dialog Fehler: ${error.message}\n\nBitte Konsole für Details öffnen.`);
       }
     }
   }
@@ -344,7 +345,7 @@ export class EntityInteractionAddon extends InteractionAddon {
     dialog.style.cssText = `
       position: fixed;
       top: 50%;
-      left: 50%;
+      left: 25%;
       transform: translate(-50%, -50%);
       background: #2a2a2a;
       border: 2px solid #0066ff;
@@ -365,7 +366,7 @@ export class EntityInteractionAddon extends InteractionAddon {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100vw;
+      width: 50vw;
       height: 100vh;
       background: rgba(0, 0, 0, 0.7);
       z-index: 999;
@@ -389,37 +390,40 @@ export class EntityInteractionAddon extends InteractionAddon {
       console.log('[EntityInteraction] Starte Dialog-Befüllung für Entity:', this.selectedEntity);
       
       const entity = this.selectedEntity;
-      const worldPos = new THREE.Vector3();
-      entity.getWorldPosition(worldPos);
-      console.log('[EntityInteraction] World Position:', worldPos);
-
-      // Vereinfachte Implementierung mit innerHTML
-      const rotation = new THREE.Euler().setFromQuaternion(entity.quaternion);
+      // Lokale Werte verwenden, damit Slider direkt wirken
+      const localPos = entity.position.clone();
+      const rotDeg = {
+        x: THREE.MathUtils.radToDeg(entity.rotation.x),
+        y: THREE.MathUtils.radToDeg(entity.rotation.y),
+        z: THREE.MathUtils.radToDeg(entity.rotation.z),
+      };
+      const typeLabel = entity.userData?.entityType || entity.userData?.objectType || entity.type || 'Unknown';
+      const idLabel = entity.userData?.entityId || 'N/A';
       
       this.entityDialog.innerHTML = `
         <h3 style="margin-top: 0; color: #0066ff;">Entity Bearbeiten</h3>
         
         <div style="margin-bottom: 15px; font-size: 12px; opacity: 0.8;">
-          Type: ${entity.userData?.entityType || 'Unknown'}<br>
-          ID: ${entity.userData?.entityId || 'N/A'}
+          Type: ${typeLabel}<br>
+          ID: ${idLabel}
         </div>
         
         <h4 style="margin: 0 0 10px 0; font-size: 14px;">Position</h4>
         <div style="display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; margin-bottom: 15px;">
           <span style="text-align: right; opacity: 0.7;">X</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${worldPos.x}" data-axis="x" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${worldPos.x.toFixed(2)}</span>
+            <input type="range" min="-100" max="100" step="0.1" value="${localPos.x}" data-section="position" data-axis="x" style="width: 100%;">
+            <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.x.toFixed(2)}</span>
           </div>
           <span style="text-align: right; opacity: 0.7;">Y</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${worldPos.y}" data-axis="y" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${worldPos.y.toFixed(2)}</span>
+            <input type="range" min="-100" max="100" step="0.1" value="${localPos.y}" data-section="position" data-axis="y" style="width: 100%;">
+            <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.y.toFixed(2)}</span>
           </div>
           <span style="text-align: right; opacity: 0.7;">Z</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${worldPos.z}" data-axis="z" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${worldPos.z.toFixed(2)}</span>
+            <input type="range" min="-100" max="100" step="0.1" value="${localPos.z}" data-section="position" data-axis="z" style="width: 100%;">
+            <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.z.toFixed(2)}</span>
           </div>
         </div>
         
@@ -427,18 +431,18 @@ export class EntityInteractionAddon extends InteractionAddon {
         <div style="display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; margin-bottom: 15px;">
           <span style="text-align: right; opacity: 0.7;">X</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-180" max="180" step="1" value="${THREE.MathUtils.radToDeg(rotation.x)}" data-axis="x" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${THREE.MathUtils.radToDeg(rotation.x).toFixed(2)}</span>
+            <input type="range" min="-180" max="180" step="1" value="${rotDeg.x}" data-section="rotation" data-axis="x" style="width: 100%;">
+            <span style="font-size: 12px; min-width: 40px; text-align: right;">${rotDeg.x.toFixed(2)}</span>
           </div>
           <span style="text-align: right; opacity: 0.7;">Y</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-180" max="180" step="1" value="${THREE.MathUtils.radToDeg(rotation.y)}" data-axis="y" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${THREE.MathUtils.radToDeg(rotation.y).toFixed(2)}</span>
+            <input type="range" min="-180" max="180" step="1" value="${rotDeg.y}" data-section="rotation" data-axis="y" style="width: 100%;">
+            <span style="font-size: 12px; min-width: 40px; text-align: right;">${rotDeg.y.toFixed(2)}</span>
           </div>
           <span style="text-align: right; opacity: 0.7;">Z</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-180" max="180" step="1" value="${THREE.MathUtils.radToDeg(rotation.z)}" data-axis="z" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${THREE.MathUtils.radToDeg(rotation.z).toFixed(2)}</span>
+            <input type="range" min="-180" max="180" step="1" value="${rotDeg.z}" data-section="rotation" data-axis="z" style="width: 100%;">
+            <span style="font-size: 12px; min-width: 40px; text-align: right;">${rotDeg.z.toFixed(2)}</span>
           </div>
         </div>
         
@@ -446,17 +450,17 @@ export class EntityInteractionAddon extends InteractionAddon {
         <div style="display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; margin-bottom: 15px;">
           <span style="text-align: right; opacity: 0.7;">X</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.x}" data-axis="x" style="width: 100%;">
+            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.x}" data-section="scale" data-axis="x" style="width: 100%;">
             <span style="font-size: 12px; min-width: 40px; text-align: right;">${entity.scale.x.toFixed(2)}</span>
           </div>
           <span style="text-align: right; opacity: 0.7;">Y</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.y}" data-axis="y" style="width: 100%;">
+            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.y}" data-section="scale" data-axis="y" style="width: 100%;">
             <span style="font-size: 12px; min-width: 40px; text-align: right;">${entity.scale.y.toFixed(2)}</span>
           </div>
           <span style="text-align: right; opacity: 0.7;">Z</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.z}" data-axis="z" style="width: 100%;">
+            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.z}" data-section="scale" data-axis="z" style="width: 100%;">
             <span style="font-size: 12px; min-width: 40px; text-align: right;">${entity.scale.z.toFixed(2)}</span>
           </div>
         </div>
@@ -476,13 +480,14 @@ export class EntityInteractionAddon extends InteractionAddon {
       const sliders = this.entityDialog.querySelectorAll('input[type="range"]');
       sliders.forEach(slider => {
         slider.addEventListener('input', (e) => {
+          const section = e.target.dataset.section;
           const axis = e.target.dataset.axis;
           const value = parseFloat(e.target.value);
           const valueDisplay = e.target.nextElementSibling;
           if (valueDisplay) {
             valueDisplay.textContent = value.toFixed(2);
           }
-          this._updateLivePreview(axis, value);
+          this._updateLivePreview(section, axis, value);
         });
       });
 
@@ -622,12 +627,40 @@ export class EntityInteractionAddon extends InteractionAddon {
    * @param {number} value
    * @private
    */
-  _updateLivePreview(axis, value) {
+  _updateLivePreview(sectionOrAxis, axisOrValue, maybeValue) {
     if (!this.selectedEntity) return;
-    
-    // Je nach aktiver Sektion unterschiedlich behandeln
-    // (Wird in der finalen Implementierung erweitert)
-    console.log(`Live Preview: ${axis} = ${value}`);
+
+    // Backward-compat: Falls alte Aufrufsignatur (axis, value) genutzt wird
+    let section, axis, value;
+    if (typeof maybeValue === 'number') {
+      section = sectionOrAxis;
+      axis = axisOrValue;
+      value = maybeValue;
+    } else {
+      section = 'position';
+      axis = sectionOrAxis;
+      value = axisOrValue;
+    }
+
+    const entity = this.selectedEntity;
+
+    if (section === 'position') {
+      entity.position[axis] = value;
+    } else if (section === 'rotation') {
+      // value kommt in Grad -> in Radiant umwandeln
+      const rad = THREE.MathUtils.degToRad(value);
+      entity.rotation[axis] = rad;
+    } else if (section === 'scale') {
+      entity.scale[axis] = value;
+    }
+
+    entity.matrixWorldNeedsUpdate = true;
+    if (this.editor?.threeJSManager?.renderer) {
+      // Optional: sofort neu rendern, falls nötig
+      // this.editor.threeJSManager.renderer.render(this.editor.threeJSManager.scene, this.editor.threeJSManager.camera);
+    }
+
+    console.log(`Live Preview: section=${section}, ${axis} = ${value}`);
   }
   
   /**
@@ -649,12 +682,16 @@ export class EntityInteractionAddon extends InteractionAddon {
       const rotation = new THREE.Euler().setFromQuaternion(this.selectedEntity.quaternion);
       const scale = this.selectedEntity.scale.clone();
       
+      // Entity-Typ ableiten und auf Schema normalisieren
+      let entityType = this.selectedEntity.userData?.entityType || this.selectedEntity.userData?.objectType || 'objects';
+      if (entityType === 'object') entityType = 'objects';
+
       const entityData = {
-        type: this.selectedEntity.userData?.entityType || 'object',
+        type: entityType,
         position: [worldPos.x, worldPos.y, worldPos.z],
         rotation: [
           THREE.MathUtils.radToDeg(rotation.x),
-          THREE.MathUtils.radToDeg(rotation.y), 
+          THREE.MathUtils.radToDeg(rotation.y),
           THREE.MathUtils.radToDeg(rotation.z)
         ],
         scale: [scale.x, scale.y, scale.z]
@@ -689,13 +726,18 @@ export class EntityInteractionAddon extends InteractionAddon {
    */
   async _updateYamlWithEntity(entityId, entityData) {
     let yamlObj = this._parseCurrentYaml();
-    if (!yamlObj) {
+    if (!yamlObj || typeof yamlObj !== 'object') {
       yamlObj = this._createNewYamlObject();
     }
-    
+
+    // Sicherstellen, dass die Struktur vorhanden ist
+    if (!yamlObj.entities || typeof yamlObj.entities !== 'object') {
+      yamlObj.entities = {};
+    }
+
     // Entity in die entsprechende Kategorie einfügen
-    const entityType = entityData.type;
-    if (!yamlObj.entities[entityType]) {
+    const entityType = entityData.type || 'objects';
+    if (!yamlObj.entities[entityType] || typeof yamlObj.entities[entityType] !== 'object') {
       yamlObj.entities[entityType] = {};
     }
     
@@ -804,6 +846,36 @@ export class EntityInteractionAddon extends InteractionAddon {
       this.hoveredEntity = null;
       this.selectedEntity = null;
     }
+  }
+
+  /**
+   * Findet die bearbeitbare Entity ausgehend von einem getroffenen Objekt.
+   * - Ignoriert Hover-/Hilfsmeshes
+   * - Klettert zu einem Elternteil mit semantischem Typ in userData
+   * @param {THREE.Object3D} obj
+   * @returns {THREE.Object3D}
+   * @private
+   */
+  _resolveEditableEntity(obj) {
+    if (!obj) return null;
+
+    // Wenn es sich um das Hover-Hilfsmesh handelt, nimm stattdessen dessen Parent
+    if (obj === this.hoverMesh || obj.userData?.isHoverHelper) {
+      obj = obj.parent || obj;
+    }
+
+    // Klettere zu einem Parent, der eine sinnvollere Entität beschreibt
+    let curr = obj;
+    while (curr) {
+      const u = curr.userData || {};
+      const hasSemanticType = !!(u.entityType || u.objectType || u.isTerrain || u.isSkybox);
+      if (hasSemanticType || !curr.parent) {
+        // Terrain/Skybox werden im Raycast bereits gefiltert, bleiben hier nur als Anker
+        return curr;
+      }
+      curr = curr.parent;
+    }
+    return obj;
   }
 }
 
