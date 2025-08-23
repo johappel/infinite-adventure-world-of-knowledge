@@ -606,19 +606,34 @@ try {
    * @private
    */
   async _applyYamlChange(yaml) {
-    // Immer in den World-Editor schreiben
-    if (this.worldTextarea) {
-      this.worldTextarea.value = yaml;
-      // Direktes Processing statt auf Debounce zu warten
-      const prevTab = this.activeTab;
-      this.activeTab = 'world';
-      // await this._processYamlInput();
-      this.activeTab = prevTab;
-      // Zusätzlich ein Input-Event dispatchen (für Listener anderer Teile)
+    // Ziel-Textarea basierend auf aktuellem Tab wählen (default: world)
+    const targetTab = this.activeTab === 'patch' ? 'patch' : 'world';
+    const targetTextarea = targetTab === 'patch' ? this.patchTextarea : this.worldTextarea;
+
+    if (targetTextarea) {
       try {
+        // Schreibe den YAML-Inhalt in das gewählte Textarea
+        targetTextarea.value = yaml;
+
+        // Extra: Input-Event dispatchen, damit externe Listener reagieren
+        const ev = new Event('input', { bubbles: true, cancelable: true });
+        targetTextarea.dispatchEvent(ev);
+      } catch (e) {
+        console.error('[Editor] Fehler beim Anwenden des YAML-Changes auf das Textarea:', e);
+      }
+      return;
+    }
+
+    // Fallback: Wenn kein Target vorhanden ist, in worldTextarea schreiben
+    console.warn('[Editor] Kein Ziel-Textarea gefunden, verwende worldTextarea als Fallback.');
+    if (this.worldTextarea) {
+      try {
+        this.worldTextarea.value = yaml;
         const ev = new Event('input', { bubbles: true, cancelable: true });
         this.worldTextarea.dispatchEvent(ev);
-      } catch {}
+      } catch (e) {
+        console.error('[Editor] Fehler beim Anwenden des YAML-Changes (Fallback):', e);
+      }
     }
   }
 
