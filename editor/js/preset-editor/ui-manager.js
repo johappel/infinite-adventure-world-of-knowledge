@@ -101,18 +101,23 @@ export class UIManager {
       addonSelect.style.padding = '3px 6px';
       
       // Standard-Option: Terrain Interaktion
-      const defaultOption = document.createElement('option');
-      defaultOption.value = 'terrain-click';
-      defaultOption.textContent = '🖱️ Terrain Interaktion';
-      defaultOption.selected = true;
-      addonSelect.appendChild(defaultOption);
+      const terrainOption = document.createElement('option');
+      terrainOption.value = 'terrain-click';
+      terrainOption.textContent = '🖱️ Terrain Interaktion';
+      terrainOption.selected = true;
+      addonSelect.appendChild(terrainOption);
       
-      // Platzhalter für zukünftige Addons
-      const placeholderOption = document.createElement('option');
-      placeholderOption.value = '';
-      placeholderOption.textContent = 'Weitere Tools...';
-      placeholderOption.disabled = true;
-      addonSelect.appendChild(placeholderOption);
+      // Entity Interaction Option
+      const entityOption = document.createElement('option');
+      entityOption.value = 'entity-interaction';
+      entityOption.textContent = '🔍 Entity Interaktion';
+      addonSelect.appendChild(entityOption);
+      
+      // Material Editor Option
+      const materialOption = document.createElement('option');
+      materialOption.value = 'material-editor';
+      materialOption.textContent = '🎨 Material Editor';
+      addonSelect.appendChild(materialOption);
 
       // Event-Listener für Addon-Wechsel
       addonSelect.addEventListener('change', async () => {

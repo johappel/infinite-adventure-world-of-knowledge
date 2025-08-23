@@ -6,6 +6,8 @@
  */
 
 import { TerrainClickAddon } from './terrain-click-addon.js';
+import { EntityInteractionAddon } from './entity-interaction-addon.js';
+import { MaterialEditorAddon } from './material-editor-addon.js';
 
 export class AddonManager {
   /**
@@ -27,6 +29,8 @@ export class AddonManager {
    */
   _registerDefaultAddons() {
     this.registerAddon('terrain-click', new TerrainClickAddon(this.editor));
+    this.registerAddon('entity-interaction', new EntityInteractionAddon(this.editor));
+    this.registerAddon('material-editor', new MaterialEditorAddon(this.editor));
   }
   
   /**
@@ -216,3 +220,5 @@ export class AddonManager {
 
 // Exportiere auch die einzelnen Addon-Klassen für direkten Zugriff
 export { TerrainClickAddon } from './terrain-click-addon.js';
+export { EntityInteractionAddon } from './entity-interaction-addon.js';
+export { MaterialEditorAddon } from './material-editor-addon.js';
