@@ -16,7 +16,7 @@
  * // Aktuelle Welt speichern
  * await worldManager.saveCurrent();
  */
-
+import { updateUrlParam } from '../load.js';
 export class WorldManager {
   /**
    * Erstellt eine neue WorldManager-Instanz
@@ -34,6 +34,7 @@ export class WorldManager {
     try {
       const newWorldId = 'world_' + Math.random().toString(36).slice(2, 10);
       this.editor._setWorldId(newWorldId);
+      updateUrlParam();
 
       const newWorldTemplate = `
 # Basis-Metadaten
@@ -217,13 +218,16 @@ personas:
       }
       const genesis = this.editor.yamlProcessor.normalizeUserYaml(obj);
       let worldId = this.editor._getWorldId();
-      if(worldId !== genesis.metadata.id) {
-        // Wenn die World-ID nicht übereinstimmt, aktualisiere sie
-        this.editor._setWorldId(genesis.metadata.id);
-        worldId = genesis.metadata.id;
+      const evt = await this.editor.patchKit.io.genesisPort.getById(worldId);
+      if(!evt) {
+        console.warn('[DEBUG] Genesis noch nicht gespeichert');
+        worldId = 'new';
       }
-
-      if (worldId) {
+      if(!genesis.metadata.id) {
+        throw new Error('Keine gültige World-ID gefunden');
+      }
+      document.querySelector('.patch-list-content').innerHTML = '';
+      if (worldId && worldId !== 'new') {
         //list patches
         const list = await this.editor.patchKit.io.patchPort.listPatchesByWorld(worldId);
         // Normalisieren; Parsen falls nötig. Verwende zentrale Normalizer wenn verfügbar.
@@ -298,13 +302,14 @@ personas:
       const normalized = this.editor.yamlProcessor.normalizeUserYaml(obj);
       
       // Stelle sicher, dass die ID korrekt gesetzt ist
-      if(normalized.metadata.id !== this.editor.worldId) {
-        console.warn('[DEBUG] World-ID im YAML stimmt nicht überein, aktualisiere ID aus dem Inputfeld');
-        normalized.metadata.id = this.editor.worldId;
+      if(normalized.metadata.id && normalized.metadata.id !== this.editor.worldId) {
+        console.warn('[DEBUG] World-ID im YAML stimmt nicht überein, aktualisiere das Inputfeld');
+        this.editor._setWorldId(normalized.metadata.id);
       }
 
       // Speichere die Welt
       const result = await this.editor.patchKit.io.genesisPort.save(normalized);
+      updateUrlParam(normalized.metadata.id);
       
       if (window.showToast) window.showToast('success', 'Welt gespeichert');
       this.editor._setStatus('Welt gespeichert: ' + this.editor.worldId, 'success');

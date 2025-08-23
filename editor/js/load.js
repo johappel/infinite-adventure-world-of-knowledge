@@ -217,66 +217,7 @@ export function setupWorldSearch(editor, nostrService) {
 
 
         div.addEventListener('click', async () => {
-          try {
-            let data = it;
-            // Wenn der Treffer nur ein Stub ist, komplettes Event laden
-            if (!it.yaml && !it.originalYaml && !it.content) {
-              data = await nostr.getById(it.id);
-            }
-
-            if (!data) throw new Error('Welt nicht gefunden');
-
-            let yamlText;
-            try {
-              yamlText = chooseYamlFromData(data);
-            } catch {
-              // Ultimativer Fallback: content parsen oder Objekt dumpen (nur wenn kein Factory-Schema)
-              if (typeof data?.content === 'string') {
-                try {
-                  const parsed = YamlProcessor.safeYamlParse(data.content);
-                  yamlText = YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(parsed));
-                } catch {}
-              }
-              if (!yamlText && typeof data === 'object' && !YamlProcessor.isFactorySchema(data)) {
-                try {
-                  yamlText = YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(data));
-                } catch {}
-              }
-              if (!yamlText) throw new Error('Konnte keinen YAML-Inhalt aus den Daten extrahieren.');
-            }
-
-            if (yamlEditor) {
-              yamlEditor.value = yamlText;
-              simulateInputEvent(yamlEditor);
-            }
-
-            if (worldIdInput && data.id) {
-              worldIdInput.value = data.id;
-            }
-            if (editor) {
-              editor.worldId = data.id;
-              simulateInputEvent(yamlEditor);
-            }
-
-            // PATCH-UI: Automatischer Patch-Ladevorgang (DEBUG: Zeile 585)
-            if (editor && editor.patchUI) {
-              try {
-                console.log('[DEBUG PATCHES] setupSearchWorld patchUI.load id:', data.id);
-                await editor.patchUI.load(data.id);
-                
-                if (window.showToast) window.showToast('info', 'Patches geladen und angezeigt.');
-              } catch (e) {
-                console.error('Patch-UI Laden fehlgeschlagen:', e);
-                if (window.showToast) window.showToast('error', 'Patch-Anzeige fehlgeschlagen');
-              }
-            }
-
-            hideResults();
-            if (window.showToast) window.showToast('success', 'Auswahl geladen.');
-          } catch (e) {
-            if (window.showToast) window.showToast('error', 'Konnte Ergebnis nicht laden: ' + (e?.message || e));
-            console.error(e);
-          }
+          window.render_world(it.id);
         });
 
         
