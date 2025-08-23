@@ -21,6 +21,8 @@ export class PatchManager {
     }
   }
 
+  // Erstellt einen neuen Patch in der bestehenden Welt
+
   async createNewPatch() {
     try {
       if (!this.editor._getWorldId()) {
@@ -50,13 +52,30 @@ objects:
       this.editor.uiManager.switchTab('patch');
 
       // Aktualisiere die Patch-UI, falls vorhanden
-      if (this.editor.patchUI) {
-        try {
-          await this.editor.patchUI.load(this.editor.worldId);
-        } catch (error) {
-          console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
-        }
-      }
+      // if (this.editor.patchManager && this.editor.yamlProcessor) {
+
+      //   try {
+      //     const obj = this.editor.yamlProcessor.parseYaml();
+      //     if (obj) {
+      //       const normalizedPatch = await this.editor.yamlProcessor.normalizePatchYaml(obj);
+      //       // targets_world für Validierung/Vorschau setzen
+      //       try {
+      //         if (normalizedPatch && normalizedPatch.metadata && this.editor.worldId) {
+      //           normalizedPatch.metadata.targets_world = this.editor.worldId;
+      //         }
+      //       } catch {}
+      //       await this.editor.patchManager._updatePatchPreview(normalizedPatch);
+      //     }
+          
+      //     // @ToDo: patch = normalisiertes yamlEditor.value
+      //     // const patch_obj = this.editor.yamlProcessor.parseYaml('patch');
+      //     // const patch = await this.editor.ensureNormalizedPatchSync(patch_obj);
+      //     // await window.render_world('auto');
+      //     // await this.editor.patchUI.load(this.editor.worldId, null, [patch]);
+      //   } catch (error) {
+      //     console.warn('Konnte Patch-Liste nicht aktualisieren:', error);
+      //   }
+      // }
 
       if (window.showToast) window.showToast('success', 'Neuer Patch erstellt');
       this.editor._setStatus('Neuer Patch erstellt', 'success');

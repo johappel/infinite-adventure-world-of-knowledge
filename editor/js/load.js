@@ -534,6 +534,7 @@ window.render_world = async function(worldId=null) {
       console.error('[render_world] Kein presetEditor verfügbar. Warten Sie auf die Initialisierung (window.load) oder prüfen Sie Fehler in der Konsole.');
       return;
     }
+    editor.uiManager.switchTab('world');
     if (worldId) {
       if(worldId === 'auto' || worldId === 'input'){
         // verwende die aktuelle World ID des Inputfelds

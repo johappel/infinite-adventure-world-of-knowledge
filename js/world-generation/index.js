@@ -472,7 +472,7 @@ export function buildZoneFromSpec(worldData, options={}){
           seed,
           pathMask, 
           terrainSize,
-          avoidPaths: objSpec.avoid_paths !== false,
+          avoidPaths: objSpec.avoid_paths === true?true:false,
           existingEntities: [...existingEntities, ...objects.map(obj => ({
             position: [obj.position.x, obj.position.y, obj.position.z],
             type: obj.userData?.objectType || 'object'

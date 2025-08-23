@@ -33,6 +33,11 @@ export class PresetEditor {
    * @param {Object} [opts.nostrFactory] - NostrServiceFactory für die Kommunikation
    */
   constructor(opts = {}) {
+    // Wenn bereits eine Instanz existiert, gib diese zurück (Singleton-Guard)
+    if (PresetEditor._instance) {
+      return PresetEditor._instance;
+    }
+
     // Grundlegende DOM-Elemente
     this.worldTextarea = opts.textarea || document.getElementById('world-yaml-editor');
     this.patchTextarea = document.getElementById('patch-yaml-editor');
@@ -71,6 +76,18 @@ export class PresetEditor {
     // Event-Bindings
     this._bindBasicEvents();
     this._bindInputEvents();
+
+    // Markiere als die Singleton-Instanz
+    PresetEditor._instance = this;
+
+    // Init-Guard (wird in init() verwendet)
+    this._initDone = false;
+  }
+  
+  // Neue statische Helfer-Methode zur sicheren Instanziierung
+  static getInstance(opts = {}) {
+    if (PresetEditor._instance) return PresetEditor._instance;
+    return new PresetEditor(opts);
   }
   
   /**
@@ -88,7 +105,7 @@ export class PresetEditor {
         if (this.activeTab === 'world') {
           await this._processYamlInput();
         }
-      }, 300);
+      }, 2000);
     });
     
     // Event-Listener für Patch-Editor
@@ -98,7 +115,7 @@ export class PresetEditor {
         if (this.activeTab === 'patch') {
           await this._processYamlInput();
         }
-      }, 300);
+      }, 2000);
     });
   }
   
@@ -182,12 +199,12 @@ export class PresetEditor {
             console.error('[DEBUG] Fehler bei der Patch-Validierung:', validationError);
             this._setStatus('Patch-Validierungsfehler: ' + validationError.message, 'error');
             
-            // Versuche trotzdem eine Vorschau zu zeigen
-            try {
-              await this.patchManager._updatePatchPreview(normalizedPatch);
-            } catch (previewError) {
-              console.warn('[DEBUG] Konnte Vorschau nach Validierungsfehler nicht aktualisieren:', previewError);
-            }
+            // // Versuche trotzdem eine Vorschau zu zeigen
+            // try {
+            //   await this.patchManager._updatePatchPreview(normalizedPatch);
+            // } catch (previewError) {
+            //   console.warn('[DEBUG] Konnte Vorschau nach Validierungsfehler nicht aktualisieren:', previewError);
+            // }
           }
         } else {
           console.warn('[DEBUG] Keine Patch-Validierungsfunktion verfügbar');
@@ -208,6 +225,12 @@ export class PresetEditor {
    * @returns {Promise<void>}
    */
   async init() {
+    // Wenn schon initialisiert, direkt zurückgeben
+    if (this._initDone) {
+      console.log('[Core] PresetEditor bereits initialisiert, init() übersprungen.');
+      return this;
+    }
+
     try {
       if (!this.nostrFactory) throw new Error('NostrServiceFactory nicht gefunden.');
       // Factory kann create() oder getNostrService() anbieten; unterstüte beides
@@ -290,9 +313,13 @@ export class PresetEditor {
 
       this._setStatus('Bereit.', 'info');
       this.worldIdInput = document.getElementById('worldIdInput');
-      
+
+      // Init erfolgreich abgeschlossen
+      this._initDone = true;
+      return this;
     } catch (err) {
       this._setStatus('Fehler bei Initialisierung: ' + err.message, 'error');
+      throw err;
     }
   }
   _getWorldId() {
@@ -615,7 +642,7 @@ try {
  * @returns {Promise<PresetEditor>} Die initialisierte PresetEditor-Instanz
  */
 export async function bootstrapPresetEditor() {
-  const editor = new PresetEditor({});
+  const editor = PresetEditor.getInstance({});
   await editor.init();
   return editor;
 }

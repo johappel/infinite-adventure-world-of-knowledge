@@ -259,6 +259,7 @@ export class UIManager {
           // Neuen-World-Button zeigen, NewPatch ausblenden
           if (newWorldBtn) newWorldBtn.style.display = 'inline-block';
           if (newPatchBtn) newPatchBtn.style.display = 'none';
+        
         } else if (tabName === 'patch') {
           worldTab.classList.remove('active');
           patchTab.classList.add('active');
