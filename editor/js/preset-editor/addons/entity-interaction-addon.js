@@ -466,7 +466,7 @@ export class EntityInteractionAddon extends InteractionAddon {
         </div>
         
         <button style="background: #0066ff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-top: 20px; width: 100%;" id="applyChangesBtn">
-          Apply Changes
+          Änderungen anwenden
         </button>
       `;
 
@@ -792,6 +792,29 @@ export class EntityInteractionAddon extends InteractionAddon {
     desc.style.color = '#ccc';
     desc.style.fontSize = '12px';
     
+    // Toggle für Aktivierung der Selektion (separat von Addon Aktivierung)
+    const toggleRow = document.createElement('div');
+    toggleRow.style.display = 'flex';
+    toggleRow.style.alignItems = 'center';
+    toggleRow.style.gap = '8px';
+    toggleRow.style.margin = '8px 0';
+    
+    const toggleInput = document.createElement('input');
+    toggleInput.type = 'checkbox';
+    toggleInput.id = 'entity-selection-toggle';
+    toggleInput.checked = !!this.selectionEnabled;
+    toggleInput.title = 'Enable entity selection (hover + click)';
+    
+    const toggleLabel = document.createElement('label');
+    toggleLabel.htmlFor = 'entity-selection-toggle';
+    toggleLabel.textContent = 'Entity Auswahl aktivieren';
+    toggleLabel.style.color = '#fff';
+    toggleLabel.style.fontSize = '12px';
+    
+    toggleRow.appendChild(toggleInput);
+    toggleRow.appendChild(toggleLabel);
+    
+    // Hinweistext
     const hint = document.createElement('p');
     hint.textContent = 'Mouseover: Entity hervorheben | Klick: Entity bearbeiten';
     hint.style.margin = '0';
@@ -799,9 +822,63 @@ export class EntityInteractionAddon extends InteractionAddon {
     hint.style.fontSize = '11px';
     hint.style.fontStyle = 'italic';
     
+    // Verhalten: bind/unbind Canvas-Events je nach Toggle
+    const applyToggleState = (enabled) => {
+      this.selectionEnabled = !!enabled;
+      if (this.selectionEnabled) {
+        this._bindCanvasEvents();
+      } else {
+        this._unbindCanvasEvents();
+      }
+    };
+    
+    toggleInput.addEventListener('change', (e) => {
+      applyToggleState(e.target.checked);
+    });
+    
+    // Beim Öffnen des Dialogs soll Auswahl deaktiviert werden.
+    // Wir patchen _openEntityDialog minimal: falls es noch nicht gepatcht wurde, überschreiben wir es sicher.
+    if (!this.__patchedOpenDialog) {
+      this.__patchedOpenDialog = true;
+      const originalOpen = this._openEntityDialog.bind(this);
+      this._openEntityDialog = () => {
+        // Vor Öffnen Events deaktivieren damit keine weiteren Selektionen stattfinden
+        this._unbindCanvasEvents();
+        originalOpen();
+        // Dialog bleibt offen; _closeDialog wird zuständig sein, wieder zu aktivieren
+      };
+    }
+    
+    // Patch _closeDialog so dass nach Schließen die Auswahl wieder aktiviert wird, falls Toggle gesetzt.
+    if (!this.__patchedCloseDialog) {
+      this.__patchedCloseDialog = true;
+      const originalClose = this._closeDialog.bind(this);
+      this._closeDialog = () => {
+        originalClose();
+        // Nach Schließen Dialogs Auswahl wieder herstellen je nach Toggle
+        if (this.selectionEnabled) {
+          this._bindCanvasEvents();
+        } else {
+          this._unbindCanvasEvents();
+        }
+      };
+    }
+    
     container.appendChild(title);
     container.appendChild(desc);
+    container.appendChild(toggleRow);
     container.appendChild(hint);
+    
+    // set initial state according to current flag
+    if (typeof this.selectionEnabled === 'undefined') {
+      this.selectionEnabled = true;
+    }
+    // Apply current state (bind/unbind accordingly)
+    if (this.selectionEnabled) {
+      this._bindCanvasEvents();
+    } else {
+      this._unbindCanvasEvents();
+    }
     
     return [container];
   }

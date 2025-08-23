@@ -82,6 +82,8 @@ export class AddonManager {
       await addon.activate();
       this.activeAddon = addon;
       console.log(`[AddonManager] Addon aktiviert: ${id}`);
+      // Dispatch global event so UI can react to addon changes
+      try { window.dispatchEvent(new CustomEvent('addonActivated', { detail: { id } })); } catch(e){}
       return true;
     } catch (error) {
       console.error(`[AddonManager] Fehler beim Aktivieren von Addon ${id}:`, error);
@@ -99,9 +101,12 @@ export class AddonManager {
     }
     
     try {
+      const id = this._getAddonId(this.activeAddon);
       await this.activeAddon.deactivate();
-      console.log(`[AddonManager] Addon deaktiviert: ${this._getAddonId(this.activeAddon)}`);
+      console.log(`[AddonManager] Addon deaktiviert: ${id}`);
       this.activeAddon = null;
+      // Dispatch global event so UI can react to addon changes
+      try { window.dispatchEvent(new CustomEvent('addonDeactivated', { detail: { id } })); } catch(e){}
       return true;
     } catch (error) {
       console.error('[AddonManager] Fehler beim Deaktivieren des aktiven Addons:', error);

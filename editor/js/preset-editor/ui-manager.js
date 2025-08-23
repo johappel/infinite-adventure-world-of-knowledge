@@ -125,6 +125,23 @@ export class UIManager {
         if (addonId) {
           await this.editor.addonManager.activateAddon(addonId);
         }
+        // Migration-safety: verstecke oder zeige die alten Interaction-Controls
+        // Der legacy "interactionMode" gehört zum Terrain-Addon. Bei anderen Addons
+        // wie entity-interaction oder material-editor muss das Mode-Select ausgeblendet werden.
+        try {
+          if (modeSelect) {
+            if (addonSelect.value === 'terrain-click') {
+              modeSelect.style.display = 'inline-block';
+              typeSelect.style.display = (this.editor.interactionMode === 'place_object') ? 'inline-block' : 'none';
+            } else {
+              // Für alle anderen Addons verbergen wir die legacy-Interaktionssteuerung.
+              modeSelect.style.display = 'none';
+              typeSelect.style.display = 'none';
+            }
+          }
+        } catch (e) {
+          console.warn('[UIManager] Konnte Interaction-Controls Sichtbarkeit nicht anpassen:', e);
+        }
       });
 
       // Label
@@ -201,6 +218,23 @@ export class UIManager {
       modeSelect.value = this.editor.interactionMode || 'none';
       typeSelect.value = this.editor.selectedObjectType || 'tree_simple';
       typeSelect.style.display = (this.editor.interactionMode === 'place_object') ? 'inline-block' : 'none';
+
+      // Initialsichtbarkeit: Wenn ein Addon aktiv ist, steuere die legacy-Interaction-Controls
+      try {
+        const activeAddon = this.editor.addonManager?.getActiveAddon ? this.editor.addonManager.getActiveAddon() : null;
+        const activeAddonId = activeAddon ? this.editor.addonManager._getAddonId(activeAddon) : null;
+        // Wenn das aktive Addon das Terrain-Addon ist, zeigen wir die legacy Controls,
+        // andernfalls verbergen wir sie (Migration: Addons steuern jetzt ihre UI).
+        if (activeAddonId && activeAddonId !== 'terrain-click') {
+          modeSelect.style.display = 'none';
+          typeSelect.style.display = 'none';
+        } else {
+          modeSelect.style.display = 'inline-block';
+          typeSelect.style.display = (this.editor.interactionMode === 'place_object') ? 'inline-block' : 'none';
+        }
+      } catch (e) {
+        console.warn('[UIManager] Konnte initiale Sichtbarkeit der Interaktions-Controls nicht setzen:', e);
+      }
 
       // Einhängen
       container.appendChild(addonLabel);
