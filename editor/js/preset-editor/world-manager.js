@@ -16,7 +16,10 @@
  * // Aktuelle Welt speichern
  * await worldManager.saveCurrent();
  */
+
+// Importiere Hilfsfunktionen
 import { updateUrlParam } from '../load.js';
+
 export class WorldManager {
   /**
    * Erstellt eine neue WorldManager-Instanz

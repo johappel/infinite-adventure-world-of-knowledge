@@ -372,7 +372,6 @@ export class PatchUI {
       const checked = this.includes.get(p.id) ? '' : 'checked';
 
       // Buttons
-      const editButtonId = `edit-patch-${p.id}`;
       const deleteButtonId = `delete-patch-${p.id}`;
 
       // Anzeige von Name und ID (Name (Patch-ID))
@@ -390,6 +389,7 @@ export class PatchUI {
           `</div>` +
         '</div>';
 
+      // Event-Listener um einenPatch auszuwählen und zu bearbeiten
       li.addEventListener('click', (ev) => {
         // Checkbox-Klick nicht doppel-behandeln
         if (ev.target && ev.target.matches('input[type="checkbox"]')) return;
@@ -411,18 +411,7 @@ export class PatchUI {
           });
         }
       }
-
-      // Event-Listener für den Bearbeiten-Button
-      const editButton = li.querySelector(`#${editButtonId}`);
-      if (editButton) {
-        editButton.addEventListener('click', async (ev) => {
-          ev.stopPropagation();
-          // HINWEIS: await hinzugefügt
-          this.selectPatch(p.id);
-          // await this._editPatch(p.id);
-        });
-      }
-
+      
       // Event-Listener für den Löschen-Button
       const deleteButton = li.querySelector(`#${deleteButtonId}`);
       if (deleteButton) {
@@ -559,10 +548,10 @@ export class PatchUI {
   }
 
   /**
-   * Bearbeitet einen Patch
+   * Läd einen Patch zum bearbeiten
    * @param {string} patchId - Die ID des zu bearbeitenden Patches
    */
-  async _editPatch(patchId) {
+  async _selectPatch(patchId) {
     try {
       if (!this.editor) {
         console.warn('Kein Editor-Referenz für Patch-Bearbeitung verfügbar');
@@ -571,8 +560,8 @@ export class PatchUI {
         }
         return;
       }
-      await this.editor.patchManager.editPatch(patchId);
-      
+      this.editor.PatchUI.selectPatch(patchId);
+
     } catch (error) {
       console.error('Fehler bei der Patch-Bearbeitung:', error);
       if (window.showToast) {

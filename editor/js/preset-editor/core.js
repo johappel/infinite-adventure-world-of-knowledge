@@ -634,37 +634,4 @@ try {
     }
   });
 
-  // Globale Funktion: Aktualisiert die Patch-Vorschau analog zur internen Logik,
-  // berücksichtigt dabei dependencies (yamlProcessor, patchManager, worldId).
-  window.render_world = async function(worldId=null) {
-    try {
-      const editor = window.presetEditor;
-      if (!editor) {
-        console.error('[render_world] Kein presetEditor verfügbar. Warten Sie auf die Initialisierung (window.load) oder prüfen Sie Fehler in der Konsole.');
-        return;
-      }
-      if (worldId) {
-        if(worldId === 'auto' || worldId === 'input'){
-          // verwende die aktuelle World ID des Inputfelds
-          worldId = editor._getWorldId();
-        }
-        editor.worldId = worldId; // Setze die World ID, falls angegeben
-        await editor.worldManager.loadWorldById(worldId);
-
-      } else if (!editor.worldId) {
-        console.warn('[render_world] Keine World ID gesetzt, verwende die aktuelle YAML des Editors.');
-        await editor.worldManager.loadWorldCurrentYaml();
-      }
-      
-      
-      // Ladeindikator ausblenden
-      const loadingIndicator = document.getElementById('loadingIndicator');
-      if (loadingIndicator) {
-        loadingIndicator.style.display = 'none';
-      }
-      
-    } catch (e) {
-      console.error('[render_world] Fehler beim Aktualisieren der Patch-Vorschau:', e);
-    }
-  };
 } catch {}

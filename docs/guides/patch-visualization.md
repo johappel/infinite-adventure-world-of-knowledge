@@ -236,7 +236,7 @@ Der PresetEditor bietet u. a.:
 await editor.patchManager.saveAsPatch()
 
 // Patch bearbeiten/löschen
-await editor.patchManager.editPatch(patchId)
+await editor.patchManager.selectPatch(patchId)
 await editor.patchManager.deletePatch(patchId)
 
 // Patch-Visualisierung (einzeln/mehrere)
