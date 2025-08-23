@@ -22,6 +22,7 @@ import { WorldManager } from './world-manager.js';
 import { PatchManager } from './patch-manager.js';
 import { PreviewRenderer } from './preview-renderer.js';
 import { UIManager } from './ui-manager.js';
+import { AddonManager } from './addons/index.js';
 
 export class PresetEditor {
   /**
@@ -72,6 +73,7 @@ export class PresetEditor {
     this.patchManager = new PatchManager(this);
     this.previewRenderer = new PreviewRenderer(this);
     this.uiManager = new UIManager(this);
+    this.addonManager = new AddonManager(this);
     
     // Event-Bindings
     this._bindBasicEvents();
@@ -311,6 +313,9 @@ export class PresetEditor {
         this.uiManager.initInteractionControls();
       }
 
+      // 9) Standard-Addon aktivieren
+      await this.addonManager.activateAddon('terrain-click');
+
       this._setStatus('Bereit.', 'info');
       this.worldIdInput = document.getElementById('worldIdInput');
 
@@ -499,22 +504,17 @@ export class PresetEditor {
     }
   }
 
-  // === Interaktionslogik: Klick auf Terrain verarbeitet YAML-Änderungen ===
+  // === Interaktionslogik: Delegation an Addon-Manager ===
 
   /**
    * Wird vom ThreeJSManager aufgerufen, wenn auf das Terrain geklickt wurde.
+   * Delegiert den Click an den Addon-Manager.
    * @param {{ point: {x:number,y:number,z:number}, object: any, event: MouseEvent }} hitInfo
    * @private
    */
   async _handleTerrainClick(hitInfo) {
     try {
-      const mode = this.interactionMode || 'none';
-      if (mode === 'place_object') {
-        await this._placeObjectAt(hitInfo.point);
-      } else if (mode === 'path_add') {
-        this._addPathPoint(hitInfo.point);
-      }
-      // path_finish / path_cancel werden über UI-Select sofort behandelt
+      await this.addonManager.handleTerrainClick(hitInfo);
     } catch (e) {
       console.error('[Editor] Fehler bei _handleTerrainClick:', e);
       this._setStatus('Interaktionsfehler: ' + e.message, 'error');
@@ -522,81 +522,24 @@ export class PresetEditor {
   }
 
   /**
-   * Fügt einen Punkt zur temporären Pfadliste hinzu.
-   * @param {{x:number,y:number,z:number}} point
-   * @private
-   */
-  _addPathPoint(point) {
-    const p = this._roundPoint(point);
-    this.tmpPathPoints.push([p.x, p.y, p.z]);
-    if (window.showToast) window.showToast('info', `Path-Punkt hinzugefügt: [${p.x}, ${p.y}, ${p.z}]`);
-  }
-
-  /**
-   * UI-Aktion "Path (Finish)": schreibt gesammelte Punkte als Pfad ins YAML.
+   * UI-Aktion "Path (Finish)": delegiert an Terrain-Click-Addon
    * @private
    */
   async _finishPathFromUI() {
-try {
-  if (!Array.isArray(this.tmpPathPoints) || this.tmpPathPoints.length < 2) {
-    if (window.showToast) window.showToast('warning', 'Mindestens 2 Punkte für einen Pfad benötigt.');
-    return;
+    const terrainAddon = this.addonManager.getAddon('terrain-click');
+    if (terrainAddon && typeof terrainAddon.finishPath === 'function') {
+      await terrainAddon.finishPath();
+    }
   }
-  let obj = this.yamlProcessor.parseYaml();
-  if (!obj || typeof obj !== 'object') obj = {};
-
-  // Pfade sind Teil von terrain: terrain.paths: [...]
-  if (!obj.terrain || typeof obj.terrain !== 'object') obj.terrain = {};
-  if (!Array.isArray(obj.terrain.paths)) obj.terrain.paths = [];
-  obj.terrain.paths.push({ points: this.tmpPathPoints.slice(), smooth: true });
-
-  const yaml = YamlProcessor.safeYamlDump(obj);
-  await this._applyYamlChange(yaml);
-
-  // Aufräumen
-  this.tmpPathPoints = [];
-  if (window.showToast) window.showToast('success', 'Pfad eingefügt.');
-} catch (e) {
-  console.error('[Editor] Fehler bei Path-Finish:', e);
-  if (window.showToast) window.showToast('error', 'Pfad konnte nicht eingefügt werden: ' + e.message);
-}
-}
 
   /**
-   * UI-Aktion "Path (Cancel)": leert temporäre Punkte.
+   * UI-Aktion "Path (Cancel)": delegiert an Terrain-Click-Addon
    * @private
    */
   _cancelPathFromUI() {
-    this.tmpPathPoints = [];
-    if (window.showToast) window.showToast('info', 'Path-Aufnahme abgebrochen.');
-  }
-
-  /**
-   * Fügt ein Objekt an der gegebenen Position in das YAML (Autorenformat) ein.
-   * @param {{x:number,y:number,z:number}} point
-   * @private
-   */
-  async _placeObjectAt(point) {
-    const p = this._roundPoint(point);
-    try {
-      let obj = this.yamlProcessor.parseYaml();
-      if (!obj || typeof obj !== 'object') obj = {};
-
-      // Autorenformat: objects als Array
-      if (!Array.isArray(obj.objects)) obj.objects = Array.isArray(obj.objects) ? obj.objects : [];
-
-      const type = this.selectedObjectType || 'tree_simple';
-      obj.objects.push({
-        type,
-        position: [p.x, p.y, p.z]
-      });
-
-      const yaml = YamlProcessor.safeYamlDump(obj);
-      await this._applyYamlChange(yaml);
-      if (window.showToast) window.showToast('success', `Objekt eingefügt: ${type} @ [${p.x}, ${p.y}, ${p.z}]`);
-    } catch (e) {
-      console.error('[Editor] Fehler beim Einfügen des Objekts:', e);
-      if (window.showToast) window.showToast('error', 'Objekt konnte nicht eingefügt werden: ' + e.message);
+    const terrainAddon = this.addonManager.getAddon('terrain-click');
+    if (terrainAddon && typeof terrainAddon.cancelPath === 'function') {
+      terrainAddon.cancelPath();
     }
   }
 

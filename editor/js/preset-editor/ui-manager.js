@@ -91,6 +91,37 @@ export class UIManager {
         container.innerHTML = '';
       }
 
+      // Addon-Auswahl Dropdown
+      const addonLabel = document.createElement('span');
+      addonLabel.textContent = 'Tool:';
+      addonLabel.style.opacity = '0.8';
+
+      const addonSelect = document.createElement('select');
+      addonSelect.id = 'addonSelect';
+      addonSelect.style.padding = '3px 6px';
+      
+      // Standard-Option: Terrain Interaktion
+      const defaultOption = document.createElement('option');
+      defaultOption.value = 'terrain-click';
+      defaultOption.textContent = '🖱️ Terrain Interaktion';
+      defaultOption.selected = true;
+      addonSelect.appendChild(defaultOption);
+      
+      // Platzhalter für zukünftige Addons
+      const placeholderOption = document.createElement('option');
+      placeholderOption.value = '';
+      placeholderOption.textContent = 'Weitere Tools...';
+      placeholderOption.disabled = true;
+      addonSelect.appendChild(placeholderOption);
+
+      // Event-Listener für Addon-Wechsel
+      addonSelect.addEventListener('change', async () => {
+        const addonId = addonSelect.value;
+        if (addonId) {
+          await this.editor.addonManager.activateAddon(addonId);
+        }
+      });
+
       // Label
       const label = document.createElement('span');
       label.textContent = 'Interaktion:';
@@ -167,6 +198,8 @@ export class UIManager {
       typeSelect.style.display = (this.editor.interactionMode === 'place_object') ? 'inline-block' : 'none';
 
       // Einhängen
+      container.appendChild(addonLabel);
+      container.appendChild(addonSelect);
       container.appendChild(label);
       container.appendChild(modeSelect);
       container.appendChild(typeSelect);
