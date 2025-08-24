@@ -60,9 +60,8 @@ export class UIManager {
   }
 
   /**
-   * Initialisiert Interaktions-Controls (Modus/Objekttyp) am Preview-Header
-   * - Mode: none | place_object | path_add | path_finish | path_cancel
-   * - Object-Type: nur sichtbar bei place_object
+   * Initialisiert Interaktions-Controls am Preview-Header
+   * Vereinfachte Version nach Migration der Terrain-spezifischen Logik ins TerrainClickAddon
    */
   initInteractionControls() {
     try {
@@ -125,125 +124,67 @@ export class UIManager {
         if (addonId) {
           await this.editor.addonManager.activateAddon(addonId);
         }
-        // Migration-safety: verstecke oder zeige die alten Interaction-Controls
-        // Der legacy "interactionMode" gehört zum Terrain-Addon. Bei anderen Addons
-        // wie entity-interaction oder material-editor muss das Mode-Select ausgeblendet werden.
-        try {
-          if (modeSelect) {
-            if (addonSelect.value === 'terrain-click') {
-              modeSelect.style.display = 'inline-block';
-              typeSelect.style.display = (this.editor.interactionMode === 'place_object') ? 'inline-block' : 'none';
-            } else {
-              // Für alle anderen Addons verbergen wir die legacy-Interaktionssteuerung.
-              modeSelect.style.display = 'none';
-              typeSelect.style.display = 'none';
-            }
-          }
-        } catch (e) {
-          console.warn('[UIManager] Konnte Interaction-Controls Sichtbarkeit nicht anpassen:', e);
-        }
       });
-
-      // Label
-      const label = document.createElement('span');
-      label.textContent = 'Interaktion:';
-      label.style.opacity = '0.8';
-
-      // Mode Select
-      const modeSelect = document.createElement('select');
-      modeSelect.id = 'interactionMode';
-      modeSelect.style.padding = '3px 6px';
-      const modes = [
-        { v: 'none', t: 'None' },
-        { v: 'place_object', t: 'Place Object' },
-        { v: 'path_add', t: 'Path (Add Points)' },
-        { v: 'path_finish', t: 'Path (Finish)' },
-        { v: 'path_cancel', t: 'Path (Cancel)' }
-      ];
-      modes.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.v;
-        opt.textContent = m.t;
-        modeSelect.appendChild(opt);
-      });
-
-      // Object-Type Select
-      const typeSelect = document.createElement('select');
-      typeSelect.id = 'objectType';
-      typeSelect.style.padding = '3px 6px';
-      typeSelect.style.display = 'none';
-      // Vorläufige Liste aus vorhandenen Presets
-      const types = [
-        'tree_simple',
-        'rock_small',
-        'mushroom_small',
-        'crystal',
-        'stone_circle_thin',
-        'bookshelf',
-        'village'
-      ];
-      types.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t;
-        typeSelect.appendChild(opt);
-      });
-
-      // Events binden
-      modeSelect.addEventListener('change', async () => {
-        this.editor.interactionMode = modeSelect.value;
-        // Object-Select nur bei place_object zeigen
-        typeSelect.style.display = this.editor.interactionMode === 'place_object' ? 'inline-block' : 'none';
-
-        // Sofortaktionen für Path
-        if (this.editor.interactionMode === 'path_finish') {
-          await this.editor._finishPathFromUI();
-          // Zurück auf Add-Mode oder None?
-          this.editor.interactionMode = 'none';
-          modeSelect.value = 'none';
-          typeSelect.style.display = 'none';
-        } else if (this.editor.interactionMode === 'path_cancel') {
-          this.editor._cancelPathFromUI();
-          this.editor.interactionMode = 'none';
-          modeSelect.value = 'none';
-          typeSelect.style.display = 'none';
-        }
-      });
-
-      typeSelect.addEventListener('change', () => {
-        this.editor.selectedObjectType = typeSelect.value;
-      });
-
-      // Initialwerte übernehmen
-      modeSelect.value = this.editor.interactionMode || 'none';
-      typeSelect.value = this.editor.selectedObjectType || 'tree_simple';
-      typeSelect.style.display = (this.editor.interactionMode === 'place_object') ? 'inline-block' : 'none';
-
-      // Initialsichtbarkeit: Wenn ein Addon aktiv ist, steuere die legacy-Interaction-Controls
-      try {
-        const activeAddon = this.editor.addonManager?.getActiveAddon ? this.editor.addonManager.getActiveAddon() : null;
-        const activeAddonId = activeAddon ? this.editor.addonManager._getAddonId(activeAddon) : null;
-        // Wenn das aktive Addon das Terrain-Addon ist, zeigen wir die legacy Controls,
-        // andernfalls verbergen wir sie (Migration: Addons steuern jetzt ihre UI).
-        if (activeAddonId && activeAddonId !== 'terrain-click') {
-          modeSelect.style.display = 'none';
-          typeSelect.style.display = 'none';
-        } else {
-          modeSelect.style.display = 'inline-block';
-          typeSelect.style.display = (this.editor.interactionMode === 'place_object') ? 'inline-block' : 'none';
-        }
-      } catch (e) {
-        console.warn('[UIManager] Konnte initiale Sichtbarkeit der Interaktions-Controls nicht setzen:', e);
-      }
 
       // Einhängen
       container.appendChild(addonLabel);
       container.appendChild(addonSelect);
-      container.appendChild(label);
-      container.appendChild(modeSelect);
-      container.appendChild(typeSelect);
+
+      // Initialisiere die UI-Elemente des aktiven Addons
+      this._updateAddonUI();
+
+      // Event-Listener für Addon-Wechsel
+      window.addEventListener('addonActivated', (event) => {
+        this._updateAddonUI();
+      });
+
+      window.addEventListener('addonDeactivated', (event) => {
+        this._updateAddonUI();
+      });
+
     } catch (e) {
       console.error('Fehler beim Erzeugen der Interaktions-Controls:', e);
+    }
+  }
+
+  /**
+   * Aktualisiert die UI-Elemente des aktiven Addons
+   * @private
+   */
+  _updateAddonUI() {
+    try {
+      const container = document.getElementById('preview-interaction-controls');
+      if (!container) return;
+
+      // Entferne bestehende Addon-UI-Elemente (außer dem Addon-Select)
+      const elementsToRemove = [];
+      for (const child of container.children) {
+        if (child.id !== 'addonSelect' && !child.previousElementSibling?.textContent?.includes('Tool:')) {
+          elementsToRemove.push(child);
+        }
+      }
+      elementsToRemove.forEach(el => el.remove());
+
+      // Füge UI-Elemente des aktiven Addons hinzu
+      const activeAddon = this.editor.addonManager?.getActiveAddon();
+      if (activeAddon && typeof activeAddon.getUIElements === 'function') {
+        const uiElements = activeAddon.getUIElements();
+        if (uiElements && uiElements.length > 0) {
+          // Füge Trennlinie vor den Addon-Elementen hinzu
+          const separator = document.createElement('span');
+          separator.textContent = '|';
+          separator.style.opacity = '0.3';
+          separator.style.margin = '0 8px';
+          container.appendChild(separator);
+
+          // Füge alle UI-Elemente hinzu
+          uiElements.forEach(element => {
+            container.appendChild(element);
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Fehler beim Aktualisieren der Addon-UI:', e);
     }
   }
 

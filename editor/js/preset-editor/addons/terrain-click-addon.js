@@ -14,7 +14,8 @@ export class TerrainClickAddon extends InteractionAddon {
     this.description = 'Objekt-Platzierung und Pfad-Erstellung via Klick auf das Terrain';
     this.icon = '🖱️';
     
-    // Zustandsvariablen
+    // Zustandsvariablen (migriert von core.js)
+    this.interactionMode = 'none';
     this.tmpPathPoints = [];
     this.selectedObjectType = 'tree_simple';
   }
@@ -44,7 +45,7 @@ export class TerrainClickAddon extends InteractionAddon {
     try {
       if (!this.isActive) return;
       
-      const mode = this.editor.interactionMode || 'none';
+      const mode = this.interactionMode || 'none';
       
       if (mode === 'place_object') {
         await this._placeObjectAt(hitInfo.point);
@@ -140,6 +141,7 @@ export class TerrainClickAddon extends InteractionAddon {
   
   /**
    * Gibt UI-Elemente für die Addon-Konfiguration zurück
+   * Migriert von ui-manager.js initInteractionControls()
    */
   getUIElements() {
     console.log('[TerrainClick] getUIElements aufgerufen');
@@ -163,6 +165,112 @@ export class TerrainClickAddon extends InteractionAddon {
     container.appendChild(title);
     container.appendChild(desc);
     
+    // Mode Select Dropdown (migriert von ui-manager.js)
+    const modeSelect = document.createElement('select');
+    modeSelect.id = 'interactionMode';
+    modeSelect.style.marginRight = '8px';
+    modeSelect.style.padding = '4px';
+    modeSelect.style.borderRadius = '3px';
+    modeSelect.style.border = '1px solid #555';
+    modeSelect.style.background = '#333';
+    modeSelect.style.color = '#fff';
+    
+    const modes = [
+      { value: 'none', text: 'Keine Interaktion' },
+      { value: 'place_object', text: 'Objekt platzieren' },
+      { value: 'path_add', text: 'Pfad hinzufügen' },
+      { value: 'path_finish', text: 'Pfad abschließen' },
+      { value: 'path_cancel', text: 'Pfad abbrechen' }
+    ];
+    
+    modes.forEach(mode => {
+      const option = document.createElement('option');
+      option.value = mode.value;
+      option.textContent = mode.text;
+      modeSelect.appendChild(option);
+    });
+    
+    // Object Type Select Dropdown (migriert von ui-manager.js)
+    const typeSelect = document.createElement('select');
+    typeSelect.id = 'objectType';
+    typeSelect.style.marginRight = '8px';
+    typeSelect.style.padding = '4px';
+    typeSelect.style.borderRadius = '3px';
+    typeSelect.style.border = '1px solid #555';
+    typeSelect.style.background = '#333';
+    typeSelect.style.color = '#fff';
+    
+    const objectTypes = [
+      { value: 'tree_simple', text: 'Baum (einfach)' },
+      { value: 'tree_pine', text: 'Tanne' },
+      { value: 'tree_palm', text: 'Palme' },
+      { value: 'rock_small', text: 'Kleiner Fels' },
+      { value: 'rock_large', text: 'Großer Fels' },
+      { value: 'bush', text: 'Busch' },
+      { value: 'flower', text: 'Blume' },
+      { value: 'grass', text: 'Gras' },
+      { value: 'mushroom', text: 'Pilz' },
+      { value: 'crystal', text: 'Kristall' }
+    ];
+    
+    objectTypes.forEach(type => {
+      const option = document.createElement('option');
+      option.value = type.value;
+      option.textContent = type.text;
+      typeSelect.appendChild(option);
+    });
+    
+    // Event Handler für Mode Select
+    modeSelect.addEventListener('change', () => {
+      this.interactionMode = modeSelect.value;
+      
+      // Bei path_finish oder path_cancel direkt ausführen
+      if (this.interactionMode === 'path_finish') {
+        this.finishPath().then(() => {
+          modeSelect.value = 'none';
+          this.interactionMode = 'none';
+        });
+      } else if (this.interactionMode === 'path_cancel') {
+        this.cancelPath();
+        modeSelect.value = 'none';
+        this.interactionMode = 'none';
+      }
+      
+      // Object-Type-Select nur bei place_object anzeigen
+      typeSelect.style.display = (this.interactionMode === 'place_object') ? 'inline-block' : 'none';
+    });
+    
+    // Event Handler für Object Type Select
+    typeSelect.addEventListener('change', () => {
+      this.selectedObjectType = typeSelect.value;
+    });
+    
+    // Initialwerte setzen
+    modeSelect.value = this.interactionMode || 'none';
+    typeSelect.value = this.selectedObjectType || 'tree_simple';
+    typeSelect.style.display = (this.interactionMode === 'place_object') ? 'inline-block' : 'none';
+    
+    // UI-Elemente hinzufügen
+    const controlsContainer = document.createElement('div');
+    controlsContainer.style.marginTop = '8px';
+    
+    const modeLabel = document.createElement('label');
+    modeLabel.textContent = 'Modus: ';
+    modeLabel.style.color = '#fff';
+    modeLabel.style.marginRight = '4px';
+    
+    const typeLabel = document.createElement('label');
+    typeLabel.textContent = 'Objekttyp: ';
+    typeLabel.style.color = '#fff';
+    typeLabel.style.marginRight = '4px';
+    
+    controlsContainer.appendChild(modeLabel);
+    controlsContainer.appendChild(modeSelect);
+    controlsContainer.appendChild(typeLabel);
+    controlsContainer.appendChild(typeSelect);
+    
+    container.appendChild(controlsContainer);
+    
     return [container];
   }
   
@@ -172,6 +280,7 @@ export class TerrainClickAddon extends InteractionAddon {
   serializeState() {
     return {
       ...super.serializeState(),
+      interactionMode: this.interactionMode,
       tmpPathPoints: this.tmpPathPoints,
       selectedObjectType: this.selectedObjectType
     };
@@ -183,6 +292,7 @@ export class TerrainClickAddon extends InteractionAddon {
   deserializeState(state) {
     super.deserializeState(state);
     if (state) {
+      this.interactionMode = state.interactionMode || 'none';
       this.tmpPathPoints = state.tmpPathPoints || [];
       this.selectedObjectType = state.selectedObjectType || 'tree_simple';
     }

@@ -60,11 +60,6 @@ export class PresetEditor {
     this.currentPatchId = null;
     this.worldYamlText = '';
     this.patchYamlText = '';
-
-    // Interaktions-Status (Preview-Canvas)
-    this.interactionMode = 'none';
-    this.selectedObjectType = 'tree_simple';
-    this.tmpPathPoints = [];
     
     // Submodule initialisieren
     console.log('[DEBUG] Initialisiere Submodule');
@@ -522,23 +517,23 @@ export class PresetEditor {
   }
 
   /**
-   * UI-Aktion "Path (Finish)": delegiert an Terrain-Click-Addon
+   * UI-Aktion "Path (Finish)": delegiert an aktives Terrain-Click-Addon
    * @private
    */
   async _finishPathFromUI() {
-    const terrainAddon = this.addonManager.getAddon('terrain-click');
-    if (terrainAddon && typeof terrainAddon.finishPath === 'function') {
+    const terrainAddon = this.addonManager.getActiveAddon();
+    if (terrainAddon && terrainAddon.constructor.name === 'TerrainClickAddon' && typeof terrainAddon.finishPath === 'function') {
       await terrainAddon.finishPath();
     }
   }
 
   /**
-   * UI-Aktion "Path (Cancel)": delegiert an Terrain-Click-Addon
+   * UI-Aktion "Path (Cancel)": delegiert an aktives Terrain-Click-Addon
    * @private
    */
   _cancelPathFromUI() {
-    const terrainAddon = this.addonManager.getAddon('terrain-click');
-    if (terrainAddon && typeof terrainAddon.cancelPath === 'function') {
+    const terrainAddon = this.addonManager.getActiveAddon();
+    if (terrainAddon && terrainAddon.constructor.name === 'TerrainClickAddon' && typeof terrainAddon.cancelPath === 'function') {
       terrainAddon.cancelPath();
     }
   }
