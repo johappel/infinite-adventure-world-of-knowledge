@@ -320,7 +320,26 @@ export class EntityInteractionAddon extends InteractionAddon {
         if (this.debug) console.log('[EntityInteraction] entity_id aus YAML übernommen:', entityIdFromYaml);
       } else {
         if (this.debug) console.log('[EntityInteraction] Keine entity_id im YAML gefunden, generiere neue');
-        this.selectedEntity.userData.entityId = this._generateEntityId();
+        const newEntityId = this._generateEntityId();
+        
+        // Erstelle eine Kopie der Entity mit der neuen entity_id
+        const clone = this.selectedEntity.clone();
+        clone.userData.entityId = newEntityId;
+        
+        // Ersetze die originale Entity durch die Kopie in der Szene
+        const parent = this.selectedEntity.parent;
+        if (parent) {
+          parent.remove(this.selectedEntity);
+          parent.add(clone);
+        }
+        
+        // Aktualisiere Referenzen
+        this.selectedEntity = clone;
+        if (this.hoveredEntity === this.selectedEntity) {
+          this.hoveredEntity = clone;
+        }
+        
+        if (this.debug) console.log('[EntityInteraction] Entity durch Kopie ersetzt mit neuer entity_id:', newEntityId);
       }
     } else {
       if (this.debug) console.log('[EntityInteraction] Entity hat bereits entityId:', this.selectedEntity.userData.entityId);
@@ -369,8 +388,8 @@ export class EntityInteractionAddon extends InteractionAddon {
       // Durchsuche alle Objekte im YAML
       for (const obj of currentYaml.objects) {
         if (obj.position && Array.isArray(obj.position) && obj.entity_id) {
-          // Vergleiche Positionen mit erhöhter Toleranz (0.15 statt 0.01)
-          const tolerance = 0.15;
+          // Vergleiche Positionen mit erhöhter Toleranz (0.5 statt 0.15)
+          const tolerance = 0.5;
           const objX = obj.position[0];
           const objY = obj.position[1];
           const objZ = obj.position[2];
@@ -453,7 +472,7 @@ export class EntityInteractionAddon extends InteractionAddon {
         y: THREE.MathUtils.radToDeg(entity.rotation.y),
         z: THREE.MathUtils.radToDeg(entity.rotation.z),
       };
-      const typeLabel = entity.userData?.entityType || entity.userData?.objectType || entity.type || 'Unknown';
+      const typeLabel = entity.userData?.type || entity.userData?.entityType || entity.userData?.objectType || entity.type || 'Unknown';
       const idLabel = entity.userData?.entityId || 'N/A';
       
       this.entityDialog.innerHTML = `
@@ -632,9 +651,8 @@ export class EntityInteractionAddon extends InteractionAddon {
       const rotation = new THREE.Euler().setFromQuaternion(this.selectedEntity.quaternion);
       const scale = this.selectedEntity.scale.clone();
       
-      // Entity-Typ ableiten und auf Schema normalisieren
-      let entityType = this.selectedEntity.userData?.entityType || this.selectedEntity.userData?.objectType || 'objects';
-      if (entityType === 'object') entityType = 'objects';
+      // Entity-Typ ableiten - verwende den spezifischen Typ aus userData
+      let entityType = this.selectedEntity.userData?.type || this.selectedEntity.userData?.entityType || this.selectedEntity.userData?.objectType || this.selectedEntity.type || 'unknown';
 
       const entityData = {
         type: entityType,
@@ -699,30 +717,117 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
 
   /**
-   * Aktualisiert World-YAML mit Entity (klassische Entities-Struktur)
+   * Aktualisiert World-YAML mit Entity (Array-basierte Struktur)
    * @param {Object} yamlObj - Das YAML-Objekt
    * @param {string} entityId - Die ID der Entity
    * @param {Object} entityData - Die Entity-Daten
    * @private
    */
   async _updateWorldYamlWithEntity(yamlObj, entityId, entityData) {
-    // Sicherstellen, dass die Struktur vorhanden ist
-    if (!yamlObj.entities || typeof yamlObj.entities !== 'object') {
-      yamlObj.entities = {};
+    // Bestimme das Ziel-Array basierend auf dem Entity-Typ
+    const entityType = entityData.type || 'objects';
+    let targetArray;
+    
+    switch (entityType) {
+      case 'portal':
+        if (!yamlObj.portals || !Array.isArray(yamlObj.portals)) {
+          yamlObj.portals = [];
+        }
+        targetArray = yamlObj.portals;
+        break;
+      case 'persona':
+        if (!yamlObj.personas || !Array.isArray(yamlObj.personas)) {
+          yamlObj.personas = [];
+        }
+        targetArray = yamlObj.personas;
+        break;
+      default:
+        if (!yamlObj.objects || !Array.isArray(yamlObj.objects)) {
+          yamlObj.objects = [];
+        }
+        targetArray = yamlObj.objects;
     }
 
-    // Entity in die entsprechende Kategorie einfügen
-    const entityType = entityData.type || 'objects';
-    if (!yamlObj.entities[entityType] || typeof yamlObj.entities[entityType] !== 'object') {
-      yamlObj.entities[entityType] = {};
+    // 1) Zuerst nach entity_id suchen (höchste Priorität)
+    let existingIndex = targetArray.findIndex(obj => obj.entity_id === entityId);
+    
+    // 2) Falls nicht gefunden, nach typ-spezifischen ID-Feldern suchen
+    if (existingIndex === -1) {
+      if (entityType === 'portal') {
+        existingIndex = targetArray.findIndex(obj => obj.id === entityId);
+      } else if (entityType === 'persona') {
+        existingIndex = targetArray.findIndex(obj => obj.name === entityId);
+      }
     }
     
-    // Entity-Daten setzen (kopiere alle Felder außer 'type')
-    const { type, ...entityProps } = entityData;
-    yamlObj.entities[entityType][entityId] = {
-      ...entityProps,
-      entity_id: entityId
-    };
+    // 3) Falls immer noch nicht gefunden, nach Position suchen (nur für Objekte ohne entity_id)
+    if (existingIndex === -1 && this.originalEntityPosition) {
+      existingIndex = targetArray.findIndex(obj => {
+        if (obj.position && Array.isArray(obj.position)) {
+          const distance = Math.sqrt(
+            Math.pow(obj.position[0] - this.originalEntityPosition.x, 2) +
+            Math.pow(obj.position[1] - this.originalEntityPosition.y, 2) +
+            Math.pow(obj.position[2] - this.originalEntityPosition.z, 2)
+          );
+          return distance < 1.0; // Noch höhere Toleranz für Positionsabweichungen
+        }
+        return false;
+      });
+      if (this.debug && existingIndex !== -1) {
+        console.log('[EntityInteraction] Objekt durch Position gefunden:', targetArray[existingIndex]);
+      }
+    }
+
+    if (existingIndex !== -1) {
+      // Aktualisiere bestehendes Objekt
+      const existingObj = targetArray[existingIndex];
+      
+      // Verwende die entity_id aus dem bestehenden Objekt, falls vorhanden
+      const targetEntityId = existingObj.entity_id || entityId;
+      
+      // Behalte alle bestehenden Eigenschaften bei und aktualisiere nur Position, Rotation, Scale
+      const updatedObj = {
+        ...existingObj,
+        entity_id: targetEntityId,
+        position: entityData.position,
+        rotation: entityData.rotation,
+        scale: entityData.scale
+      };
+      
+      // Entferne legacy 'id' Feld falls vorhanden (nur für portals)
+      if (entityType === 'portal' && updatedObj.id !== undefined) {
+        delete updatedObj.id;
+      }
+      
+      targetArray[existingIndex] = updatedObj;
+      if (this.debug) console.log('[EntityInteraction] Bestehendes Objekt aktualisiert:', targetArray[existingIndex]);
+      
+      // Aktualisiere die entityId in der Entity für zukünftige Referenzen
+      if (this.selectedEntity) {
+        this.selectedEntity.userData.entityId = targetEntityId;
+      }
+    } else {
+      // Füge neues Objekt hinzu (nur wenn wirklich neu)
+      const newObj = {
+        ...entityData,
+        entity_id: entityId
+      };
+      
+      // Sicherstellen, dass der Type erhalten bleibt
+      if (entityType && !newObj.type) {
+        newObj.type = entityType;
+      }
+      
+      // Typ-spezifische Felder setzen
+      if (entityType === 'portal') {
+        newObj.id = entityId; // Für Abwärtskompatibilität
+      } else if (entityType === 'persona') {
+        newObj.name = entityId; // Personen werden typischerweise per Name identifiziert
+      }
+      
+      targetArray.push(newObj);
+      if (this.debug) console.log('[EntityInteraction] Neues Objekt hinzugefügt:', newObj);
+    }
     
     // YAML serialisieren und anwenden
     const yamlText = this._serializeToYaml(yamlObj);
@@ -764,7 +869,7 @@ export class EntityInteractionAddon extends InteractionAddon {
             Math.pow(obj.position[1] - this.originalEntityPosition.y, 2) +
             Math.pow(obj.position[2] - this.originalEntityPosition.z, 2)
           );
-          return distance < 0.1;
+          return distance < 1.0; // Erhöhte Toleranz für konsistente Entity-Erkennung
         }
         return false;
       });
