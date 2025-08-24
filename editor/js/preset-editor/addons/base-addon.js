@@ -82,6 +82,7 @@ export class InteractionAddon {
    * @returns {HTMLElement[]} Array von UI-Elementen
    */
   getUIElements() {
+    console.log(`[${this.name}] getUIElements aufgerufen`);
     return [];
   }
   

@@ -775,6 +775,7 @@ export class EntityInteractionAddon extends InteractionAddon {
    * @returns {HTMLElement[]}
    */
   getUIElements() {
+    console.log('[EntityInteraction] getUIElements aufgerufen');
     const container = document.createElement('div');
     container.style.marginTop = '10px';
     container.style.padding = '8px';

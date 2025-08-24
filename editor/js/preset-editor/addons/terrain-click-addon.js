@@ -142,6 +142,7 @@ export class TerrainClickAddon extends InteractionAddon {
    * Gibt UI-Elemente für die Addon-Konfiguration zurück
    */
   getUIElements() {
+    console.log('[TerrainClick] getUIElements aufgerufen');
     const container = document.createElement('div');
     container.style.marginTop = '10px';
     container.style.padding = '8px';
