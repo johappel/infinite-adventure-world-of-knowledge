@@ -18,7 +18,6 @@ export class EntityInteractionAddon extends InteractionAddon {
     // Zustandsvariablen
     this.hoveredEntity = null;
     this.selectedEntity = null;
-    this.originalHoveredEntity = null; // Speichert die echte Entity (nicht das Hover-Mesh)
     this.hoverMesh = null;
     this.entityDialog = null;
     this.isMouseOverCanvas = false;
@@ -26,6 +25,9 @@ export class EntityInteractionAddon extends InteractionAddon {
     // Debouncing für Mouseover
     this.mouseMoveTimeout = null;
     this.lastMousePosition = { x: 0, y: 0 };
+    
+    // Debug-Einstellungen
+    this.debug = false; // Setzen Sie true für Debug-Logging
   }
   
   /**
@@ -33,7 +35,7 @@ export class EntityInteractionAddon extends InteractionAddon {
    */
   async activate() {
     await super.activate();
-    console.log('[EntityInteraction] Addon aktiviert');
+    if (this.debug) console.log('[EntityInteraction] Addon aktiviert');
     
     // Event-Listener für Canvas-Mouseover
     this._bindCanvasEvents();
@@ -53,7 +55,7 @@ export class EntityInteractionAddon extends InteractionAddon {
     this._unbindCanvasEvents();
     this._closeDialog();
     
-    console.log('[EntityInteraction] Addon deaktiviert');
+    if (this.debug) console.log('[EntityInteraction] Addon deaktiviert');
   }
   
   /**
@@ -91,8 +93,8 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Canvas Mouse-Move Handler
-   * @param {MouseEvent} event
+   * Handler für Mausbewegungen auf dem Canvas
+   * @param {MouseEvent} event - Das Mausbewegungs-Ereignis
    * @private
    */
   _onCanvasMouseMove(event) {
@@ -111,7 +113,7 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Canvas Mouse-Leave Handler
+   * Handler für Mausverlassen des Canvas
    * @private
    */
   _onCanvasMouseLeave() {
@@ -120,27 +122,27 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Canvas Click Handler
-   * @param {MouseEvent} event
+   * Handler für Mausklicks auf dem Canvas
+   * @param {MouseEvent} event - Das Mausklick-Ereignis
    * @private
    */
   _onCanvasClick(event) {
     if (!this.isActive || !this.hoveredEntity) return;
     
-    console.log('[EntityInteraction] Canvas Click, hoveredEntity:', this.hoveredEntity);
-    console.log('[EntityInteraction] originalHoveredEntity:', this.originalHoveredEntity);
-    
-    // Verwende die auflösbare, bearbeitbare Entity (kann ein Elternobjekt sein)
-    const base = this.originalHoveredEntity || this.hoveredEntity;
-    this.selectedEntity = this._resolveEditableEntity(base);
-    console.log('[EntityInteraction] selectedEntity gesetzt:', this.selectedEntity);
+    if (this.debug) {
+      console.log('[EntityInteraction] Canvas Click, hoveredEntity:', this.hoveredEntity);
+    }
+
+    // Verwende die hoveredEntity, die bereits aufgelöst ist
+    this.selectedEntity = this._resolveEditableEntity(this.hoveredEntity);
+    if (this.debug) console.log('[EntityInteraction] selectedEntity gesetzt:', this.selectedEntity);
     
     this._openEntityDialog();
   }
   
   /**
-   * Führt Raycasting für Entity-Erkennung durch
-   * @param {MouseEvent} event
+   * Führt Raycasting für die Entity-Erkennung durch
+   * @param {MouseEvent} event - Das Mausereignis für die Raycaster-Position
    * @private
    */
   _performRaycast(event) {
@@ -185,8 +187,8 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Behandelt Entity-Hover
-   * @param {THREE.Object3D} entityObject
+   * Behandelt das Hover-Ereignis für eine Entity
+   * @param {THREE.Object3D} entityObject - Das angehoverte 3D-Objekt
    * @private
    */
   _handleEntityHover(entityObject) {
@@ -197,15 +199,13 @@ export class EntityInteractionAddon extends InteractionAddon {
     this._clearHover();
     this.hoveredEntity = target;
     
-    // Speichere die ursprüngliche Entity-Referenz
-    this.originalHoveredEntity = target;
     
     // Hover-Mesh an der Ziel-Entity positionieren
     this._updateHoverMesh(target);
   }
   
   /**
-   * Entfernt Hover-Zustand
+   * Entfernt den Hover-Zustand und versteckt das Hover-Mesh
    * @private
    */
   _clearHover() {
@@ -214,7 +214,7 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Erstellt das Hover-Mesh für die Visualisierung
+   * Erstellt das Hover-Mesh für die visuelle Hervorhebung von Entities
    * @private
    */
   _createHoverMesh() {
@@ -238,8 +238,8 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Aktualisiert die Position des Hover-Mesh
-   * @param {THREE.Object3D} entityObject
+   * Aktualisiert die Position und Größe des Hover-Mesh basierend auf der Entity
+   * @param {THREE.Object3D} entityObject - Die Entity, für die das Hover-Mesh angepasst werden soll
    * @private
    */
   _updateHoverMesh(entityObject) {
@@ -269,7 +269,7 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Entfernt das Hover-Mesh komplett
+   * Entfernt das Hover-Mesh komplett aus der Szene und gibt Ressourcen frei
    * @private
    */
   _removeHoverMesh() {
@@ -282,22 +282,24 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Öffnet den Entity-Bearbeitungs-Dialog
+   * Öffnet den Dialog zur Bearbeitung der ausgewählten Entity
    * @private
    */
   _openEntityDialog() {
-    console.log('[EntityInteraction] _openEntityDialog aufgerufen, selectedEntity:', this.selectedEntity);
-    console.log('[EntityInteraction] hoveredEntity:', this.hoveredEntity);
+    if (this.debug) {
+      console.log('[EntityInteraction] _openEntityDialog aufgerufen, selectedEntity:', this.selectedEntity);
+      console.log('[EntityInteraction] hoveredEntity:', this.hoveredEntity);
+    }
 
     // 1) Ermittele die zu bearbeitende Entity
-    let entity = this.selectedEntity || this.originalHoveredEntity || this.hoveredEntity;
+    let entity = this.selectedEntity || this.hoveredEntity;
     if (!entity) {
       console.error('[EntityInteraction] KEINE ENTITY GEFUNDEN! Dialog wird nicht geöffnet.');
       this._showToast('error', 'Keine Entity ausgewählt');
       return;
     }
 
-    console.log('[EntityInteraction] Öffne Dialog für Entity:', entity);
+    if (this.debug) console.log('[EntityInteraction] Öffne Dialog für Entity:', entity);
 
     // 2) Vorherigen Dialog schließen (setzt selectedEntity aktuell auf null)
     this._closeDialog();
@@ -308,33 +310,33 @@ export class EntityInteractionAddon extends InteractionAddon {
     // 4) Speichere die originale Position für die YAML-Zuordnung
     this.originalEntityPosition = new THREE.Vector3();
     entity.getWorldPosition(this.originalEntityPosition);
-    console.log('[EntityInteraction] Originale Position gespeichert:', this.originalEntityPosition);
+    if (this.debug) console.log('[EntityInteraction] Originale Position gespeichert:', this.originalEntityPosition);
 
     // 5) Versuche entity_id aus dem YAML anhand der Position zu finden
     if (!this.selectedEntity.userData.entityId) {
       const entityIdFromYaml = this._findEntityIdFromYamlByPosition(this.originalEntityPosition);
       if (entityIdFromYaml) {
         this.selectedEntity.userData.entityId = entityIdFromYaml;
-        console.log('[EntityInteraction] entity_id aus YAML übernommen:', entityIdFromYaml);
+        if (this.debug) console.log('[EntityInteraction] entity_id aus YAML übernommen:', entityIdFromYaml);
       } else {
-        console.log('[EntityInteraction] Keine entity_id im YAML gefunden, generiere neue');
+        if (this.debug) console.log('[EntityInteraction] Keine entity_id im YAML gefunden, generiere neue');
         this.selectedEntity.userData.entityId = this._generateEntityId();
       }
     } else {
-      console.log('[EntityInteraction] Entity hat bereits entityId:', this.selectedEntity.userData.entityId);
+      if (this.debug) console.log('[EntityInteraction] Entity hat bereits entityId:', this.selectedEntity.userData.entityId);
     }
 
     try {
       // 6) Dialog erstellen
       this.entityDialog = this._createDialog();
-      console.log('[EntityInteraction] Dialog erstellt:', this.entityDialog);
+      if (this.debug) console.log('[EntityInteraction] Dialog erstellt:', this.entityDialog);
 
       document.body.appendChild(this.entityDialog);
-      console.log('[EntityInteraction] Dialog zum DOM hinzugefügt');
+      if (this.debug) console.log('[EntityInteraction] Dialog zum DOM hinzugefügt');
 
       // 7) Dialog-Inhalt füllen (selectedEntity ist gesetzt)
       this._populateDialog();
-      console.log('[EntityInteraction] Dialog-Inhalt erfolgreich befüllt');
+      if (this.debug) console.log('[EntityInteraction] Dialog-Inhalt erfolgreich befüllt');
 
     } catch (error) {
       console.error('[EntityInteraction] Fehler beim Öffnen des Dialogs:', error);
@@ -354,9 +356,9 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Findet entity_id aus dem YAML anhand der Position
-   * @param {THREE.Vector3} position
-   * @returns {string|null}
+   * Findet die entity_id im YAML basierend auf der Weltposition
+   * @param {THREE.Vector3} position - Die Weltposition der Entity
+   * @returns {string|null} Die entity_id oder null wenn nicht gefunden
    * @private
    */
   _findEntityIdFromYamlByPosition(position) {
@@ -376,7 +378,7 @@ export class EntityInteractionAddon extends InteractionAddon {
           if (Math.abs(objX - position.x) < tolerance &&
               Math.abs(objY - position.y) < tolerance &&
               Math.abs(objZ - position.z) < tolerance) {
-            console.log('[EntityInteraction] entity_id im YAML gefunden:', obj.entity_id);
+            if (this.debug) console.log('[EntityInteraction] entity_id im YAML gefunden:', obj.entity_id);
             return obj.entity_id;
           }
         }
@@ -389,8 +391,8 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
 
   /**
-   * Erstellt den Dialog-Container
-   * @returns {HTMLElement}
+   * Erstellt den Dialog-Container für die Entity-Bearbeitung
+   * @returns {HTMLElement} Das Dialog-HTML-Element
    * @private
    */
   _createDialog() {
@@ -433,15 +435,15 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Füllt den Dialog mit Inhalt
+   * Füllt den Dialog mit Formularfeldern für die Entity-Bearbeitung
    * @private
    */
   _populateDialog() {
-    console.log('[EntityInteraction] Starte Dialog-Befüllung für Entity:', this.selectedEntity);
+    if (this.debug) console.log('[EntityInteraction] Starte Dialog-Befüllung für Entity:', this.selectedEntity);
     if (!this.entityDialog || !this.selectedEntity) return;
 
     try {
-      console.log('[EntityInteraction] Starte Dialog-Befüllung für Entity:', this.selectedEntity);
+      if (this.debug) console.log('[EntityInteraction] Starte Dialog-Befüllung für Entity:', this.selectedEntity);
       
       const entity = this.selectedEntity;
       // Lokale Werte verwenden, damit Slider direkt wirken
@@ -545,8 +547,10 @@ export class EntityInteractionAddon extends InteractionAddon {
         });
       });
 
-      console.log('[EntityInteraction] Dialog erfolgreich mit innerHTML befüllt');
-      console.log('[EntityInteraction] Dialog Children:', this.entityDialog.children.length);
+      if (this.debug) {
+        console.log('[EntityInteraction] Dialog erfolgreich mit innerHTML befüllt');
+        console.log('[EntityInteraction] Dialog Children:', this.entityDialog.children.length);
+      }
 
     } catch (error) {
       console.error('[EntityInteraction] Fehler beim Befüllen des Dialogs:', error);
@@ -562,123 +566,12 @@ export class EntityInteractionAddon extends InteractionAddon {
     }
   }
   
-  /**
-   * Erstellt Vektor-Kontrollen (X/Y/Z Slider)
-   * @param {string} label
-   * @param {Object} values
-   * @param {Array} range
-   * @param {number} step
-   * @returns {HTMLElement}
-   * @private
-   */
-  _createVectorControl(label, values, range, step) {
-    try {
-      console.log(`[EntityInteraction] Erstelle Vektor-Control: ${label}`, values);
-      
-      const section = document.createElement('div');
-      section.style.marginBottom = '15px';
-      
-      const heading = document.createElement('h4');
-      heading.textContent = label;
-      heading.style.margin = '0 0 10px 0';
-      heading.style.fontSize = '14px';
-      
-      const controls = document.createElement('div');
-      controls.style.display = 'grid';
-      controls.style.gridTemplateColumns = '30px 1fr';
-      controls.style.gap = '8px';
-      controls.style.alignItems = 'center';
-      
-      ['x', 'y', 'z'].forEach(axis => {
-        console.log(`[EntityInteraction] Verarbeite Axis: ${axis}, Wert:`, values[axis]);
-        
-        const axisLabel = document.createElement('span');
-        axisLabel.textContent = axis.toUpperCase();
-        axisLabel.style.textAlign = 'right';
-        axisLabel.style.opacity = '0.7';
-        
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.min = range[0];
-        slider.max = range[1];
-        slider.step = step;
-        slider.value = values[axis] || 0; // Fallback auf 0 falls undefined
-        slider.dataset.axis = axis;
-        
-        const valueDisplay = document.createElement('span');
-        valueDisplay.textContent = (values[axis] || 0).toFixed(2);
-        valueDisplay.style.fontSize = '12px';
-        valueDisplay.style.minWidth = '40px';
-        valueDisplay.style.textAlign = 'right';
-        
-        slider.addEventListener('input', (e) => {
-          const newValue = parseFloat(e.target.value);
-          valueDisplay.textContent = newValue.toFixed(2);
-          this._updateLivePreview(axis, newValue);
-        });
-        
-        controls.appendChild(axisLabel);
-        
-        const sliderContainer = document.createElement('div');
-        sliderContainer.style.display = 'flex';
-        sliderContainer.style.alignItems = 'center';
-        sliderContainer.style.gap = '8px';
-        sliderContainer.appendChild(slider);
-        sliderContainer.appendChild(valueDisplay);
-        
-        controls.appendChild(sliderContainer);
-      });
-      
-      section.appendChild(heading);
-      section.appendChild(controls);
-      
-      console.log(`[EntityInteraction] Vektor-Control ${label} erfolgreich erstellt`);
-      return section;
-      
-    } catch (error) {
-      console.error(`[EntityInteraction] Fehler beim Erstellen von Vektor-Control ${label}:`, error);
-      
-      // Fallback: Einfache Fehlermeldung
-      const errorSection = document.createElement('div');
-      errorSection.innerHTML = `
-        <h4 style="color: #ff6666; margin: 0 0 10px 0; font-size: 14px;">${label} (Fehler)</h4>
-        <div style="color: #ff6666; font-size: 12px;">${error.message}</div>
-      `;
-      return errorSection;
-    }
-  }
-  
-  /**
-   * Erstellt eine einfache Fehler-Control
-   * @param {string} label
-   * @param {string} message
-   * @returns {HTMLElement}
-   * @private
-   */
-  _createSimpleControl(label, message) {
-    const section = document.createElement('div');
-    section.style.marginBottom = '15px';
-    
-    const heading = document.createElement('h4');
-    heading.textContent = label;
-    heading.style.margin = '0 0 10px 0';
-    heading.style.fontSize = '14px';
-    heading.style.color = '#ff6666';
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.textContent = message;
-    messageDiv.style.color = '#ff6666';
-    messageDiv.style.fontSize = '12px';
-    
-    section.appendChild(heading);
-    section.appendChild(messageDiv);
-    return section;
-  }
 
   /**
-   * Aktualisiert die Live-Vorschau
-   * @param {string} axis
-   * @param {number} value
+   * Aktualisiert die Live-Vorschau der Entity basierend auf Slider-Änderungen
+   * @param {string} sectionOrAxis - Der Abschnitt (position/rotation/scale) oder Achse
+   * @param {string|number} axisOrValue - Die Achse oder der Wert
+   * @param {number} [maybeValue] - Optionaler Wert (für alte Signatur)
    * @private
    */
   _updateLivePreview(sectionOrAxis, axisOrValue, maybeValue) {
@@ -714,11 +607,11 @@ export class EntityInteractionAddon extends InteractionAddon {
       // this.editor.threeJSManager.renderer.render(this.editor.threeJSManager.scene, this.editor.threeJSManager.camera);
     }
 
-    console.log(`Live Preview: section=${section}, ${axis} = ${value}`);
+    if (this.debug) console.log(`Live Preview: section=${section}, ${axis} = ${value}`);
   }
   
   /**
-   * Wendet die Änderungen an und aktualisiert das YAML
+   * Wendet die Änderungen an der Entity an und aktualisiert das YAML
    * @private
    */
   async _applyChanges() {
@@ -730,7 +623,7 @@ export class EntityInteractionAddon extends InteractionAddon {
         this.selectedEntity.userData.entityId = this._generateEntityId();
       }
       const entityId = this.selectedEntity.userData.entityId;
-      console.log('[EntityInteraction] Verwende Entity-ID:', entityId);
+      if (this.debug) console.log('[EntityInteraction] Verwende Entity-ID:', entityId);
       
       // Entity-Daten sammeln
       const worldPos = new THREE.Vector3();
@@ -768,7 +661,7 @@ export class EntityInteractionAddon extends InteractionAddon {
   
   /**
    * Generiert eine eindeutige Entity-ID
-   * @returns {string}
+   * @returns {string} Eine zufällig generierte Entity-ID
    * @private
    */
   _generateEntityId() {
@@ -776,9 +669,9 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Aktualisiert das YAML mit der Entity
-   * @param {string} entityId
-   * @param {Object} entityData
+   * Aktualisiert das YAML mit den Entity-Daten
+   * @param {string} entityId - Die ID der Entity
+   * @param {Object} entityData - Die Entity-Daten (Position, Rotation, Scale)
    * @private
    */
   async _updateYamlWithEntity(entityId, entityData) {
@@ -807,9 +700,9 @@ export class EntityInteractionAddon extends InteractionAddon {
 
   /**
    * Aktualisiert World-YAML mit Entity (klassische Entities-Struktur)
-   * @param {Object} yamlObj
-   * @param {string} entityId
-   * @param {Object} entityData
+   * @param {Object} yamlObj - Das YAML-Objekt
+   * @param {string} entityId - Die ID der Entity
+   * @param {Object} entityData - Die Entity-Daten
    * @private
    */
   async _updateWorldYamlWithEntity(yamlObj, entityId, entityData) {
@@ -833,16 +726,16 @@ export class EntityInteractionAddon extends InteractionAddon {
     
     // YAML serialisieren und anwenden
     const yamlText = this._serializeToYaml(yamlObj);
-    console.log('[EntityInteraction] World-YAML aktualisiert:', yamlText);
+    if (this.debug) console.log('[EntityInteraction] World-YAML aktualisiert:', yamlText);
     
     await this._applyYamlChange(yamlText);
   }
 
   /**
    * Aktualisiert Patch-YAML direkt im autorfreundlichen Format
-   * @param {Object} yamlObj
-   * @param {string} entityId
-   * @param {Object} entityData
+   * @param {Object} yamlObj - Das YAML-Objekt
+   * @param {string} entityId - Die ID der Entity
+   * @param {Object} entityData - Die Entity-Daten
    * @private
    */
   async _updatePatchYamlDirectly(yamlObj, entityId, entityData) {
@@ -858,7 +751,7 @@ export class EntityInteractionAddon extends InteractionAddon {
     if (existingIndex === -1) {
       existingIndex = yamlObj.objects.findIndex(obj => obj.id === entityId);
       if (existingIndex !== -1) {
-        console.log('[EntityInteraction] Gefundenes Objekt mit legacy id-Feld:', yamlObj.objects[existingIndex]);
+        if (this.debug) console.log('[EntityInteraction] Gefundenes Objekt mit legacy id-Feld:', yamlObj.objects[existingIndex]);
       }
     }
     
@@ -877,7 +770,7 @@ export class EntityInteractionAddon extends InteractionAddon {
       });
       
       if (existingIndex !== -1) {
-        console.log('[EntityInteraction] Gefundenes Objekt an ursprünglicher Position:', yamlObj.objects[existingIndex]);
+        if (this.debug) console.log('[EntityInteraction] Gefundenes Objekt an ursprünglicher Position:', yamlObj.objects[existingIndex]);
       }
     }
     
@@ -903,7 +796,7 @@ export class EntityInteractionAddon extends InteractionAddon {
       }
       
       yamlObj.objects[existingIndex] = updatedObj;
-      console.log('[EntityInteraction] Bestehendes Objekt aktualisiert:', yamlObj.objects[existingIndex]);
+      if (this.debug) console.log('[EntityInteraction] Bestehendes Objekt aktualisiert:', yamlObj.objects[existingIndex]);
       
       // Aktualisiere die entityId in der Entity für zukünftige Referenzen
       if (this.selectedEntity) {
@@ -919,21 +812,21 @@ export class EntityInteractionAddon extends InteractionAddon {
       };
       
       yamlObj.objects.push(newObj);
-      console.log('[EntityInteraction] Neues Objekt hinzugefügt:', newObj);
+      if (this.debug) console.log('[EntityInteraction] Neues Objekt hinzugefügt:', newObj);
     }
     
     // YAML serialisieren und anwenden
     const yamlText = this._serializeToYaml(yamlObj);
-    console.log('[EntityInteraction] Patch-YAML direkt aktualisiert:', yamlText);
+    if (this.debug) console.log('[EntityInteraction] Patch-YAML direkt aktualisiert:', yamlText);
     
     await this._applyYamlChange(yamlText);
   }
 
   /**
    * Findet den Index einer Entity-Operation im Patch-YAML
-   * @param {Object} patchYaml
-   * @param {string} entityId
-   * @param {string} entityType
+   * @param {Object} patchYaml - Das Patch-YAML-Objekt
+   * @param {string} entityId - Die ID der Entity
+   * @param {string} entityType - Der Typ der Entity
    * @returns {number} Index der Operation oder -1 wenn nicht gefunden
    * @private
    */
@@ -958,9 +851,9 @@ export class EntityInteractionAddon extends InteractionAddon {
 
   /**
    * Aktualisiert eine bestehende Patch-Operation mit neuen Entity-Daten
-   * @param {Object} patchYaml
-   * @param {number} operationIndex
-   * @param {Object} entityData
+   * @param {Object} patchYaml - Das Patch-YAML-Objekt
+   * @param {number} operationIndex - Der Index der Operation
+   * @param {Object} entityData - Die neuen Entity-Daten
    * @private
    */
   _updatePatchOperation(patchYaml, operationIndex, entityData) {
@@ -977,16 +870,16 @@ export class EntityInteractionAddon extends InteractionAddon {
       operation.payload.scale = entityData.scale;
       
       // Behalte type, color, kind und andere Eigenschaften bei
-      console.log('[EntityInteraction] Operation aktualisiert:', operation);
+      if (this.debug) console.log('[EntityInteraction] Operation aktualisiert:', operation);
     }
   }
 
   /**
    * Fügt eine Add-Operation zum Patch hinzu
-   * @param {Object} patchYaml
-   * @param {string} entityId
-   * @param {string} entityType
-   * @param {Object} entityData
+   * @param {Object} patchYaml - Das Patch-YAML-Objekt
+   * @param {string} entityId - Die ID der Entity
+   * @param {string} entityType - Der Typ der Entity
+   * @param {Object} entityData - Die Entity-Daten
    * @private
    */
   _addPatchAddOperation(patchYaml, entityId, entityType, entityData) {
@@ -1012,10 +905,10 @@ export class EntityInteractionAddon extends InteractionAddon {
 
   /**
    * Fügt eine Update-Operation zum Patch hinzu
-   * @param {Object} patchYaml
-   * @param {string} entityId
-   * @param {string} entityType
-   * @param {Object} entityData
+   * @param {Object} patchYaml - Das Patch-YAML-Objekt
+   * @param {string} entityId - Die ID der Entity
+   * @param {string} entityType - Der Typ der Entity
+   * @param {Object} entityData - Die Entity-Daten
    * @private
    */
   _addPatchUpdateOperation(patchYaml, entityId, entityType, entityData) {
@@ -1037,7 +930,7 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Schließt den Dialog
+   * Schließt den Entity-Bearbeitungs-Dialog und räumt auf
    * @private
    */
   _closeDialog() {
@@ -1056,10 +949,10 @@ export class EntityInteractionAddon extends InteractionAddon {
   
   /**
    * Gibt UI-Elemente für die Addon-Konfiguration zurück
-   * @returns {HTMLElement[]}
+   * @returns {HTMLElement[]} Array von HTML-Elementen für die UI
    */
   getUIElements() {
-    console.log('[EntityInteraction] getUIElements aufgerufen');
+    if (this.debug) console.log('[EntityInteraction] getUIElements aufgerufen');
     const container = document.createElement('div');
     container.style.marginTop = '10px';
     container.style.padding = '8px';
@@ -1169,8 +1062,8 @@ export class EntityInteractionAddon extends InteractionAddon {
   }
   
   /**
-   * Serialisiert den aktuellen Zustand
-   * @returns {Object}
+   * Serialisiert den aktuellen Zustand des Addons
+   * @returns {Object} Der serialisierte Zustand
    */
   serializeState() {
     return {
@@ -1182,8 +1075,8 @@ export class EntityInteractionAddon extends InteractionAddon {
   
   /**
    * Serialisiert eine Object3D-Referenz für die Persistenz
-   * @param {THREE.Object3D} object
-   * @returns {Object}
+   * @param {THREE.Object3D} object - Das Three.js-Objekt
+   * @returns {Object} Serialisierte Objektreferenz
    * @private
    */
   _serializeObjectRef(object) {
@@ -1196,7 +1089,7 @@ export class EntityInteractionAddon extends InteractionAddon {
   
   /**
    * Deserialisiert einen gespeicherten Zustand
-   * @param {Object} state
+   * @param {Object} state - Der serialisierte Zustand
    */
   deserializeState(state) {
     super.deserializeState(state);
@@ -1214,30 +1107,31 @@ export class EntityInteractionAddon extends InteractionAddon {
    * Findet die bearbeitbare Entity ausgehend von einem getroffenen Objekt.
    * - Ignoriert Hover-/Hilfsmeshes
    * - Klettert zu einem Elternteil mit semantischem Typ in userData
-   * @param {THREE.Object3D} obj
-   * @returns {THREE.Object3D}
+   * @param {THREE.Object3D} obj - Das ursprünglich getroffene Objekt
+   * @returns {THREE.Object3D} Die bearbeitbare Entity-Referenz
    * @private
    */
   _resolveEditableEntity(obj) {
     if (!obj) return null;
 
-    // Wenn es sich um das Hover-Hilfsmesh handelt, nimm stattdessen dessen Parent
+    // Wenn es sich um das Hover-Hilfsmesh oder einen Helper handelt, nimm stattdessen dessen Parent
     if (obj === this.hoverMesh || obj.userData?.isHoverHelper) {
       obj = obj.parent || obj;
     }
 
     // Klettere zu einem Parent, der eine sinnvollere Entität beschreibt
-    let curr = obj;
-    while (curr) {
-      const u = curr.userData || {};
-      const hasSemanticType = !!(u.entityType || u.objectType || u.isTerrain || u.isSkybox);
-      if (hasSemanticType || !curr.parent) {
-        // Terrain/Skybox werden im Raycast bereits gefiltert, bleiben hier nur als Anker
-        return curr;
+    let current = obj;
+    while (current) {
+      const userData = current.userData || {};
+      // Prüfe auf semantische Typen (entityType oder objectType)
+      const hasSemanticType = !!(userData.entityType || userData.objectType);
+      if (hasSemanticType || !current.parent) {
+        return current;
       }
-      curr = curr.parent;
+      current = current.parent;
     }
-    return obj;
+    
+    return obj; // Fallback: gib das ursprüngliche Objekt zurück
   }
 }
 
