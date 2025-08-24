@@ -310,15 +310,29 @@ export class EntityInteractionAddon extends InteractionAddon {
     entity.getWorldPosition(this.originalEntityPosition);
     console.log('[EntityInteraction] Originale Position gespeichert:', this.originalEntityPosition);
 
+    // 5) Versuche entity_id aus dem YAML anhand der Position zu finden
+    if (!this.selectedEntity.userData.entityId) {
+      const entityIdFromYaml = this._findEntityIdFromYamlByPosition(this.originalEntityPosition);
+      if (entityIdFromYaml) {
+        this.selectedEntity.userData.entityId = entityIdFromYaml;
+        console.log('[EntityInteraction] entity_id aus YAML übernommen:', entityIdFromYaml);
+      } else {
+        console.log('[EntityInteraction] Keine entity_id im YAML gefunden, generiere neue');
+        this.selectedEntity.userData.entityId = this._generateEntityId();
+      }
+    } else {
+      console.log('[EntityInteraction] Entity hat bereits entityId:', this.selectedEntity.userData.entityId);
+    }
+
     try {
-      // 5) Dialog erstellen
+      // 6) Dialog erstellen
       this.entityDialog = this._createDialog();
       console.log('[EntityInteraction] Dialog erstellt:', this.entityDialog);
 
       document.body.appendChild(this.entityDialog);
       console.log('[EntityInteraction] Dialog zum DOM hinzugefügt');
 
-      // 6) Dialog-Inhalt füllen (selectedEntity ist gesetzt)
+      // 7) Dialog-Inhalt füllen (selectedEntity ist gesetzt)
       this._populateDialog();
       console.log('[EntityInteraction] Dialog-Inhalt erfolgreich befüllt');
 
@@ -339,6 +353,41 @@ export class EntityInteractionAddon extends InteractionAddon {
     }
   }
   
+  /**
+   * Findet entity_id aus dem YAML anhand der Position
+   * @param {THREE.Vector3} position
+   * @returns {string|null}
+   * @private
+   */
+  _findEntityIdFromYamlByPosition(position) {
+    try {
+      const currentYaml = this._parseCurrentYaml();
+      if (!currentYaml || !currentYaml.objects) return null;
+      
+      // Durchsuche alle Objekte im YAML
+      for (const obj of currentYaml.objects) {
+        if (obj.position && Array.isArray(obj.position) && obj.entity_id) {
+          // Vergleiche Positionen mit erhöhter Toleranz (0.15 statt 0.01)
+          const tolerance = 0.15;
+          const objX = obj.position[0];
+          const objY = obj.position[1];
+          const objZ = obj.position[2];
+          
+          if (Math.abs(objX - position.x) < tolerance &&
+              Math.abs(objY - position.y) < tolerance &&
+              Math.abs(objZ - position.z) < tolerance) {
+            console.log('[EntityInteraction] entity_id im YAML gefunden:', obj.entity_id);
+            return obj.entity_id;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[EntityInteraction] Fehler beim Suchen der entity_id im YAML:', error);
+    }
+    
+    return null;
+  }
+
   /**
    * Erstellt den Dialog-Container
    * @returns {HTMLElement}
@@ -676,9 +725,12 @@ export class EntityInteractionAddon extends InteractionAddon {
     if (!this.selectedEntity) return;
     
     try {
-      // Hier wird die YAML-Integration implementiert
-      // Entity-ID generieren oder verwenden
-      const entityId = this.selectedEntity.userData?.entityId || this._generateEntityId();
+      // Entity-ID verwenden oder generieren und in der Entity speichern
+      if (!this.selectedEntity.userData.entityId) {
+        this.selectedEntity.userData.entityId = this._generateEntityId();
+      }
+      const entityId = this.selectedEntity.userData.entityId;
+      console.log('[EntityInteraction] Verwende Entity-ID:', entityId);
       
       // Entity-Daten sammeln
       const worldPos = new THREE.Vector3();
@@ -799,14 +851,21 @@ export class EntityInteractionAddon extends InteractionAddon {
       yamlObj.objects = [];
     }
     
-    // Suche nach bestehendem Objekt mit der Entity-ID
+    // 1) Zuerst nach entity_id suchen (höchste Priorität)
     let existingIndex = yamlObj.objects.findIndex(obj => obj.entity_id === entityId);
     
+    // 2) Falls nicht gefunden, nach legacy 'id' Feld suchen (für Abwärtskompatibilität)
+    if (existingIndex === -1) {
+      existingIndex = yamlObj.objects.findIndex(obj => obj.id === entityId);
+      if (existingIndex !== -1) {
+        console.log('[EntityInteraction] Gefundenes Objekt mit legacy id-Feld:', yamlObj.objects[existingIndex]);
+      }
+    }
+    
+    // 3) Falls immer noch nicht gefunden, nach Position suchen (nur für Objekte ohne entity_id)
     if (existingIndex === -1 && this.originalEntityPosition) {
-      // Wenn keine Entity mit entity_id gefunden wurde, suche nach Objekten ohne entity_id
-      // die an der ursprünglichen Position liegen (mit Toleranz von 0.1 Einheiten)
       existingIndex = yamlObj.objects.findIndex(obj => {
-        if (!obj.entity_id && obj.position && Array.isArray(obj.position)) {
+        if (obj.position && Array.isArray(obj.position)) {
           const distance = Math.sqrt(
             Math.pow(obj.position[0] - this.originalEntityPosition.x, 2) +
             Math.pow(obj.position[1] - this.originalEntityPosition.y, 2) +
@@ -822,45 +881,34 @@ export class EntityInteractionAddon extends InteractionAddon {
       }
     }
     
-    if (existingIndex === -1) {
-      // Wenn immer noch nicht gefunden, suche nach Objekten ohne entity_id
-      const objectsWithoutEntityId = yamlObj.objects.filter(obj => !obj.entity_id);
-      
-      if (objectsWithoutEntityId.length === 1) {
-        // Nur ein Objekt ohne entity_id - wahrscheinlich die zu bearbeitende Entity
-        existingIndex = yamlObj.objects.indexOf(objectsWithoutEntityId[0]);
-        console.log('[EntityInteraction] Gefundenes Objekt ohne entity_id:', yamlObj.objects[existingIndex]);
-      } else if (objectsWithoutEntityId.length > 1) {
-        // Mehrere Objekte ohne entity_id - versuche anhand des Typs zu identifizieren
-        const matchingTypeObjects = objectsWithoutEntityId.filter(obj =>
-          obj.type === entityData.type ||
-          (entityData.type === 'objects' && obj.type === 'box') // Fallback für TerrainClick-Objekte
-        );
-        
-        if (matchingTypeObjects.length === 1) {
-          existingIndex = yamlObj.objects.indexOf(matchingTypeObjects[0]);
-          console.log('[EntityInteraction] Gefundenes Objekt nach Typ:', yamlObj.objects[existingIndex]);
-        } else {
-          console.warn('[EntityInteraction] Mehrere Objekte ohne entity_id gefunden, kann nicht sicher identifizieren');
-        }
-      }
-    }
-    
     if (existingIndex !== -1) {
       // Aktualisiere bestehendes Objekt
       const existingObj = yamlObj.objects[existingIndex];
       
+      // Verwende die entity_id aus dem bestehenden Objekt, falls vorhanden
+      const targetEntityId = existingObj.entity_id || entityId;
+      
       // Behalte alle bestehenden Eigenschaften bei und aktualisiere nur Position, Rotation, Scale
-      // Weise entity_id zu für zukünftige Updates
-      yamlObj.objects[existingIndex] = {
+      const updatedObj = {
         ...existingObj,
-        entity_id: entityId,
+        entity_id: targetEntityId,
         position: entityData.position,
         rotation: entityData.rotation,
         scale: entityData.scale
       };
       
+      // Entferne legacy 'id' Feld falls vorhanden
+      if (updatedObj.id !== undefined) {
+        delete updatedObj.id;
+      }
+      
+      yamlObj.objects[existingIndex] = updatedObj;
       console.log('[EntityInteraction] Bestehendes Objekt aktualisiert:', yamlObj.objects[existingIndex]);
+      
+      // Aktualisiere die entityId in der Entity für zukünftige Referenzen
+      if (this.selectedEntity) {
+        this.selectedEntity.userData.entityId = targetEntityId;
+      }
     } else {
       // Füge neues Objekt hinzu (nur wenn wirklich neu)
       const { type, ...entityProps } = entityData;
