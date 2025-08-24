@@ -305,15 +305,20 @@ export class EntityInteractionAddon extends InteractionAddon {
     // 3) Nach dem Schließen die Entity-Referenz wiederherstellen
     this.selectedEntity = entity;
 
+    // 4) Speichere die originale Position für die YAML-Zuordnung
+    this.originalEntityPosition = new THREE.Vector3();
+    entity.getWorldPosition(this.originalEntityPosition);
+    console.log('[EntityInteraction] Originale Position gespeichert:', this.originalEntityPosition);
+
     try {
-      // 4) Dialog erstellen
+      // 5) Dialog erstellen
       this.entityDialog = this._createDialog();
       console.log('[EntityInteraction] Dialog erstellt:', this.entityDialog);
 
       document.body.appendChild(this.entityDialog);
       console.log('[EntityInteraction] Dialog zum DOM hinzugefügt');
 
-      // 5) Dialog-Inhalt füllen (selectedEntity ist gesetzt)
+      // 6) Dialog-Inhalt füllen (selectedEntity ist gesetzt)
       this._populateDialog();
       console.log('[EntityInteraction] Dialog-Inhalt erfolgreich befüllt');
 
@@ -725,11 +730,37 @@ export class EntityInteractionAddon extends InteractionAddon {
    * @private
    */
   async _updateYamlWithEntity(entityId, entityData) {
-    let yamlObj = this._parseCurrentYaml();
-    if (!yamlObj || typeof yamlObj !== 'object') {
-      yamlObj = this._createNewYamlObject();
-    }
+    try {
+      // Verwende das originale YAML-Objekt, um Metadaten zu erhalten
+      let yamlObj = this._parseCurrentYaml();
+      if (!yamlObj || typeof yamlObj !== 'object') {
+        yamlObj = this._createNewYamlObject();
+      }
 
+      // Bestimme den aktuellen Tab (world oder patch)
+      const isPatchTab = this.editor.activeTab === 'patch';
+      
+      if (isPatchTab) {
+        // Patch-Format: Direkt im autorfreundlichen Format arbeiten
+        await this._updatePatchYamlDirectly(yamlObj, entityId, entityData);
+      } else {
+        // World-Format: Entities-Struktur verwenden
+        await this._updateWorldYamlWithEntity(yamlObj, entityId, entityData);
+      }
+    } catch (error) {
+      console.error('[EntityInteraction] Fehler beim Aktualisieren des YAML:', error);
+      this._showToast('error', 'YAML-Update fehlgeschlagen: ' + error.message);
+    }
+  }
+
+  /**
+   * Aktualisiert World-YAML mit Entity (klassische Entities-Struktur)
+   * @param {Object} yamlObj
+   * @param {string} entityId
+   * @param {Object} entityData
+   * @private
+   */
+  async _updateWorldYamlWithEntity(yamlObj, entityId, entityData) {
     // Sicherstellen, dass die Struktur vorhanden ist
     if (!yamlObj.entities || typeof yamlObj.entities !== 'object') {
       yamlObj.entities = {};
@@ -741,15 +772,220 @@ export class EntityInteractionAddon extends InteractionAddon {
       yamlObj.entities[entityType] = {};
     }
     
-    // Entity-Daten setzen
+    // Entity-Daten setzen (kopiere alle Felder außer 'type')
+    const { type, ...entityProps } = entityData;
     yamlObj.entities[entityType][entityId] = {
-      ...entityData,
-      id: entityId
+      ...entityProps,
+      entity_id: entityId
     };
     
     // YAML serialisieren und anwenden
     const yamlText = this._serializeToYaml(yamlObj);
+    console.log('[EntityInteraction] World-YAML aktualisiert:', yamlText);
+    
     await this._applyYamlChange(yamlText);
+  }
+
+  /**
+   * Aktualisiert Patch-YAML direkt im autorfreundlichen Format
+   * @param {Object} yamlObj
+   * @param {string} entityId
+   * @param {Object} entityData
+   * @private
+   */
+  async _updatePatchYamlDirectly(yamlObj, entityId, entityData) {
+    // Sicherstellen, dass objects Array existiert
+    if (!yamlObj.objects || !Array.isArray(yamlObj.objects)) {
+      yamlObj.objects = [];
+    }
+    
+    // Suche nach bestehendem Objekt mit der Entity-ID
+    let existingIndex = yamlObj.objects.findIndex(obj => obj.entity_id === entityId);
+    
+    if (existingIndex === -1 && this.originalEntityPosition) {
+      // Wenn keine Entity mit entity_id gefunden wurde, suche nach Objekten ohne entity_id
+      // die an der ursprünglichen Position liegen (mit Toleranz von 0.1 Einheiten)
+      existingIndex = yamlObj.objects.findIndex(obj => {
+        if (!obj.entity_id && obj.position && Array.isArray(obj.position)) {
+          const distance = Math.sqrt(
+            Math.pow(obj.position[0] - this.originalEntityPosition.x, 2) +
+            Math.pow(obj.position[1] - this.originalEntityPosition.y, 2) +
+            Math.pow(obj.position[2] - this.originalEntityPosition.z, 2)
+          );
+          return distance < 0.1;
+        }
+        return false;
+      });
+      
+      if (existingIndex !== -1) {
+        console.log('[EntityInteraction] Gefundenes Objekt an ursprünglicher Position:', yamlObj.objects[existingIndex]);
+      }
+    }
+    
+    if (existingIndex === -1) {
+      // Wenn immer noch nicht gefunden, suche nach Objekten ohne entity_id
+      const objectsWithoutEntityId = yamlObj.objects.filter(obj => !obj.entity_id);
+      
+      if (objectsWithoutEntityId.length === 1) {
+        // Nur ein Objekt ohne entity_id - wahrscheinlich die zu bearbeitende Entity
+        existingIndex = yamlObj.objects.indexOf(objectsWithoutEntityId[0]);
+        console.log('[EntityInteraction] Gefundenes Objekt ohne entity_id:', yamlObj.objects[existingIndex]);
+      } else if (objectsWithoutEntityId.length > 1) {
+        // Mehrere Objekte ohne entity_id - versuche anhand des Typs zu identifizieren
+        const matchingTypeObjects = objectsWithoutEntityId.filter(obj =>
+          obj.type === entityData.type ||
+          (entityData.type === 'objects' && obj.type === 'box') // Fallback für TerrainClick-Objekte
+        );
+        
+        if (matchingTypeObjects.length === 1) {
+          existingIndex = yamlObj.objects.indexOf(matchingTypeObjects[0]);
+          console.log('[EntityInteraction] Gefundenes Objekt nach Typ:', yamlObj.objects[existingIndex]);
+        } else {
+          console.warn('[EntityInteraction] Mehrere Objekte ohne entity_id gefunden, kann nicht sicher identifizieren');
+        }
+      }
+    }
+    
+    if (existingIndex !== -1) {
+      // Aktualisiere bestehendes Objekt
+      const existingObj = yamlObj.objects[existingIndex];
+      
+      // Behalte alle bestehenden Eigenschaften bei und aktualisiere nur Position, Rotation, Scale
+      // Weise entity_id zu für zukünftige Updates
+      yamlObj.objects[existingIndex] = {
+        ...existingObj,
+        entity_id: entityId,
+        position: entityData.position,
+        rotation: entityData.rotation,
+        scale: entityData.scale
+      };
+      
+      console.log('[EntityInteraction] Bestehendes Objekt aktualisiert:', yamlObj.objects[existingIndex]);
+    } else {
+      // Füge neues Objekt hinzu (nur wenn wirklich neu)
+      const { type, ...entityProps } = entityData;
+      const newObj = {
+        type: type || 'box',
+        ...entityProps,
+        entity_id: entityId
+      };
+      
+      yamlObj.objects.push(newObj);
+      console.log('[EntityInteraction] Neues Objekt hinzugefügt:', newObj);
+    }
+    
+    // YAML serialisieren und anwenden
+    const yamlText = this._serializeToYaml(yamlObj);
+    console.log('[EntityInteraction] Patch-YAML direkt aktualisiert:', yamlText);
+    
+    await this._applyYamlChange(yamlText);
+  }
+
+  /**
+   * Findet den Index einer Entity-Operation im Patch-YAML
+   * @param {Object} patchYaml
+   * @param {string} entityId
+   * @param {string} entityType
+   * @returns {number} Index der Operation oder -1 wenn nicht gefunden
+   * @private
+   */
+  _findEntityIndexInPatch(patchYaml, entityId, entityType) {
+    if (!patchYaml.operations || !Array.isArray(patchYaml.operations)) {
+      return -1;
+    }
+    
+    // Durchsuche alle Add-Operationen nach der Entity
+    for (let i = 0; i < patchYaml.operations.length; i++) {
+      const operation = patchYaml.operations[i];
+      if (operation.type === 'add' &&
+          operation.entity_type === entityType + 's' && // Plural für entity_type
+          operation.payload &&
+          operation.payload.entity_id === entityId) {
+        return i;
+      }
+    }
+    
+    return -1;
+  }
+
+  /**
+   * Aktualisiert eine bestehende Patch-Operation mit neuen Entity-Daten
+   * @param {Object} patchYaml
+   * @param {number} operationIndex
+   * @param {Object} entityData
+   * @private
+   */
+  _updatePatchOperation(patchYaml, operationIndex, entityData) {
+    if (!patchYaml.operations || !Array.isArray(patchYaml.operations) ||
+        operationIndex < 0 || operationIndex >= patchYaml.operations.length) {
+      return;
+    }
+    
+    const operation = patchYaml.operations[operationIndex];
+    if (operation.type === 'add' && operation.payload) {
+      // Behalte alle bestehenden Eigenschaften bei und aktualisiere nur Position, Rotation, Scale
+      operation.payload.position = entityData.position;
+      operation.payload.rotation = entityData.rotation;
+      operation.payload.scale = entityData.scale;
+      
+      // Behalte type, color, kind und andere Eigenschaften bei
+      console.log('[EntityInteraction] Operation aktualisiert:', operation);
+    }
+  }
+
+  /**
+   * Fügt eine Add-Operation zum Patch hinzu
+   * @param {Object} patchYaml
+   * @param {string} entityId
+   * @param {string} entityType
+   * @param {Object} entityData
+   * @private
+   */
+  _addPatchAddOperation(patchYaml, entityId, entityType, entityData) {
+    // Sicherstellen, dass operations Array existiert
+    if (!patchYaml.operations || !Array.isArray(patchYaml.operations)) {
+      patchYaml.operations = [];
+    }
+    
+    // Entity-Daten für Payload vorbereiten (kopiere alle Felder außer 'type')
+    const { type, ...payload } = entityData;
+    
+    // Add-Operation hinzufügen
+    patchYaml.operations.push({
+      type: 'add',
+      entity_type: entityType + 's', // Plural für entity_type
+      entity_id: entityId,
+      payload: {
+        ...payload,
+        id: entityId
+      }
+    });
+  }
+
+  /**
+   * Fügt eine Update-Operation zum Patch hinzu
+   * @param {Object} patchYaml
+   * @param {string} entityId
+   * @param {string} entityType
+   * @param {Object} entityData
+   * @private
+   */
+  _addPatchUpdateOperation(patchYaml, entityId, entityType, entityData) {
+    // Sicherstellen, dass operations Array existiert
+    if (!patchYaml.operations || !Array.isArray(patchYaml.operations)) {
+      patchYaml.operations = [];
+    }
+    
+    // Entity-Daten für Changes vorbereiten (kopiere alle Felder außer 'type' und 'id')
+    const { type, id, ...changes } = entityData;
+    
+    // Update-Operation hinzufügen
+    patchYaml.operations.push({
+      type: 'update',
+      entity_type: entityType + 's', // Plural für entity_type
+      entity_id: entityId,
+      changes: changes
+    });
   }
   
   /**
