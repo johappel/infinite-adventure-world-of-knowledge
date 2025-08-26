@@ -585,7 +585,7 @@ export function buildObject(cfg, index){
 
     // Basistransform (optional) anwenden
     if (cfg.position) group.position.set(...cfg.position);
-    if (cfg.rotation) group.rotation.set(...cfg.rotation);
+    if (cfg.rotation) group.rotation.set(...cfg.rotation.map(THREE.MathUtils.degToRad));
     if (cfg.scale)    group.scale.set(...cfg.scale);
 
     group.userData.type = 'circle_of_rocks';
@@ -600,7 +600,7 @@ export function buildObject(cfg, index){
     group.name = `${cfg.type||'composite'}_${index}`;
     // Basistransform auf der Gruppe anwenden
     if(cfg.position) group.position.set(...cfg.position);
-    if(cfg.rotation) group.rotation.set(...cfg.rotation);
+    if(cfg.rotation) group.rotation.set(...cfg.rotation.map(THREE.MathUtils.degToRad));
     if(cfg.scale)    group.scale.set(...cfg.scale);
 
     parts.forEach((part, i) => {
@@ -741,7 +741,7 @@ export function buildObject(cfg, index){
   const mesh = new THREE.Mesh(geometry, material);
   if(cfg.position) mesh.position.set(...cfg.position);
   if(cfg.scale) mesh.scale.set(...cfg.scale);
-  if(cfg.rotation) mesh.rotation.set(...cfg.rotation);
+  if(cfg.rotation) mesh.rotation.set(...cfg.rotation.map(THREE.MathUtils.degToRad));
   if(type==='stone_circle'){ mesh.rotation.x = Math.PI/2; mesh.position.y = Math.max(mesh.position.y||0, 0.02); }
   mesh.castShadow = mesh.receiveShadow = true;
   mesh.name = `${type||'object'}_${index}`;
@@ -873,7 +873,7 @@ export function buildPlayer(cfg, index = 'main') {
       yamlPlayer.avatar.position.set(...cfg.position);
     }
     if (cfg.rotation !== undefined) {
-      yamlPlayer.avatar.rotation.y = cfg.rotation;
+      yamlPlayer.avatar.rotation.y = THREE.MathUtils.degToRad(cfg.rotation);
     }
     
     // Add player marker functionality

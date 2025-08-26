@@ -100,7 +100,7 @@ export class YamlPlayer {
     const [x, y, z] = this.config.position;
     // Set avatar at basic ground level - terrain following handled by Player class
     this.avatar.position.set(x, y, z);
-    this.avatar.rotation.y = this.config.rotation;
+    this.avatar.rotation.y = THREE.MathUtils.degToRad(this.config.rotation);
   }
 
   buildTorso(scale) {
@@ -504,7 +504,7 @@ export class YamlPlayer {
   }
 
   setRotation(yaw) {
-    this.avatar.rotation.y = yaw;
+    this.avatar.rotation.y = THREE.MathUtils.degToRad(yaw);
   }
 
   getRotation() {

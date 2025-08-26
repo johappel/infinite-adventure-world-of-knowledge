@@ -465,12 +465,28 @@ export class EntityInteractionAddon extends InteractionAddon {
       if (this.debug) console.log('[EntityInteraction] Starte Dialog-Befüllung für Entity:', this.selectedEntity);
       
       const entity = this.selectedEntity;
+      console.log('[EntityInteraction] Befülle Dialog für Entity:', entity);
       // Lokale Werte verwenden, damit Slider direkt wirken
       const localPos = entity.position.clone();
+      // Rotation konsistent aus Quaternion ableiten (vermeidet fehlerhafte doppelte Grad/Rad-Konvertierung)
+      const quatEuler = new THREE.Euler().setFromQuaternion(entity.quaternion, entity.rotation.order || 'XYZ');
+      // Helper: Normiere Grad in -180..180
+      const _normalizeDeg = (deg) => {
+        // Einfache und robuste Normalisierung
+        deg = deg % 360;
+        if (deg > 180) {
+          deg -= 360;
+        } else if (deg < -180) {
+          deg += 360;
+        }
+        console.log('[EntityInteraction] Normalisiere Grad:', deg, '->', deg);
+        // kleine Rundungsfehler auf n-te Dezimalstelle abschwächen
+        return Math.abs(deg) < 1e-2 ? 0 : deg;
+      };
       const rotDeg = {
-        x: THREE.MathUtils.radToDeg(entity.rotation.x),
-        y: THREE.MathUtils.radToDeg(entity.rotation.y),
-        z: THREE.MathUtils.radToDeg(entity.rotation.z),
+        x: _normalizeDeg(THREE.MathUtils.radToDeg(quatEuler.x)),
+        y: _normalizeDeg(THREE.MathUtils.radToDeg(quatEuler.y)),
+        z: _normalizeDeg(THREE.MathUtils.radToDeg(quatEuler.z)),
       };
       const typeLabel = entity.userData?.type || entity.userData?.entityType || entity.userData?.objectType || entity.type || 'Unknown';
       const idLabel = entity.userData?.entityId || 'N/A';
@@ -596,16 +612,25 @@ export class EntityInteractionAddon extends InteractionAddon {
   _updateLivePreview(sectionOrAxis, axisOrValue, maybeValue) {
     if (!this.selectedEntity) return;
 
-    // Backward-compat: Falls alte Aufrufsignatur (axis, value) genutzt wird
+    // Backward-compat: Unterstütze beide Signaturen:
+    // - (section, axis, value)
+    // - (axis, value)  --> Sektion 'position' wird angenommen
     let section, axis, value;
-    if (typeof maybeValue === 'number') {
+    if (typeof axisOrValue === 'string' && typeof maybeValue === 'number') {
+      // signature: (section, axis, value)
       section = sectionOrAxis;
       axis = axisOrValue;
       value = maybeValue;
-    } else {
+    } else if (typeof sectionOrAxis === 'string' && typeof axisOrValue === 'number') {
+      // signature: (axis, value) -> default section = 'position'
       section = 'position';
       axis = sectionOrAxis;
       value = axisOrValue;
+    } else {
+      // Fallback: versuche die ursprünglichen Werte zu verwenden
+      section = sectionOrAxis || 'position';
+      axis = axisOrValue;
+      value = maybeValue;
     }
 
     const entity = this.selectedEntity;
@@ -613,9 +638,15 @@ export class EntityInteractionAddon extends InteractionAddon {
     if (section === 'position') {
       entity.position[axis] = value;
     } else if (section === 'rotation') {
-      // value kommt in Grad -> in Radiant umwandeln
-      const rad = THREE.MathUtils.degToRad(value);
-      entity.rotation[axis] = rad;
+      // value kommt in Grad -> setze Quaternion direkt aus Euler um Drift/doppelte Konversion zu vermeiden
+      // Bestimme aktuelle Euler aus Quaternion, ersetze die Achse und setze Quaternion neu
+      const currentEuler = new THREE.Euler().setFromQuaternion(entity.quaternion, entity.rotation.order || 'XYZ');
+      const degToRad = (d) => THREE.MathUtils.degToRad(d);
+      if (axis === 'x') currentEuler.x = degToRad(value);
+      if (axis === 'y') currentEuler.y = degToRad(value);
+      if (axis === 'z') currentEuler.z = degToRad(value);
+      // Setze Quaternion direkt (vermeidet multiple Euler-Assignments)
+      entity.quaternion.setFromEuler(currentEuler);
     } else if (section === 'scale') {
       entity.scale[axis] = value;
     }
@@ -653,14 +684,22 @@ export class EntityInteractionAddon extends InteractionAddon {
       
       // Entity-Typ ableiten - verwende den spezifischen Typ aus userData
       let entityType = this.selectedEntity.userData?.type || this.selectedEntity.userData?.entityType || this.selectedEntity.userData?.objectType || this.selectedEntity.type || 'unknown';
-
+  
+      // Konvertiere Rotation in Grad und normalisiere auf -180..180 bevor Serialisierung
+      const toDeg = (r) => {
+        const deg = THREE.MathUtils.radToDeg(r);
+        // Reuse normalizer defined earlier — reimplement minimal here to be safe
+        let d = ((deg + 180) % 360 + 360) % 360 - 180;
+        return Math.abs(d) < 1e-9 ? 0 : d;
+      };
+  
       const entityData = {
         type: entityType,
         position: [worldPos.x, worldPos.y, worldPos.z],
         rotation: [
-          THREE.MathUtils.radToDeg(rotation.x),
-          THREE.MathUtils.radToDeg(rotation.y),
-          THREE.MathUtils.radToDeg(rotation.z)
+          toDeg(rotation.x),
+          toDeg(rotation.y),
+          toDeg(rotation.z)
         ],
         scale: [scale.x, scale.y, scale.z]
       };
