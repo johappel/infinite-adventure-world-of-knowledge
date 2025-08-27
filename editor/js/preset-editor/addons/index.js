@@ -83,7 +83,9 @@ export class AddonManager {
       this.activeAddon = addon;
       console.log(`[AddonManager] Addon aktiviert: ${id}`);
       // Dispatch global event so UI can react to addon changes
-      try { window.dispatchEvent(new CustomEvent('addonActivated', { detail: { id } })); } catch(e){}
+      try { window.dispatchEvent(new CustomEvent('addonActivated', { detail: { id } })); } catch(e){
+        console.error('[AddonManager] Fehler beim Dispatchen des addonActivated-Events:', e);
+      }
       return true;
     } catch (error) {
       console.error(`[AddonManager] Fehler beim Aktivieren von Addon ${id}:`, error);
