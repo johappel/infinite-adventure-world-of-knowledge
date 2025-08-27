@@ -297,16 +297,36 @@ export function buildTerrain(cfg){
   
   // Base color from config
   const baseColor = new THREE.Color(cfg.color||'#4a7c1e');
+
+  // Unterstütze erweiterte Material-Konfiguration für Terrain
+  let material;
   
-  // Add some emissive light to make terrain visible even in low light
-  const emissiveIntensity = cfg.emissive_intensity ?? 0.15; // Subtle glow to ensure visibility
-  const material = new THREE.MeshStandardMaterial({ 
-    color: baseColor, 
-    emissive: baseColor.clone().multiplyScalar(emissiveIntensity),
-    side: THREE.FrontSide, 
-    roughness: 0.75, 
-    metalness: 0.05 
-  });
+  if (cfg.material && typeof cfg.material === 'object') {
+    // Verwende das erweiterte Material-Objekt
+    const matCfg = cfg.material;
+    const terrainColor = new THREE.Color(matCfg.color || cfg.color || '#4a7c1e');
+    
+    material = new THREE.MeshStandardMaterial({
+      color: terrainColor,
+      emissive: new THREE.Color(matCfg.emissive || '#000000'),
+      emissiveIntensity: matCfg.emissiveIntensity ?? 0.15,
+      roughness: matCfg.roughness ?? 0.75,
+      metalness: matCfg.metalness ?? 0.05,
+      opacity: matCfg.opacity ?? 1,
+      transparent: matCfg.transparent ?? false,
+      side: THREE.FrontSide
+    });
+  } else {
+    // Fallback zur einfachen Farb-Konfiguration
+    const emissiveIntensity = cfg.emissive_intensity ?? 0.15; // Subtle glow to ensure visibility
+    material = new THREE.MeshStandardMaterial({
+      color: baseColor,
+      emissive: baseColor.clone().multiplyScalar(emissiveIntensity),
+      side: THREE.FrontSide,
+      roughness: 0.75,
+      metalness: 0.05
+    });
+  }
   
   // Seed-basierte Terrain-Generierung
   const terrainSeed = cfg.seed || cfg.zone_id || 'default_terrain';
@@ -729,15 +749,41 @@ export function buildObject(cfg, index){
     case 'bookshelf': geometry = new THREE.BoxGeometry(2,4,0.5); break;
     default: geometry = new THREE.BoxGeometry(1,1,1);
   }
-  const baseColor = new THREE.Color(cfg.color||'#8b4513');
-  const emissiveIntensity = cfg.emissive_intensity ?? 0.15;
-  const material = new THREE.MeshStandardMaterial({ 
-    color: baseColor,
-    emissive: baseColor.clone().multiplyScalar(emissiveIntensity),
-    roughness: type === 'rock' ? 0.9 : 0.75, // Felsen noch rauer
-    metalness: type === 'rock' ? 0.02 : 0.08, // Felsen weniger metallisch
-    side: type === 'roof' ? THREE.DoubleSide : THREE.FrontSide // Doppelseitig für Dächer
-  });
+  // Unterstütze erweiterte Material-Konfiguration
+  let material;
+  
+  if (cfg.material && typeof cfg.material === 'object') {
+    // Verwende das erweiterte Material-Objekt
+    const matCfg = cfg.material;
+    const baseColor = new THREE.Color(matCfg.color || cfg.color || '#8b4513');
+    
+    material = new THREE.MeshStandardMaterial({
+      color: baseColor,
+      emissive: new THREE.Color(matCfg.emissive || '#000000'),
+      emissiveIntensity: matCfg.emissiveIntensity ?? 0,
+      roughness: matCfg.roughness ?? (type === 'rock' ? 0.9 : 0.75),
+      metalness: matCfg.metalness ?? (type === 'rock' ? 0.02 : 0.08),
+      opacity: matCfg.opacity ?? 1,
+      transparent: matCfg.transparent ?? false,
+      side: type === 'roof' ? THREE.DoubleSide : THREE.FrontSide
+    });
+    
+    // Setze optional name property für Debugging
+    if (matCfg.name) {
+      material.name = matCfg.name;
+    }
+  } else {
+    // Fallback zur einfachen Farb-Konfiguration
+    const baseColor = new THREE.Color(cfg.color||'#8b4513');
+    const emissiveIntensity = cfg.emissive_intensity ?? 0.15;
+    material = new THREE.MeshStandardMaterial({
+      color: baseColor,
+      emissive: baseColor.clone().multiplyScalar(emissiveIntensity),
+      roughness: type === 'rock' ? 0.9 : 0.75,
+      metalness: type === 'rock' ? 0.02 : 0.08,
+      side: type === 'roof' ? THREE.DoubleSide : THREE.FrontSide
+    });
+  }
   const mesh = new THREE.Mesh(geometry, material);
   if(cfg.position) mesh.position.set(...cfg.position);
   if(cfg.scale) mesh.scale.set(...cfg.scale);
@@ -895,8 +941,36 @@ export function buildPlayer(cfg, index = 'main') {
 export function buildPortal(cfg, index){
   const width = cfg.size?.[0] || 1.8; const height = cfg.size?.[1] || 3.2;
   const geometry = new THREE.CylinderGeometry(width, width, height, 32, 1, true);
-  const color = new THREE.Color(cfg.color || '#4169e1');
-  const material = new THREE.MeshStandardMaterial({ color, transparent:true, opacity:0.6, emissive: color, emissiveIntensity: 0.25, roughness:0.2, metalness:0.2, side: THREE.DoubleSide });
+  
+  // Unterstütze erweiterte Material-Konfiguration für Portale
+  let material;
+  const baseColor = new THREE.Color(cfg.color || '#4169e1');
+  
+  if (cfg.material && typeof cfg.material === 'object') {
+    const matCfg = cfg.material;
+    material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(matCfg.color || cfg.color || '#4169e1'),
+      emissive: new THREE.Color(matCfg.emissive || baseColor),
+      emissiveIntensity: matCfg.emissiveIntensity ?? 0.25,
+      roughness: matCfg.roughness ?? 0.2,
+      metalness: matCfg.metalness ?? 0.2,
+      opacity: matCfg.opacity ?? 0.6,
+      transparent: matCfg.transparent ?? true,
+      side: THREE.DoubleSide
+    });
+  } else {
+    material = new THREE.MeshStandardMaterial({
+      color: baseColor,
+      transparent: true,
+      opacity: 0.6,
+      emissive: baseColor,
+      emissiveIntensity: 0.25,
+      roughness: 0.2,
+      metalness: 0.2,
+      side: THREE.DoubleSide
+    });
+  }
+  
   const portal = new THREE.Mesh(geometry, material);
   if(cfg.position) portal.position.set(...cfg.position);
   portal.userData = { type:'portal', id: cfg.id || `portal_${index}`, target: cfg.destination || cfg.target, name: cfg.name||'Portal' };
