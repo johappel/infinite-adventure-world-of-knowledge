@@ -32,9 +32,12 @@ export class MaterialEditorAddon extends InteractionAddon {
       'Metallic': new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.2 }),
       'Plastic': new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.1, roughness: 0.4 }),
       'Wood': new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8 }),
+      'Grass': new THREE.MeshStandardMaterial({ color: 0x4CAF50, roughness: 0.8 }),
       'Stone': new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.9 }),
+      'Roof': new THREE.MeshStandardMaterial({ color: 0xA52A2A, roughness: 0.7, metalness: 0.3 }),
       'Glass': new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }),
-      'Emissive': new THREE.MeshStandardMaterial({ color: 0x888888, emissive: 0xff6600, emissiveIntensity: 0.5 })
+      'Emissive': new THREE.MeshStandardMaterial({ color: 0x888888, emissive: 0xff6600, emissiveIntensity: 0.5 }),
+      'Light': new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffff00, emissiveIntensity: 1.0 })
     };
   }
   
@@ -211,8 +214,8 @@ export class MaterialEditorAddon extends InteractionAddon {
    * @private
    */
   _clearHover() {
-    this.hoveredEntity = null;
-    this._hideHoverMesh();
+    // this.hoveredEntity = null;
+    //this._hideHoverMesh();
   }
   
   /**
@@ -412,7 +415,7 @@ export class MaterialEditorAddon extends InteractionAddon {
     dialog.style.cssText = `
       position: fixed;
       top: 50%;
-      left: 50%;
+      left: 25%;
       transform: translate(-50%, -50%);
       background: #2a2a2a;
       border: 2px solid #ff3366;
@@ -429,11 +432,12 @@ export class MaterialEditorAddon extends InteractionAddon {
     
     // Overlay für Hintergrund
     const overlay = document.createElement('div');
+    overlay.className = 'material-dialog-overlay';
     overlay.style.cssText = `
       position: fixed;
       top: 0;
       left: 0;
-      width: 100vw;
+      width: 49vw;
       height: 100vh;
       background: rgba(0, 0, 0, 0.7);
       z-index: 999;
@@ -1020,7 +1024,7 @@ export class MaterialEditorAddon extends InteractionAddon {
     container.appendChild(title);
     container.appendChild(desc);
     container.appendChild(hint);
-    container.appendChild(toggleRow);
+    // container.appendChild(toggleRow);
     
     return [container];
   }
