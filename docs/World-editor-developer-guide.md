@@ -16,7 +16,14 @@ editor/js/preset-editor/
 ├── world-manager.js  # Welt-Operationen (Erstellen, Laden, Speichern)
 ├── patch-manager.js  # Patch-Operationen (Erstellen, Bearbeiten, Anwenden)
 ├── preview-renderer.js # 3D-Vorschau und Rendering
-└── ui-manager.js     # UI-Verwaltung und Event-Bindings
+├── ui-manager.js     # UI-Verwaltung und Event-Bindings
+└── addons/           # Erweiterbare Interaktions-Addons
+    ├── index.js      # Addon-Manager und Registry
+    ├── base-addon.js # Basis-Interface für alle Addons
+    ├── terrain-click-addon.js    # Terrain-Klick Interaktionen
+    ├── entity-interaction-addon.js # Entity-Selektion und Bearbeitung
+    ├── material-editor-addon.js  # Material-Bearbeitung
+    └── README.md     # Addon-Entwicklerdokumentation
 ```
 
 ### Abhängigkeiten
@@ -354,6 +361,137 @@ if (editor.uiManager.showConfirmDialog('Möchten Sie wirklich speichern?')) {
   // Speichern
 }
 ```
+
+## Addon-System
+
+Das PresetEditor verfügt über ein erweiterbares Addon-System, das spezialisierte Interaktionsmodi für die YAML-Bearbeitung ermöglicht. Addons erweitern die Funktionalität des Editors um neue Möglichkeiten zur Interaktion mit der 3D-Vorschau.
+
+### Architektur
+
+#### Basis-Interface (`base-addon.js`)
+
+Alle Addons erben von der `InteractionAddon`-Basis-Klasse, die gemeinsame Funktionalität bereitstellt:
+
+```javascript
+export class InteractionAddon {
+  constructor(editor) {
+    this.editor = editor;
+    this.name = 'Unnamed Addon';
+    this.description = 'No description provided';
+    this.icon = '⚙️';
+    this.isActive = false;
+  }
+  
+  async activate() { /* Aktivierungslogik */ }
+  async deactivate() { /* Deaktivierungslogik */ }
+  async onTerrainClick(hitInfo) { /* Terrain-Click Handler */ }
+  async onMouseMove(event) { /* Mouse-Move Handler */ }
+  async onKeyPress(event) { /* Key-Press Handler */ }
+  getUIElements() { /* UI-Elemente zurückgeben */ }
+  serializeState() { /* Zustand serialisieren */ }
+  deserializeState(state) { /* Zustand deserialisieren */ }
+}
+```
+
+#### Addon-Manager (`addons/index.js`)
+
+Der `AddonManager` verwaltet die Registrierung, Aktivierung und Deaktivierung von Addons:
+
+```javascript
+export class AddonManager {
+  constructor(editor) {
+    this.editor = editor;
+    this.addons = new Map();
+    this.activeAddon = null;
+  }
+  
+  registerAddon(id, addon) { /* Addon registrieren */ }
+  unregisterAddon(id) { /* Addon entfernen */ }
+  async activateAddon(id) { /* Addon aktivieren */ }
+  async deactivateAddon() { /* Aktives Addon deaktivieren */ }
+}
+```
+
+### Verfügbare Addons
+
+#### TerrainClickAddon (`terrain-click-addon.js`)
+- **Funktion**: Migriert Terrain-Click-Logik für Objekt-Platzierung und Pfad-Erstellung
+- **Features**:
+  - Objekt-Platzierung via Terrain-Klick
+  - Pfad-Erstellung durch Sammeln von Punkten
+  - Automatische YAML-Generierung
+  - Verschiedene Objekttypen (Bäume, Felsen, Büsche, etc.)
+- **UI-Integration**: Modus- und Typ-Auswahl-Dropdowns
+
+#### EntityInteractionAddon (`entity-interaction-addon.js`)
+- **Funktion**: Entity-Selektion und Bearbeitung via Mouseover und Klick
+- **Features**:
+  - Mouseover-Erkennung von Entities
+  - Visuelle Hervorhebung beim Hover
+  - Klick zum Öffnen eines Bearbeitungs-Dialogs
+  - Echtzeit-Vorschau von Änderungen
+- **UI-Integration**: Hinweistext und Reaktivierungs-Button
+
+#### MaterialEditorAddon (`material-editor-addon.js`)
+- **Funktion**: Erweiterte Material-Bearbeitung für Entities
+- **Features**:
+  - ColorPicker für Farben
+  - Slider für PBR-Eigenschaften (Metalness, Roughness, Emissive)
+  - Material-Vorlagen (Standard, Metallic, Plastic, Wood, etc.)
+  - Live-Vorschau von Materialänderungen
+- **UI-Integration**: Hinweistext und Reaktivierungs-Button
+
+### Event-Flow
+
+```
+ThreeJSManager → Core._handleTerrainClick() → AddonManager.handleTerrainClick() → Aktives Addon.onTerrainClick()
+```
+
+### Eigene Addons erstellen
+
+1. **Addon-Klasse erstellen**:
+```javascript
+import { InteractionAddon } from './base-addon.js';
+
+export class MyAddon extends InteractionAddon {
+  constructor(editor) {
+    super(editor);
+    this.name = 'Mein Custom Addon';
+    this.description = 'Meine Beschreibung';
+    this.icon = '🚀';
+  }
+  
+  async activate() {
+    await super.activate();
+    // Custom Aktivierungslogik
+  }
+  
+  async onTerrainClick(hitInfo) {
+    // Custom Click-Handler
+  }
+  
+  getUIElements() {
+    const container = document.createElement('div');
+    // Custom UI-Elemente
+    return [container];
+  }
+}
+```
+
+2. **Addon registrieren**:
+```javascript
+// In addons/index.js
+import { MyAddon } from './my-addon.js';
+
+_registerDefaultAddons() {
+  this.registerAddon('terrain-click', new TerrainClickAddon(this.editor));
+  this.registerAddon('entity-interaction', new EntityInteractionAddon(this.editor));
+  this.registerAddon('material-editor', new MaterialEditorAddon(this.editor));
+  this.registerAddon('my-addon', new MyAddon(this.editor)); // Neues Addon
+}
+```
+
+3. **UI-Integration**: Addons werden automatisch im Addon-Dropdown der Interaktions-Controls angezeigt.
 
 ## YAML-Schema
 

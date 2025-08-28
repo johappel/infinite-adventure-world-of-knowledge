@@ -76,6 +76,37 @@ objects:
 - **Intelligent**: Automatische Pfad-Vermeidung und Terrain-Anpassung
 - **Reproduzierbar**: Gleicher Seed = identische Verteilung
 
+## Interaktive Addons im PresetEditor
+
+Der PresetEditor bietet drei leistungsstarke Addons für erweiterte Interaktionen:
+
+### EntityInteractionAddon
+- **Funktion**: Entity-Selektion und Bearbeitung via Mouseover und Klick
+- **Features**:
+  - Mouseover-Erkennung von Entities
+  - Visuelle Hervorhebung beim Hover
+  - Klick zum Öffnen eines Bearbeitungs-Dialogs
+  - Echtzeit-Vorschau von Änderungen
+- **Verwendung**: Aktivieren Sie das Addon und bewegen Sie die Maus über Entities, klicken Sie zum Bearbeiten
+
+### MaterialEditorAddon
+- **Funktion**: Erweiterte Material-Bearbeitung für Entities
+- **Features**:
+  - ColorPicker für Farben
+  - Slider für PBR-Eigenschaften (Metalness, Roughness, Emissive)
+  - Material-Vorlagen (Standard, Metallic, Plastic, Wood, etc.)
+  - Live-Vorschau von Materialänderungen
+- **Verwendung**: Aktivieren Sie das Addon, klicken Sie auf eine Entity zum Hinzufügen/Bearbeiten von Materialien
+
+### TerrainClickAddon
+- **Funktion**: Direkte Objekt-Platzierung und Pfad-Erstellung via Terrain-Klicks
+- **Features**:
+  - Objekt-Platzierung durch Klick auf das Terrain
+  - Pfad-Erstellung durch Sammeln von Punkten
+  - Verschiedene Objekttypen (Bäume, Felsen, Büsche, etc.)
+  - Automatische YAML-Generierung
+- **Verwendung**: Wählen Sie den Modus "Objekt platzieren" oder "Pfad hinzufügen", dann klicken Sie auf das Terrain
+
 ## Persona-Presets
 - npc_plain: Neutraler NPC
 - npc_fairy: Waldfee

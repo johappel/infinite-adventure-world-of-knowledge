@@ -329,3 +329,51 @@ objects:
 - ✅ Einfacher für LLMs zu erstellen
 - ✅ Individuelle Anpassungen möglich
 - ✅ Wiederverwendbare Komponenten
+
+## Interaktive Addons im PresetEditor
+
+Der PresetEditor bietet drei leistungsstarke Addons für erweiterte Interaktionen:
+
+### TerrainClickAddon
+**Direkte Objekt-Platzierung und Pfad-Erstellung**
+- Klicken Sie auf das Terrain, um Objekte zu platzieren
+- Sammeln Sie Punkte für automatische Pfad-Generierung
+- Verfügbare Objekttypen: Bäume, Felsen, Büsche, Blumen, Pilze, Kristalle
+- Automatische YAML-Generierung für `objects` und `terrain.paths`
+
+### EntityInteractionAddon
+**Entity-Selektion und Bearbeitung**
+- Mouseover-Erkennung mit visueller Hervorhebung
+- Klick zum Öffnen von Bearbeitungs-Dialogen
+- Echtzeit-Vorschau von Änderungen
+- Unterstützt alle Entity-Eigenschaften: Position, Skalierung, Farbe, Rotation
+
+### MaterialEditorAddon
+**Erweiterte Material-Bearbeitung**
+- Fügen Sie Materialien zu Entities hinzu
+- PBR-Eigenschaften: Metalness, Roughness, Emissive
+- ColorPicker für intuitive Farbauswahl
+- Material-Vorlagen: Standard, Metallic, Plastic, Wood, Stone, Glass, etc.
+- Live-Vorschau von Materialänderungen
+
+### Integration mit YAML-Bearbeitung
+Die Addons generieren standardkonformes YAML, das Sie weiter bearbeiten können:
+
+```yaml
+# Beispiel: Von Addons generiertes und manuell erweitertes YAML
+objects:
+  - preset: tree_simple
+    position: [5.2, 0.0, 3.7]  # Von TerrainClickAddon platziert
+    material:                    # Von MaterialEditorAddon hinzugefügt
+      color: "#8B4513"
+      metalness: 0.1
+      roughness: 0.8
+    scale: [1.2, 1.5, 1.2]      # Manuell angepasst
+```
+
+### Workflow-Empfehlung
+1. **Terrain strukturieren** mit TerrainClickAddon
+2. **Entities platzieren** mit TerrainClickAddon
+3. **Feinabstimmung** mit EntityInteractionAddon
+4. **Visuelle Gestaltung** mit MaterialEditorAddon
+5. **YAML-Optimierung** für finale Anpassungen
