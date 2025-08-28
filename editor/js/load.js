@@ -459,37 +459,77 @@ export async function setupPresetSelect(editor) {
     }
   });
   
-  // New-Button Dropdown Verhalten und Aktionen
+  // New-Button Dropdown Verhalten und Aktionen (robust: delegation, close on outside click, keyboard)
   try {
     const newBtn = document.getElementById('newBtn');
     const newMenu = document.getElementById('newDropdownMenu');
+    const presetCategory = document.getElementById('presetCategorySelect');
     if (newBtn && newMenu) {
-      newBtn.addEventListener('click', () => {
-        newMenu.classList.toggle('hidden');
+      newBtn.setAttribute('aria-haspopup', 'true');
+      newBtn.setAttribute('aria-expanded', 'false');
+
+      const closeMenu = () => {
+        newMenu.classList.add('hidden');
+        newBtn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onDocClick);
+        document.removeEventListener('keydown', onKeyDown);
+      };
+
+      const onDocClick = (ev) => {
+        if (!newMenu.contains(ev.target) && ev.target !== newBtn) closeMenu();
+      };
+
+      const onKeyDown = (ev) => {
+        if (ev.key === 'Escape') closeMenu();
+      };
+
+      newBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const willOpen = newMenu.classList.contains('hidden');
+        if (willOpen) {
+          newMenu.classList.remove('hidden');
+          newBtn.setAttribute('aria-expanded', 'true');
+          // register global listeners to close
+          setTimeout(() => { document.addEventListener('click', onDocClick); document.addEventListener('keydown', onKeyDown); }, 0);
+        } else {
+          closeMenu();
+        }
       });
 
-      // Klick auf Menüelemente
-      newMenu.querySelectorAll('.dropdown-item').forEach(item => {
-        item.addEventListener('click', async (ev) => {
-          const action = item.dataset.action;
-          newMenu.classList.add('hidden');
+      // Event-Delegation für Menü-Items
+      newMenu.addEventListener('click', async (ev) => {
+        const item = ev.target.closest('.dropdown-item');
+        if (!item) return;
+        ev.stopPropagation();
+        const action = item.dataset.action;
+        try {
           if (action === 'new-world') {
-            // Erzeuge neue leere Welt aus Template
             const tpl = templates['simple_world'] || 'name: "Neue Welt"\n';
             const yaml = YamlProcessor.processStringToYaml(tpl) || tpl;
             yamlEditor.value = yaml;
-            if (document.getElementById('presetCategorySelect')) document.getElementById('presetCategorySelect').value = '';
+            // generate a copy id like when loading templates
+            try {
+              const uid = YamlProcessor.deriveCopyId('simple_world');
+              if (worldIdInput) worldIdInput.value = uid;
+              if (editor) editor.worldId = uid;
+              updateUrlParam(uid);
+            } catch (_) {}
+            if (presetCategory) presetCategory.value = '';
+            await simulateInputEvent(yamlEditor);
             if (window.showToast) window.showToast('info', 'Neue Welt geladen');
           } else if (action === 'new-preset-lib') {
-            // Lade Preset-Library Template
             const tpl = templates['library'] || 'name: "Neue Preset-Bibliothek"\npresets: []\n';
             const yaml = YamlProcessor.processStringToYaml(tpl) || tpl;
             yamlEditor.value = yaml;
-            // Setze Kategorie default auf 'misc'
-            if (document.getElementById('presetCategorySelect')) document.getElementById('presetCategorySelect').value = 'misc';
+            if (presetCategory) presetCategory.value = 'misc';
+            await simulateInputEvent(yamlEditor);
             if (window.showToast) window.showToast('info', 'Neue Preset-Bibliothek geladen');
           }
-        });
+        } catch (err) {
+          console.warn('Fehler beim Ausführen der New-Aktion:', err);
+        } finally {
+          closeMenu();
+        }
       });
     }
   } catch (e) {

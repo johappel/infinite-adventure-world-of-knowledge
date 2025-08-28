@@ -59,9 +59,8 @@ body {
 .btn.success { background: #16825d; }
 .btn.success:hover { background: #1e9870; }
 
-/* Dropdown helpers for header 'New' button */
 .dropdown { display: inline-block; position: relative; }
-.dropdown-menu { display: none; position: absolute; top: 28px; left: 0; background: #0b2a44; border: 1px solid #07304d; padding: 6px; z-index: 50; min-width: 180px; }
+.dropdown-menu { display: block; position: absolute; top: 28px; left: 0; background: #0b2a44; border: 1px solid #07304d; padding: 6px; z-index: 50; min-width: 180px; }
 .dropdown-item { padding: 6px; cursor: pointer; color: #d4d4d4; }
 .dropdown-item:hover { background: rgba(255,255,255,0.02); }
 
