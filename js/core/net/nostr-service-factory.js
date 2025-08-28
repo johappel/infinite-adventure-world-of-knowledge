@@ -99,7 +99,7 @@ function wrapInterface(serviceImpl) {
       return _ensureUniqueWorldId(this, desiredId, opts);
     },
 
-    // API: getById(id) → { id, name, type, yaml, originalYaml?, pubkey } | null
+  // API: getById(id) → { id, name, type, yaml, originalYaml?, pubkey, tags?, role?, preset_category?, preset_type?, displayName? } | null
     async getById(id) {
       if (!id) return null;
       // Versuche: Genesis (30311) per '#d' und ggf. Patches (30312) mit d=id
@@ -109,6 +109,14 @@ function wrapInterface(serviceImpl) {
         const latest = gens.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
         const name = parseGenesisNameFromYaml(latest.content);
         const result = { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+        // extract tags if available
+        if (Array.isArray(latest.tags)) {
+          result.tags = latest.tags;
+          result.role = (latest.tags.find(t => t[0] === 'role') || [])[1] || 'world';
+          result.preset_category = (latest.tags.find(t => t[0] === 'preset_category') || [])[1] || '';
+          result.preset_type = (latest.tags.find(t => t[0] === 'preset_type') || [])[1] || '';
+          result.displayName = (latest.tags.find(t => t[0] === 'name') || [])[1] || result.name || '';
+        }
         
         // Bei Genesis ist der Content direkt der YAML-Text, also setzen wir originalYaml = yaml
         result.originalYaml = latest.content;
@@ -122,6 +130,13 @@ function wrapInterface(serviceImpl) {
         const latest = g2.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
         const name = parseGenesisNameFromYaml(latest.content);
         const result = { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+        if (Array.isArray(latest.tags)) {
+          result.tags = latest.tags;
+          result.role = (latest.tags.find(t => t[0] === 'role') || [])[1] || 'world';
+          result.preset_category = (latest.tags.find(t => t[0] === 'preset_category') || [])[1] || '';
+          result.preset_type = (latest.tags.find(t => t[0] === 'preset_type') || [])[1] || '';
+          result.displayName = (latest.tags.find(t => t[0] === 'name') || [])[1] || result.name || '';
+        }
         
         // Bei Genesis ist der Content direkt der YAML-Text, also setzen wir originalYaml = yaml
         result.originalYaml = latest.content;
@@ -151,6 +166,13 @@ function wrapInterface(serviceImpl) {
         const patchContent = JSON.parse(latest.content);
         try { name = parseGenesisNameFromYaml(patchContent.payload); } catch {}
         const result = { id, name, type: 'patch', yaml: patchContent.payload, pubkey: latest.pubkey };
+        if (Array.isArray(latest.tags)) {
+          result.tags = latest.tags;
+          result.role = (latest.tags.find(t => t[0] === 'role') || [])[1] || 'preset';
+          result.preset_category = (latest.tags.find(t => t[0] === 'preset_category') || [])[1] || '';
+          result.preset_type = (latest.tags.find(t => t[0] === 'preset_type') || [])[1] || '';
+          result.displayName = (latest.tags.find(t => t[0] === 'name') || [])[1] || result.name || '';
+        }
         
         // Bei Patch ist der payload direkt der YAML-Text, also setzen wir originalYaml = payload
         result.originalYaml = patchContent.payload;
@@ -160,12 +182,12 @@ function wrapInterface(serviceImpl) {
       return null;
     },
 
-    // API: searchWorlds(query) → [{ id, name, type, yaml? }]
+  // API: searchWorlds(query) → [{ id, name, type, yaml? }]
     async searchWorlds(query) {
       const q = String(query || '').trim().toLowerCase();
       if (!q) return [];
       // Hole lokal verfügbare Genesis und Patches und filtere clientseitig
-      const evts = await this.get({ kinds: [30311] }).catch(() => []);
+  const evts = await this.get({ kinds: [30311] }).catch(() => []);
       const results = [];
       for (const e of evts) {
         if (e.kind === 30311) {
@@ -195,14 +217,48 @@ function wrapInterface(serviceImpl) {
       return dedup;
     },
 
+    // API: listPresets({ category?, role='preset', limit?, query? }) → [{ id, name, category, tags, yaml, pubkey, preset_type, displayName }]
+    async listPresets(opts = {}) {
+      const { category, role = 'preset', limit = 200, query } = opts || {};
+      // Build filter - prefer kinds 30312 but also accept 30311 if role=world
+      const kinds = role === 'world' ? [30311] : [30312];
+      const filter = { kinds };
+      if (category) filter['#preset_category'] = [category];
+      if (role) filter['#role'] = [role];
+      if (query) filter['#name'] = [query];
+
+      const evts = await this.get(filter).catch(() => []);
+      const out = [];
+      for (const e of evts) {
+        try {
+          if (e.kind === 30311) {
+            const d = (e.tags || []).find(t => t[0] === 'd')?.[1] || '';
+            const name = parseGenesisNameFromYaml(e.content) || (e.tags || []).find(t => t[0] === 'name')?.[1] || '';
+            out.push({ id: d, name, category: (e.tags || []).find(t => t[0] === 'preset_category')?.[1] || '', tags: e.tags || [], yaml: e.content, pubkey: e.pubkey, preset_type: (e.tags || []).find(t => t[0] === 'preset_type')?.[1] || '', displayName: (e.tags || []).find(t => t[0] === 'name')?.[1] || name });
+          } else if (e.kind === 30312) {
+            const p = JSON.parse(e.content);
+            const d = p?.id || '';
+            const payload = p?.payload || '';
+            let name = '';
+            try { name = parseGenesisNameFromYaml(payload); } catch {}
+            const tags = e.tags || [];
+            out.push({ id: d, name: name || (tags.find(t => t[0] === 'name')?.[1] || ''), category: (tags.find(t => t[0] === 'preset_category') || [])[1] || '', tags, yaml: payload, pubkey: e.pubkey, preset_type: (tags.find(t => t[0] === 'preset_type') || [])[1] || '', displayName: (tags.find(t => t[0] === 'name') || [])[1] || name });
+          }
+        } catch (e) {
+          // ignore per-item errors
+        }
+      }
+      return out.slice(0, limit);
+    },
+
     // API: saveOrUpdate({ id, name, type, yaml, originalYaml?, pubkey })
     async saveOrUpdate({ id, name, type, yaml, originalYaml, pubkey }) {
-      if (!id || !type || !yaml || !pubkey) throw new Error('Ungültige Parameter für saveOrUpdate');
+  if (!id || !type || !yaml || !pubkey) throw new Error('Ungültige Parameter für saveOrUpdate');
       const now = Math.floor(Date.now() / 1000);
 
       console.log('[nostr] saveOrUpdate', { id, type, yaml, originalYaml, pubkey });
 
-      if (type === 'genesis') {
+  if (type === 'genesis') {
         // Prüfe vorhandene Genesis mit gleicher d=id
         const existing = await this.getById(id);
         if (existing && existing.type === 'genesis') {
@@ -218,9 +274,11 @@ function wrapInterface(serviceImpl) {
         const contentToSave = originalYaml || yaml;
         
         // Signiere und speichere replaceable Genesis (30311) mit Tags ['d', id]
-        const tags = [['d', id]];
-        // optional 'a' Tag analog bestehendem Code nicht zwingend hier
-        const draft = { kind: 30311, created_at: now, tags, content: contentToSave, pubkey };
+  // Build tags with role/name/category if provided
+  const tags = [['d', id], ['role', 'world']];
+  if (name) tags.push(['name', name]);
+  // allow caller to include preset_category/preset_type via originalYaml metadata or separate param in future
+  const draft = { kind: 30311, created_at: now, tags, content: contentToSave, pubkey };
         const evt = await this.ensureSigned(draft);
         await this.publish(evt);
         return { ok: true, id, kind: 30311, eventId: evt.id };
@@ -231,8 +289,11 @@ function wrapInterface(serviceImpl) {
         // Verwende originalYaml falls vorhanden, sonst yaml
         const payloadToSave = originalYaml || yaml;
         
-        const payload = { action: 'update', target: 'world', id, payload: payloadToSave };
-        const draft = { kind: 30312, created_at: now, tags: [], content: JSON.stringify(payload), pubkey };
+  // Build tags for patch/preset. Use role=preset and include name/category if provided in 'name' variable
+  const payload = { action: 'update', target: 'world', id, payload: payloadToSave };
+  const tags = [['d', id], ['role', 'preset']];
+  if (name) tags.push(['name', name]);
+  const draft = { kind: 30312, created_at: now, tags, content: JSON.stringify(payload), pubkey };
         const evt = await this.ensureSigned(draft);
         await this.publish(evt);
         return { ok: true, id, kind: 30312, eventId: evt.id };

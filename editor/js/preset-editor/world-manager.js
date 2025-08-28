@@ -27,6 +27,18 @@ export class WorldManager {
    */
   constructor(editor) {
     this.editor = editor;
+    // Runtime preset caches populated from remote/listPresets
+    this.remotePresets = {
+      byId: {},
+      byName: {},
+      byCategory: {},
+      list: []
+    };
+
+    // Kick off an async load of remote presets in background. Failure is non-fatal.
+    this.loadRemotePresets().catch(err => {
+      console.warn('Could not load remote presets:', err);
+    });
   }
 
   /**
@@ -392,6 +404,93 @@ personas:
       if (window.showToast) window.showToast('error', 'Export fehlgeschlagen: ' + e.message);
       this.editor._setStatus('Export fehlgeschlagen: ' + e.message, 'error');
     }
+  }
+
+  /**
+   * Lädt Presets von entfernten Diensten (Nostr) über die vorhandene PatchKit/Service-Factory
+   * und füllt interne Maps, sodass andere Module (z.B. resolve.js) schnell auf Preset-Metadaten zugreifen können.
+   * Diese Methode ist idempotent und darf mehrfach aufgerufen werden.
+   * @param {{limit?:number}} opts
+   */
+  async loadRemotePresets(opts = {}) {
+    try {
+      const limit = typeof opts.limit === 'number' ? opts.limit : 0; // 0 or undefined => no limit
+
+      // Resolve a service that implements listPresets(). Try known entrypoints.
+      let svc = null;
+      try {
+        if (this.editor && this.editor.patchKit && this.editor.patchKit.io && typeof this.editor.patchKit.io.listPresets === 'function') {
+          svc = this.editor.patchKit.io;
+        }
+      } catch (e) {
+        svc = null;
+      }
+
+      // Fallback global resolvers (compat)
+      if (!svc) {
+        if (window && window.nostrServiceFactory && typeof window.nostrServiceFactory.listPresets === 'function') svc = window.nostrServiceFactory;
+        else if (window && window.NetworkFactory && typeof window.NetworkFactory.listPresets === 'function') svc = window.NetworkFactory;
+      }
+
+      if (!svc || typeof svc.listPresets !== 'function') {
+        // No remote service available — nothing to do
+        return this.remotePresets;
+      }
+
+      const items = await svc.listPresets({ limit });
+      if (!Array.isArray(items)) return this.remotePresets;
+
+      // Reset caches
+      this.remotePresets.byId = {};
+      this.remotePresets.byName = {};
+      this.remotePresets.byCategory = {};
+      this.remotePresets.list = [];
+
+      for (const it of items) {
+        const id = it.id || it.eventId || (it.tags && it.tags.d) || null;
+        const name = it.displayName || it.name || (it.tags && it.tags.name) || null;
+        const category = it.preset_category || (it.tags && it.tags.preset_category) || 'default';
+
+        const entry = Object.assign({}, it, { id, name, category });
+
+        if (id) this.remotePresets.byId[id] = entry;
+        if (name) this.remotePresets.byName[name] = entry;
+        if (!this.remotePresets.byCategory[category]) this.remotePresets.byCategory[category] = [];
+        this.remotePresets.byCategory[category].push(entry);
+        this.remotePresets.list.push(entry);
+      }
+
+      return this.remotePresets;
+    } catch (e) {
+      console.warn('loadRemotePresets failed:', e);
+      return this.remotePresets;
+    }
+  }
+
+  /**
+   * Rückgabe eines Presets nach ID
+   * @param {string} id
+   */
+  getPresetById(id) {
+    if (!id) return null;
+    return this.remotePresets.byId[id] || null;
+  }
+
+  /**
+   * Rückgabe eines Presets nach Name
+   * @param {string} name
+   */
+  getPresetByName(name) {
+    if (!name) return null;
+    return this.remotePresets.byName[name] || null;
+  }
+
+  /**
+   * Liste von Presets gruppiert nach Kategorie
+   * @returns {{[category:string]: Array}}
+   */
+  listPresetsByCategory() {
+    return this.remotePresets.byCategory;
   }
 
   async importWorld() {

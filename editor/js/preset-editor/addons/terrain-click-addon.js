@@ -200,25 +200,53 @@ export class TerrainClickAddon extends InteractionAddon {
     typeSelect.style.background = '#333';
     typeSelect.style.color = '#fff';
     
-    const objectTypes = [
-      { value: 'tree_simple', text: 'Baum (einfach)' },
-      { value: 'tree_pine', text: 'Tanne' },
-      { value: 'tree_palm', text: 'Palme' },
-      { value: 'rock_small', text: 'Kleiner Fels' },
-      { value: 'rock_large', text: 'Großer Fels' },
-      { value: 'bush', text: 'Busch' },
-      { value: 'flower', text: 'Blume' },
-      { value: 'grass', text: 'Gras' },
-      { value: 'mushroom', text: 'Pilz' },
-      { value: 'crystal', text: 'Kristall' }
-    ];
-    
-    objectTypes.forEach(type => {
-      const option = document.createElement('option');
-      option.value = type.value;
-      option.textContent = type.text;
-      typeSelect.appendChild(option);
-    });
+    // Try to populate object types from remote presets (nostr). Fallback to built-in list.
+    (async () => {
+      const resolveNostrService = async () => {
+        if (typeof window.getNostrService === 'function') return await window.getNostrService();
+        if (window.NostrServiceFactory && typeof window.NostrServiceFactory.getNostrService === 'function') return await window.NostrServiceFactory.getNostrService();
+        return null;
+      };
+
+      try {
+        const svc = await resolveNostrService();
+        if (svc && typeof svc.listPresets === 'function') {
+          // request common object presets (no category provided) and also plants
+          const presets = await svc.listPresets({ limit: 500 });
+          if (presets && presets.length) {
+            presets.forEach(p => {
+              const option = document.createElement('option');
+              option.value = p.id || p.name || p.displayName || '';
+              option.textContent = (p.displayName || p.name || p.id) + (p.category ? ` (${p.category})` : '');
+              typeSelect.appendChild(option);
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('[TerrainClick] remote presets load failed', e);
+      }
+
+      // Fallback list
+      const objectTypes = [
+        { value: 'tree_simple', text: 'Baum (einfach)' },
+        { value: 'tree_pine', text: 'Tanne' },
+        { value: 'tree_palm', text: 'Palme' },
+        { value: 'rock_small', text: 'Kleiner Fels' },
+        { value: 'rock_large', text: 'Großer Fels' },
+        { value: 'bush', text: 'Busch' },
+        { value: 'flower', text: 'Blume' },
+        { value: 'grass', text: 'Gras' },
+        { value: 'mushroom', text: 'Pilz' },
+        { value: 'crystal', text: 'Kristall' }
+      ];
+      objectTypes.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type.value;
+        option.textContent = type.text;
+        typeSelect.appendChild(option);
+      });
+    })();
     
     // Event Handler für Mode Select
     modeSelect.addEventListener('change', () => {

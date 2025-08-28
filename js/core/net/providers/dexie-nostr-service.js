@@ -32,7 +32,7 @@ export class DexieNostrService {
         // Extrahiere die World ID aus den Tags
         const worldId = this._extractWorldIdFromTags(event.tags);
         
-        if (worldId) {
+  if (worldId) {
           // Prüfe, ob bereits ein Event mit dieser World ID in den Tags existiert
           const allEvents = await this.db.events.toArray();
           const existingEvent = allEvents.find(e => {
@@ -50,7 +50,7 @@ export class DexieNostrService {
               created_at: event.created_at,
               content: event.content,
               sig: event.sig,
-              tags: (event.tags || []).map(normalizeTagEntry)
+              tags: (event.tags || existingEvent.tags || []).map(normalizeTagEntry)
             };
             
             // Aktualisiere das Event in der Datenbank
@@ -186,7 +186,7 @@ export class DexieNostrService {
     // Speichert oder aktualisiert ein Event basierend auf der World ID in den Tags
     // Wird von patchkit-wiring.js für Genesis und Patches verwendet
     try {
-      const { id, name, type, yaml, originalYaml, pubkey } = payload;
+  const { id, name, type, yaml, originalYaml, pubkey, tags: incomingTags, preset_category, preset_type } = payload;
       
       // Prüfe, ob bereits ein Event mit dieser World ID in den Tags existiert
       const allEvents = await this.db.events.toArray();
@@ -195,9 +195,14 @@ export class DexieNostrService {
         return tags.some(tag => tag === `d:${id}`);
       });
       
-      if (existingEvent) {
+  if (existingEvent) {
         // Event existiert bereits - aktualisiere es
         // Erstelle ein aktualisiertes Event-Objekt
+        // Merge/override tags if incoming provided, otherwise keep existing tags
+        const finalTags = incomingTags && Array.isArray(incomingTags) && incomingTags.length
+          ? incomingTags.map(normalizeTagEntry)
+          : existingEvent.tags;
+
         const updatedEvent = {
           eventId: existingEvent.eventId, // Behalte die ursprüngliche Event ID bei
           pubkey: pubkey || existingEvent.pubkey,
@@ -205,7 +210,7 @@ export class DexieNostrService {
           created_at: Math.floor(Date.now() / 1000), // Aktualisiere den Zeitstempel
           content: yaml,
           sig: existingEvent.sig, // Behalte die ursprüngliche Signatur bei
-          tags: existingEvent.tags // Behalte die ursprünglichen Tags bei
+          tags: finalTags
         };
         
         // Aktualisiere das Event in der Datenbank
@@ -226,8 +231,18 @@ export class DexieNostrService {
       } else {
         // Event existiert nicht - erstelle ein neues
         const kind = type === 'genesis' ? 30311 : 30312;
-        
-        // Erstelle ein neues Event-Objekt mit der World ID in den Tags
+
+        // Build tags array: prefer incomingTags (array of arrays) else construct from fields
+        let tagArrays = [];
+        if (incomingTags && Array.isArray(incomingTags) && incomingTags.length) {
+          tagArrays = incomingTags;
+        } else {
+          tagArrays = [['d', id], ['role', type === 'genesis' ? 'world' : 'preset']];
+          if (name) tagArrays.push(['name', name]);
+          if (preset_category) tagArrays.push(['preset_category', preset_category]);
+          if (preset_type) tagArrays.push(['preset_type', preset_type]);
+        }
+
         const newEvent = {
           eventId: id, // Verwende die World ID als Event ID
           pubkey: pubkey,
@@ -235,11 +250,11 @@ export class DexieNostrService {
           created_at: Math.floor(Date.now() / 1000),
           content: yaml,
           sig: '', // Leere Signatur für lokale Events
-          tags: [`d:${id}`] // Speichere die World ID in den Tags
+          tags: tagArrays.map(normalizeTagEntry) // normalize for storage
         };
         
         // Speichere das neue Event in der Datenbank
-        await this.db.events.add(newEvent);
+  await this.db.events.add(newEvent);
         
         // Konvertiere das neue Event zurück in das Nostr-Format
         const event = this._dbToEvent(newEvent);

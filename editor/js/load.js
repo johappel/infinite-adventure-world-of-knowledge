@@ -310,6 +310,44 @@ export async function setupPresetSelect(editor) {
       localPresetsGroup.appendChild(opt);
     });
   }
+  // Remote Presets via nostr (optional)
+  let remotePresetsGroup = document.getElementById('remotePresetsGroup');
+  if (!remotePresetsGroup) {
+    remotePresetsGroup = document.createElement('optgroup');
+    remotePresetsGroup.id = 'remotePresetsGroup';
+    remotePresetsGroup.label = 'Remote Presets';
+    presetSelect.appendChild(remotePresetsGroup);
+  }
+  remotePresetsGroup.innerHTML = '';
+  try {
+    // Resolve nostr service from possible globals
+    const resolveNostrService = async () => {
+      if (typeof window.getNostrService === 'function') return await window.getNostrService();
+      if (window.NostrServiceFactory && typeof window.NostrServiceFactory.getNostrService === 'function') return await window.NostrServiceFactory.getNostrService();
+      return null;
+    };
+
+    const svc = await resolveNostrService();
+    if (svc) {
+      if (svc && typeof svc.listPresets === 'function') {
+        const presets = await svc.listPresets({ limit: 200 });
+        if (!presets || !presets.length) {
+          const opt = document.createElement('option'); opt.disabled = true; opt.textContent = '(keine Remote-Presets)'; remotePresetsGroup.appendChild(opt);
+        } else {
+          for (const p of presets) {
+            const opt = document.createElement('option');
+            opt.value = `nostr:${p.id}`;
+            opt.textContent = (p.displayName || p.name || p.id) + (p.category ? ` — ${p.category}` : '');
+            opt.dataset.presetYaml = p.yaml || '';
+            remotePresetsGroup.appendChild(opt);
+          }
+        }
+      }
+  }
+  } catch (e) {
+    console.warn('Remote Presets konnten nicht geladen werden:', e);
+    const opt = document.createElement('option'); opt.disabled = true; opt.textContent = '(Fehler beim Laden)'; remotePresetsGroup.appendChild(opt);
+  }
   
   // Welt-Dateien befüllen
   worldFilesGroup.innerHTML = '';
