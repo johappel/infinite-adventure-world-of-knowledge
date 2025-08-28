@@ -65,7 +65,7 @@ body {
 .dropdown-item:hover { background: rgba(255,255,255,0.02); }
 
 /* Utility to hide elements (used instead of inline display:none) */
-.hidden { display: none !important; }
+.hidden { display: none; }
 
 /* Utility classes used by addon templates */
 .muted { color: #a0a0a0; }

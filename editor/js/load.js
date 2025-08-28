@@ -210,12 +210,14 @@ export function setupWorldSearch(editor, nostrService) {
         const div = document.createElement('div');
         div.setAttribute('role', 'option');
         div.id = `wsr-${idx}`;
+        div.className = 'world-search-result';
         div.style.padding = '6px 10px';
         div.style.cursor = 'pointer';
+        div.style.display = 'block';
         const badge = it.type === 'patch' ? '🧩 Patch' : '🌱 Genesis';
         const displayName = getDisplayNameFromItem(it) || '(ohne Name)';
         div.textContent = `${it.id || '(ohne id)'} — ${displayName}  [${badge}]`;
-
+        console.log('[DEBUG] Suchergebnis:', div.textContent);
 
         div.addEventListener('click', async () => {
           window.render_world(it.id);
