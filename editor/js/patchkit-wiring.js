@@ -56,13 +56,22 @@ export function createPatchKitPorts(nostrService) {
       const md = signedGenesis?.metadata || {};
       const yaml = PatchKit.genesis.serialize ? PatchKit.genesis.serialize(signedGenesis, 'yaml') : JSON.stringify(signedGenesis);
       const ident = await nostrService.getIdentity();
+      // Read selected preset category from UI if present
+      let preset_category = '';
+      try {
+        const el = document.getElementById('presetCategorySelect');
+        if (el && el.value) preset_category = String(el.value);
+      } catch {}
+
       const payload = {
         id: md.id,
         name: md.name || '',
         type: 'genesis',
         yaml,
         originalYaml: signedGenesis.originalYaml, // originalYaml-Feld weitergeben
-        pubkey: ident.pubkey
+        pubkey: ident.pubkey,
+        // include category metadata for downstream services (optional)
+        ...(preset_category ? { preset_category } : {})
       };
       return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
     }
@@ -169,13 +178,23 @@ export function createPatchKitPorts(nostrService) {
         operations: signedPatch.operations || [],
         payload: signedPatch.originalYaml || ''
       });
+      // Read selected preset category from UI if present
+      let preset_category = '';
+      try {
+        const el = document.getElementById('presetCategorySelect');
+        if (el && el.value) preset_category = String(el.value);
+      } catch {}
+
       const payload = {
         id: md.targets_world || md.id,
         name: md.name || '',
         type: 'patch',
         yaml: yaml,
         originalYaml: signedPatch.originalYaml,
-        pubkey: ident.pubkey
+        pubkey: ident.pubkey,
+        // Patches used as presets should mark preset_type and category
+        preset_type: 'preset',
+        ...(preset_category ? { preset_category } : {})
       };
       console.log('[DEBUG patchPort.save] signedPatch metadata:', md);
       console.log('[DEBUG patchPort.save] payload id:', payload.id, 'targets_world:', md.targets_world, 'patch_id:', md.id);
