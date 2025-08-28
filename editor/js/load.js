@@ -458,6 +458,43 @@ export async function setupPresetSelect(editor) {
       }
     }
   });
+  
+  // New-Button Dropdown Verhalten und Aktionen
+  try {
+    const newBtn = document.getElementById('newBtn');
+    const newMenu = document.getElementById('newDropdownMenu');
+    if (newBtn && newMenu) {
+      newBtn.addEventListener('click', () => {
+        newMenu.classList.toggle('hidden');
+      });
+
+      // Klick auf Menüelemente
+      newMenu.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', async (ev) => {
+          const action = item.dataset.action;
+          newMenu.classList.add('hidden');
+          if (action === 'new-world') {
+            // Erzeuge neue leere Welt aus Template
+            const tpl = templates['simple_world'] || 'name: "Neue Welt"\n';
+            const yaml = YamlProcessor.processStringToYaml(tpl) || tpl;
+            yamlEditor.value = yaml;
+            if (document.getElementById('presetCategorySelect')) document.getElementById('presetCategorySelect').value = '';
+            if (window.showToast) window.showToast('info', 'Neue Welt geladen');
+          } else if (action === 'new-preset-lib') {
+            // Lade Preset-Library Template
+            const tpl = templates['library'] || 'name: "Neue Preset-Bibliothek"\npresets: []\n';
+            const yaml = YamlProcessor.processStringToYaml(tpl) || tpl;
+            yamlEditor.value = yaml;
+            // Setze Kategorie default auf 'misc'
+            if (document.getElementById('presetCategorySelect')) document.getElementById('presetCategorySelect').value = 'misc';
+            if (window.showToast) window.showToast('info', 'Neue Preset-Bibliothek geladen');
+          }
+        });
+      });
+    }
+  } catch (e) {
+    console.warn('Fehler beim Initialisieren des New-Dropdowns:', e);
+  }
 }
 
 // Setup für die Render- und Reset-Buttons
@@ -560,6 +597,13 @@ export async function initLoadFunctionality(editor, nostrService) {
     console.warn('presetSelect-Element nicht gefunden, setupPresetSelect wird nicht aufgerufen');
   }
 
+  // Init Preset Library Sidebar
+  try {
+    renderPresetLibraryPanel(editor);
+  } catch (e) {
+    console.warn('Preset-Library Panel konnte nicht initialisiert werden:', e);
+  }
+
   // URL-Parameter-Handler einrichten
   return await setupUrlParameterHandler(editor, nostrService);
 }
@@ -598,3 +642,79 @@ window.render_world = async function(worldId=null) {
     console.error('[render_world] Fehler beim Aktualisieren der Patch-Vorschau:', e);
   }
 };
+
+/**
+ * Rendert die Preset-Bibliotheken in der Sidebar, gruppiert nach preset_category.
+ * Klick auf ein Preset lädt dessen YAML in den Editor.
+ */
+export async function renderPresetLibraryPanel(editor) {
+  const panel = document.getElementById('presetLibraryPanel');
+  const content = document.getElementById('preset-library-content');
+  if (!panel || !content) return;
+  content.innerHTML = '(lädt…)';
+
+  try {
+    // ensure worldManager has loaded remote presets (async)
+    if (editor && editor.worldManager && typeof editor.worldManager.loadRemotePresets === 'function') {
+      await editor.worldManager.loadRemotePresets().catch(() => {});
+    }
+    const grouped = (editor && editor.worldManager && typeof editor.worldManager.listPresetsByCategory === 'function') ? editor.worldManager.listPresetsByCategory() : {};
+    content.innerHTML = '';
+    const keys = Object.keys(grouped || {});
+    if (!keys.length) {
+      content.textContent = '(keine Preset-Bibliotheken gefunden)';
+      return;
+    }
+
+    for (const cat of keys) {
+      const groupWrap = document.createElement('div');
+      groupWrap.className = 'preset-category-group';
+      const header = document.createElement('div');
+      header.className = 'preset-category-header';
+      header.textContent = cat;
+      header.style.fontWeight = '600';
+      header.style.marginTop = '8px';
+      groupWrap.appendChild(header);
+
+      const list = document.createElement('div');
+      list.className = 'preset-category-list';
+      for (const p of grouped[cat]) {
+        const item = document.createElement('div');
+        item.className = 'preset-item';
+        item.textContent = p.displayName || p.name || p.id || '(ohne Name)';
+        item.style.cursor = 'pointer';
+        item.style.padding = '4px 6px';
+        item.dataset.presetId = p.id || '';
+        item.addEventListener('click', async () => {
+          try {
+            // Load YAML into editor
+            const yaml = p.yaml || p.payload || '';
+            const yamlEditor = document.getElementById('world-yaml-editor');
+            if (yamlEditor && yaml) {
+              yamlEditor.value = yaml;
+              if (editor) {
+                // try to set world id if present in metadata
+                const nameGuess = getDisplayNameFromItem(p) || '';
+                if (window.showToast) window.showToast('info', 'Preset geladen: ' + nameGuess);
+                // trigger pipeline
+                await simulateInputEvent(yamlEditor);
+              }
+            } else {
+              if (window.showToast) window.showToast('error', 'Kein YAML im Preset vorhanden');
+            }
+          } catch (e) {
+            console.error('Fehler beim Laden des Presets:', e);
+            if (window.showToast) window.showToast('error', 'Preset konnte nicht geladen werden: ' + (e?.message || e));
+          }
+        });
+        list.appendChild(item);
+      }
+      groupWrap.appendChild(list);
+      content.appendChild(groupWrap);
+    }
+
+  } catch (e) {
+    console.error('renderPresetLibraryPanel failed:', e);
+    content.textContent = '(Fehler beim Laden)';
+  }
+}

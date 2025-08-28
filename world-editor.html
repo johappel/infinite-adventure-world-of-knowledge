@@ -70,8 +70,14 @@
     <div class="controls">
       <!-- Haupt-Aktionsgruppe -->
       <div class="control-group main-actions">
-        <button class="btn" id="newWorldBtn" title="Neue leere Welt mit eindeutiger ID erstellen">➕ Neu</button>
-        <button class="btn" id="newPatchBtn" title="Neuen Patch erstellen" style="display:none; margin-left:6px;">🧩 Neuer Patch</button>
+  <div class="dropdown">
+          <button class="btn" id="newBtn" title="Neu">➕ Neu ▾</button>
+          <div class="dropdown-menu hidden" id="newDropdownMenu">
+            <div class="dropdown-item" data-action="new-world">🌍 Neue Welt</div>
+            <div class="dropdown-item" data-action="new-preset-lib">📚 Neue Preset-Bibliothek</div>
+          </div>
+        </div>
+        <button class="btn" id="newPatchBtn" title="Neuen Patch erstellen">🧩 Neuer Patch</button>
         <select class="preset-selector" id="presetSelect" aria-label="Preset Template auswählen">
           <option value="">Neu von Vorlage</option>
           <optgroup label="Lokale Vorlagen" id="localPresetsGroup">
@@ -93,11 +99,11 @@
         </select>
         <!-- <button class="btn" id="loadWorldBtn" title="Welt anhand der ID laden">🌐 Laden</button> -->
         <button class="btn success" id="saveGenesisBtn" title="Aktuelle Welt als Genesis speichern">💾 Speichern</button>
-        <button class="btn success" id="savePatchBtn" title="Als Patch speichern" style="display: none;">🧩 Patch speichern</button>
+  <button class="btn success hidden" id="savePatchBtn" title="Als Patch speichern">🧩 Patch speichern</button>
       </div>
       
       <!-- Sekundäre-Aktionsgruppe (wird in Sidebar verschoben) -->
-      <div class="control-group secondary-actions" style="display: none;">
+  <div class="control-group secondary-actions hidden">
       </div>
       
       <!-- Vorschau-Aktionsgruppe (vereinfacht) -->
@@ -112,8 +118,12 @@
     <aside class="sidebar">
       <div class="panel-header">🔍 Suche</div>
       <div class="sidebar-content">
-        <input class="preset-selector search-input" id="worldSearchInput" placeholder="Gespeicherte Welten..." title="Suche in gespeicherten Welten">
-        <div id="worldSearchResults" class="search-results" style="display:none;"></div>
+  <input class="preset-selector search-input" id="worldSearchInput" placeholder="Gespeicherte Welten..." title="Suche in gespeicherten Welten">
+  <div id="worldSearchResults" class="search-results hidden"></div>
+      </div>
+      <div class="panel-header">📚 Preset Bibliotheken</div>
+      <div id="presetLibraryPanel" class="preset-library-panel">
+        <div id="preset-library-content">(lädt…)</div>
       </div>
       <div id="patch-list-container" class="patch-list-panel">
           <!-- Patch list will be rendered here -->
@@ -173,7 +183,7 @@ description: 'Eine Test-Welt für Presets'
       </div>
       
       <!-- Patch-Visualisierungskontrollen -->
-      <div class="patch-visualization-controls" id="patchVisualizationControls" style="display: none;">
+    <div class="patch-visualization-controls hidden" id="patchVisualizationControls">
         <div class="controls-header">
           <h3>🎨 Patch-Visualisierung</h3>
           <button id="togglePatchVisualization" class="btn small" title="Visualisierung ein- oder ausschalten">👁️ Ein/Aus</button>

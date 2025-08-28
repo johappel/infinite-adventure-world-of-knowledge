@@ -493,71 +493,71 @@ export class EntityInteractionAddon extends InteractionAddon {
       const idLabel = entity.userData?.entityId || 'N/A';
       
       this.entityDialog.innerHTML = `
-        <h3 style="margin-top: 0; color: #0066ff;">Entity Bearbeiten</h3>
+        <h3 class="panel-header-title">Entity Bearbeiten</h3>
         
-        <div style="margin-bottom: 15px; font-size: 12px; opacity: 0.8;">
+        <div class="muted-small">
           Type: ${typeLabel}<br>
           ID: ${idLabel}
         </div>
         
-        <h4 style="margin: 0 0 10px 0; font-size: 14px;">Position</h4>
-        <div style="display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; margin-bottom: 15px;">
-          <span style="text-align: right; opacity: 0.7;">X</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${localPos.x}" data-section="position" data-axis="x" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.x.toFixed(2)}</span>
+        <h4 class="panel-header-title">Position</h4>
+        <div class="grid-2cols">
+          <span class="right-label">X</span>
+          <div class="flex-row">
+            <input type="range" min="-100" max="100" step="0.1" value="${localPos.x}" data-section="position" data-axis="x" class="range-full">
+            <span class="value-badge">${localPos.x.toFixed(2)}</span>
           </div>
-          <span style="text-align: right; opacity: 0.7;">Y</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${localPos.y}" data-section="position" data-axis="y" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.y.toFixed(2)}</span>
+          <span class="right-label">Y</span>
+          <div class="flex-row">
+            <input type="range" min="-100" max="100" step="0.1" value="${localPos.y}" data-section="position" data-axis="y" class="range-full">
+            <span class="value-badge">${localPos.y.toFixed(2)}</span>
           </div>
-          <span style="text-align: right; opacity: 0.7;">Z</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${localPos.z}" data-section="position" data-axis="z" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.z.toFixed(2)}</span>
-          </div>
-        </div>
-        
-        <h4 style="margin: 0 0 10px 0; font-size: 14px;">Rotation</h4>
-        <div style="display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; margin-bottom: 15px;">
-          <span style="text-align: right; opacity: 0.7;">X</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-180" max="180" step="1" value="${rotDeg.x}" data-section="rotation" data-axis="x" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${rotDeg.x.toFixed(2)}</span>
-          </div>
-          <span style="text-align: right; opacity: 0.7;">Y</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-180" max="180" step="1" value="${rotDeg.y}" data-section="rotation" data-axis="y" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${rotDeg.y.toFixed(2)}</span>
-          </div>
-          <span style="text-align: right; opacity: 0.7;">Z</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-180" max="180" step="1" value="${rotDeg.z}" data-section="rotation" data-axis="z" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${rotDeg.z.toFixed(2)}</span>
+          <span class="right-label">Z</span>
+          <div class="flex-row">
+            <input type="range" min="-100" max="100" step="0.1" value="${localPos.z}" data-section="position" data-axis="z" class="range-full">
+            <span class="value-badge">${localPos.z.toFixed(2)}</span>
           </div>
         </div>
         
-        <h4 style="margin: 0 0 10px 0; font-size: 14px;">Scale</h4>
-        <div style="display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; margin-bottom: 15px;">
-          <span style="text-align: right; opacity: 0.7;">X</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.x}" data-section="scale" data-axis="x" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${entity.scale.x.toFixed(2)}</span>
+        <h4 class="panel-header-title">Rotation</h4>
+        <div class="grid-2cols">
+          <span class="right-label">X</span>
+          <div class="flex-row">
+            <input type="range" min="-180" max="180" step="1" value="${rotDeg.x}" data-section="rotation" data-axis="x" class="range-full">
+            <span class="value-badge">${rotDeg.x.toFixed(2)}</span>
           </div>
-          <span style="text-align: right; opacity: 0.7;">Y</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.y}" data-section="scale" data-axis="y" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${entity.scale.y.toFixed(2)}</span>
+          <span class="right-label">Y</span>
+          <div class="flex-row">
+            <input type="range" min="-180" max="180" step="1" value="${rotDeg.y}" data-section="rotation" data-axis="y" class="range-full">
+            <span class="value-badge">${rotDeg.y.toFixed(2)}</span>
           </div>
-          <span style="text-align: right; opacity: 0.7;">Z</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.z}" data-section="scale" data-axis="z" style="width: 100%;">
-            <span style="font-size: 12px; min-width: 40px; text-align: right;">${entity.scale.z.toFixed(2)}</span>
+          <span class="right-label">Z</span>
+          <div class="flex-row">
+            <input type="range" min="-180" max="180" step="1" value="${rotDeg.z}" data-section="rotation" data-axis="z" class="range-full">
+            <span class="value-badge">${rotDeg.z.toFixed(2)}</span>
           </div>
         </div>
         
-        <button style="background: #0066ff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-top: 20px; width: 100%;" id="applyChangesBtn">
+        <h4 class="panel-header-title">Scale</h4>
+        <div class="grid-2cols">
+          <span class="right-label">X</span>
+          <div class="flex-row">
+            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.x}" data-section="scale" data-axis="x" class="range-full">
+            <span class="value-badge">${entity.scale.x.toFixed(2)}</span>
+          </div>
+          <span class="right-label">Y</span>
+          <div class="flex-row">
+            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.y}" data-section="scale" data-axis="y" class="range-full">
+            <span class="value-badge">${entity.scale.y.toFixed(2)}</span>
+          </div>
+          <span class="right-label">Z</span>
+          <div class="flex-row">
+            <input type="range" min="0.1" max="10" step="0.1" value="${entity.scale.z}" data-section="scale" data-axis="z" class="range-full">
+            <span class="value-badge">${entity.scale.z.toFixed(2)}</span>
+          </div>
+        </div>
+        
+        <button class="full-width-btn" id="applyChangesBtn">
           Änderungen anwenden
         </button>
       `;
@@ -593,10 +593,10 @@ export class EntityInteractionAddon extends InteractionAddon {
       
       // Fallback: Zeige Fehlermeldung im Dialog
       this.entityDialog.innerHTML = `
-        <div style="color: #ff6666; padding: 20px; text-align: center;">
+        <div class="dialog-error">
           <h3>Fehler beim Laden des Dialogs</h3>
           <p>${error.message}</p>
-          <p style="font-size: 12px; opacity: 0.7;">Bitte konsolen für Details öffnen.</p>
+          <p class="muted-small">Bitte Konsole für Details öffnen.</p>
         </div>
       `;
     }

@@ -59,6 +59,44 @@ body {
 .btn.success { background: #16825d; }
 .btn.success:hover { background: #1e9870; }
 
+/* Dropdown helpers for header 'New' button */
+.dropdown { display: inline-block; position: relative; }
+.dropdown-menu { display: none; position: absolute; top: 28px; left: 0; background: #0b2a44; border: 1px solid #07304d; padding: 6px; z-index: 50; min-width: 180px; }
+.dropdown-item { padding: 6px; cursor: pointer; color: #d4d4d4; }
+.dropdown-item:hover { background: rgba(255,255,255,0.02); }
+
+/* Utility to hide elements (used instead of inline display:none) */
+.hidden { display: none !important; }
+
+/* Utility classes used by addon templates */
+.muted { color: #a0a0a0; }
+.muted-small { font-size: 12px; opacity: 0.8; }
+.grid-2cols { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; margin-bottom: 15px; }
+.flex-row { display: flex; align-items: center; gap: 8px; }
+.right-label { text-align: right; opacity: 0.7; }
+.value-badge { font-size: 12px; min-width: 40px; text-align: right; }
+.full-width-btn { background: #0066ff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-top: 20px; width: 100%; }
+
+/* Dialog styles for addons */
+.material-dialog {
+  position: fixed;
+  top: 50%;
+  left: 25%;
+  transform: translate(-50%, -50%);
+  background: #2a2a2a;
+  padding: 12px;
+  border-radius: 6px;
+  color: #d4d4d4;
+  z-index: 1000;
+  min-width: 320px;
+}
+.dialog-error { color: #ff6666; padding: 20px; text-align: center; }
+.dialog-error p { font-size: 12px; }
+.material-dialog-overlay { position: fixed; top: 0; left: 0; width: 49vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 999; }
+
+/* small spacing for newPatch button */
+#newPatchBtn { margin-left: 6px; }
+
 .editor-main-container {
   display: flex;
   height: calc(100vh - 120px); /* Adjusted for a potentially taller header */

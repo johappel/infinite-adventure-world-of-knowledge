@@ -392,12 +392,11 @@ export class MaterialEditorAddon extends InteractionAddon {
       if (this.materialDialog && this.materialDialog.children.length === 0) {
         console.error('[MaterialEditor] Dialog blieb leer, zeige Fehlermeldung');
         const errorMsg = document.createElement('div');
+        errorMsg.className = 'dialog-error';
         errorMsg.innerHTML = `
-          <div style="color: #ff6666; padding: 20px; text-align: center;">
-            <h3>Fehler beim Laden des Material-Dialogs</h3>
-            <p>Bitte Konsole für Details öffnen.</p>
-            <p style="font-size: 12px;">Entity: ${this.selectedEntity?.name || 'Unbekannt'}</p>
-          </div>
+          <h3>Fehler beim Laden des Material-Dialogs</h3>
+          <p>Bitte Konsole für Details öffnen.</p>
+          <p>Entity: ${this.selectedEntity?.name || 'Unbekannt'}</p>
         `;
         this.materialDialog.appendChild(errorMsg);
       }
@@ -410,38 +409,12 @@ export class MaterialEditorAddon extends InteractionAddon {
    * @private
    */
   _createDialog() {
-    const dialog = document.createElement('div');
-    dialog.className = 'material-dialog';
-    dialog.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 25%;
-      transform: translate(-50%, -50%);
-      background: #2a2a2a;
-      border: 2px solid #ff3366;
-      border-radius: 8px;
-      padding: 20px;
-      z-index: 1000;
-      min-width: 400px;
-      max-width: 90vw;
-      max-height: 80vh;
-      overflow-y: auto;
-      color: white;
-      font-family: system-ui, sans-serif;
-    `;
+  const dialog = document.createElement('div');
+  dialog.className = 'material-dialog';
     
     // Overlay für Hintergrund
-    const overlay = document.createElement('div');
-    overlay.className = 'material-dialog-overlay';
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 49vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.7);
-      z-index: 999;
-    `;
+  const overlay = document.createElement('div');
+  overlay.className = 'material-dialog-overlay';
     overlay.addEventListener('click', () => this._closeDialog());
     document.body.appendChild(overlay);
     
