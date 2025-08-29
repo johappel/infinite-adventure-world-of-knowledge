@@ -129,6 +129,7 @@ function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh, zone
   
   // If position is already specified and avoid_paths is explicitly false, don't modify
   if (spec.position && spec.avoid_paths === false) {
+    console.log(`Path-aware placement: Position specified and avoid_paths=false, skipping placement logic for ${spec.type || 'object'}`);
     return adjustToTerrainHeight(spec, terrainMesh);
   }
   
@@ -155,8 +156,9 @@ function handlePathAwarePlacement(spec, pathMask, terrainSize, terrainMesh, zone
     }
   }
   
-  // If position is not specified or avoid_paths is true (default), find free position
-  if (!spec.position || spec.avoid_paths !== false) {
+  // If position is not specified AND avoid_paths is explicitly true, find free position
+  if (!spec.position && spec.avoid_paths === true) {
+    console.log(`Path-aware placement: Finding free position (avoid_paths=${spec.avoid_paths}) for ${spec.type || 'object'}`);
     const minDistance = typeof spec.min_path_distance === 'number' ? spec.min_path_distance : 2;
     const freePos = findFreePos(pathMask, terrainSize, {
       maxAttempts: 50,
@@ -472,7 +474,7 @@ export function buildZoneFromSpec(worldData, options={}){
           seed,
           pathMask, 
           terrainSize,
-          avoidPaths: objSpec.avoid_paths === true?true:false,
+          avoidPaths: objSpec.avoid_paths === true,
           existingEntities: [...existingEntities, ...objects.map(obj => ({
             position: [obj.position.x, obj.position.y, obj.position.z],
             type: obj.userData?.objectType || 'object'

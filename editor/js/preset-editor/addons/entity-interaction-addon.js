@@ -428,7 +428,7 @@ export class EntityInteractionAddon extends InteractionAddon {
       border-radius: 8px;
       padding: 20px;
       z-index: 1000;
-      min-width: 300px;
+      min-width: 45vw;
       max-width: 90vw;
       max-height: 80vh;
       overflow-y: auto;
@@ -504,17 +504,17 @@ export class EntityInteractionAddon extends InteractionAddon {
         <div style="display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; margin-bottom: 15px;">
           <span style="text-align: right; opacity: 0.7;">X</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${localPos.x}" data-section="position" data-axis="x" style="width: 100%;">
+            <input type="range" min="-50" max="50" step="0.1" value="${localPos.x}" data-section="position" data-axis="x" style="width: 100%;">
             <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.x.toFixed(2)}</span>
           </div>
           <span style="text-align: right; opacity: 0.7;">Y</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${localPos.y}" data-section="position" data-axis="y" style="width: 100%;">
+            <input type="range" min="-10" max="10" step="0.1" value="${localPos.y}" data-section="position" data-axis="y" style="width: 100%;">
             <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.y.toFixed(2)}</span>
           </div>
           <span style="text-align: right; opacity: 0.7;">Z</span>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="range" min="-100" max="100" step="0.1" value="${localPos.z}" data-section="position" data-axis="z" style="width: 100%;">
+            <input type="range" min="-50" max="50" step="0.1" value="${localPos.z}" data-section="position" data-axis="z" style="width: 100%;">
             <span style="font-size: 12px; min-width: 40px; text-align: right;">${localPos.z.toFixed(2)}</span>
           </div>
         </div>
