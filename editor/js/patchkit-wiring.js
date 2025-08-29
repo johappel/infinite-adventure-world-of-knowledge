@@ -173,17 +173,26 @@ export function createPatchKitPorts(nostrService) {
         operations: signedPatch.operations || [],
         payload: signedPatch.originalYaml || ''
       });
+      
+      // WICHTIG: Die ID muss die Patch-ID sein, nicht die World-ID!
+      // Die saveOrUpdate Methode benötigt die Patch-ID für die Duplikaterkennung
+      const patchId = md.id;
+      const worldId = md.targets_world;
+      
       const payload = {
-        id: md.targets_world || md.id,
+        id: patchId, // Patch-ID statt World-ID!
         name: md.name || '',
         type: 'patch',
         yaml: yaml,
         originalYaml: signedPatch.originalYaml,
         pubkey: ident.pubkey
       };
+      
       console.log('[DEBUG patchPort.save] signedPatch metadata:', md);
-      console.log('[DEBUG patchPort.save] payload id:', payload.id, 'targets_world:', md.targets_world, 'patch_id:', md.id);
+      console.log('[DEBUG patchPort.save] payload id:', payload.id, 'worldId:', worldId, 'patch_id:', patchId);
+      console.log('[DEBUG patchPort.save] yaml content:', yaml);
       console.log('[DEBUG patchPort.save] full payload:', payload);
+      
       return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
     },
     async delete(id) {

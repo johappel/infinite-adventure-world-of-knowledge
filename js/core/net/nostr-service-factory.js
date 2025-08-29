@@ -293,6 +293,13 @@ function wrapInterface(serviceImpl) {
       console.log('[nostr] saveOrUpdate', { id, type, yaml, originalYaml, pubkey });
 
       if (type === 'genesis') {
+        // In Development-Modus: Delegiere an den Dexie-Service für korrekte Update-Logik
+        if (APP_MODE === 'development') {
+          console.log('[DEBUG factory saveOrUpdate] Delegiere an Dexie-Service für Genesis-Update');
+          return serviceImpl.saveOrUpdate({ id, name, type, yaml, originalYaml, pubkey });
+        }
+        
+        // Für Production: Original-Logik mit Relay-Service
         // Prüfe vorhandene Genesis mit gleicher d=id
         const existing = await this.getById(id);
         if (existing && existing.type === 'genesis') {
@@ -329,11 +336,33 @@ function wrapInterface(serviceImpl) {
       }
   
       if (type === 'patch') {
+        // In Development-Modus: Delegiere an den Dexie-Service für korrekte Update-Logik
+        if (APP_MODE === 'development') {
+          console.log('[DEBUG factory saveOrUpdate] Delegiere an Dexie-Service für Patch-Update');
+          return serviceImpl.saveOrUpdate({ id, name, type, yaml, originalYaml, pubkey });
+        }
+        
+        // Für Production: Original-Logik mit Relay-Service
         // Verwende originalYaml falls vorhanden, sonst yaml
         const payloadToSave = originalYaml || yaml;
         
-        // Generiere eine eindeutige Patch-ID
-        const patchId = `patch_${crypto.randomUUID().substring(0, 8)}`;
+        // Extrahiere Patch-ID aus dem YAML-Content, falls vorhanden
+        let patchId;
+        try {
+          const contentObj = JSON.parse(yaml);
+          patchId = contentObj.metadata?.id || contentObj.id;
+          console.log('[DEBUG factory saveOrUpdate] Patch-ID aus YAML extrahiert:', patchId);
+        } catch {
+          // Content ist kein JSON
+        }
+        
+        // Falls keine Patch-ID gefunden, verwende die übergebene ID (World-ID als Fallback)
+        if (!patchId) {
+          patchId = id;
+          console.log('[DEBUG factory saveOrUpdate] Verwende World-ID als Fallback:', patchId);
+        }
+        
+        console.log('[DEBUG factory saveOrUpdate] Finale Patch-ID für Tags:', patchId);
         
         // Tags für Patch-Events: d (Patch-ID), type, target (World-ID), name
         const tags = [

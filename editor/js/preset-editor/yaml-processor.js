@@ -654,11 +654,24 @@ export class YamlProcessor {
       try {
         const ops = objCopy && objCopy.operations;
         if (Array.isArray(ops) && ops.length > 0 && ops.every(op => op && op.type === 'add' && op.payload && typeof op.payload === 'object')) {
-          // Baue Autor-Objekt inkl. verfügbarer Metadaten (falls vorhanden)
+          // Baue Autor-Objekt mit nur benutzerfreundlichen Metadaten
           const authorObj = {};
-          if (obj.name) authorObj.name = obj.name;
-          if (obj.description) authorObj.description = obj.description;
-          if (obj.id) authorObj.id = obj.id;
+          
+          // Nur benutzerfreundliche Metadaten übernehmen
+          if (obj.metadata && typeof obj.metadata === 'object') {
+            // Nur ausgewählte, benutzerfreundliche Felder
+            if (obj.metadata.name) authorObj.name = obj.metadata.name;
+            if (obj.metadata.id) authorObj.id = obj.metadata.id;
+            if (obj.metadata.description) authorObj.description = obj.metadata.description;
+            // version kann optional angezeigt werden
+            if (obj.metadata.version) authorObj.version = obj.metadata.version;
+          }
+          
+          // Übernehme zusätzlich direkte Felder vom Root-Objekt (für Abwärtskompatibilität)
+          if (obj.name && !authorObj.name) authorObj.name = obj.name;
+          if (obj.description && !authorObj.description) authorObj.description = obj.description;
+          if (obj.id && !authorObj.id) authorObj.id = obj.id;
+          
           // operations als String und objects-Array aus payloads
           authorObj.operations = "add";
           authorObj.objects = ops.map(op => JSON.parse(JSON.stringify(op.payload)));

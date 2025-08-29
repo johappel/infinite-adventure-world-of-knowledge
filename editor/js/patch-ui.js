@@ -340,9 +340,73 @@ export class PatchUI {
     // } : 'Kein Patch gefunden');
 
     if (patch && this.editor && this.editor.patchTextarea) {
-      const yamlContent = this.editor.yamlProcessor.readWorldYAMLFromString(patch.originalYaml);
+      let yamlContent;
+      
+      console.log('[DEBUG PATCHES] selectPatch: Patch-Objekt:', JSON.stringify(patch, null, 2));
+      
+      // Versuche zuerst, den originalen YAML-Content direkt zu verwenden
+      if (patch.originalYaml) {
+        console.log('[DEBUG PATCHES] selectPatch: originalYaml vorhanden:', patch.originalYaml);
+        try {
+          // Prüfe, ob es sich um JSON mit payload-Feld handelt
+          const parsed = JSON.parse(patch.originalYaml);
+          if (parsed && typeof parsed.payload === 'string') {
+            yamlContent = parsed.payload;
+            console.log('[DEBUG PATCHES] selectPatch: payload aus JSON extrahiert');
+          } else {
+            // Direkter YAML-Content
+            yamlContent = patch.originalYaml;
+            console.log('[DEBUG PATCHES] selectPatch: originalYaml als direkter YAML verwendet');
+          }
+        } catch {
+          // Kein JSON, verwende direkt als YAML
+          yamlContent = patch.originalYaml;
+          console.log('[DEBUG PATCHES] selectPatch: originalYaml als nicht-JSON YAML verwendet');
+        }
+      } else if (patch.content) {
+        console.log('[DEBUG PATCHES] selectPatch: content vorhanden:', patch.content);
+        // Fallback: verwende content-Feld
+        try {
+          const parsed = JSON.parse(patch.content);
+          if (parsed && typeof parsed.payload === 'string') {
+            yamlContent = parsed.payload;
+            console.log('[DEBUG PATCHES] selectPatch: payload aus content-JSON extrahiert');
+          } else {
+            yamlContent = patch.content;
+            console.log('[DEBUG PATCHES] selectPatch: content als direkter YAML verwendet');
+          }
+        } catch {
+          yamlContent = patch.content;
+          console.log('[DEBUG PATCHES] selectPatch: content als nicht-JSON YAML verwendet');
+        }
+      } else if (patch.operations && Array.isArray(patch.operations)) {
+        console.log('[DEBUG PATCHES] selectPatch: operations vorhanden, generiere YAML');
+        // Generiere YAML aus den Operations
+        const patchObj = {
+          metadata: patch.metadata || {},
+          operations: patch.operations
+        };
+        try {
+          if (this.editor && this.editor.yamlProcessor) {
+            yamlContent = this.editor.yamlProcessor.serializeYaml(patchObj);
+            console.log('[DEBUG PATCHES] selectPatch: YAML aus operations generiert');
+          } else {
+            // Fallback: einfache YAML-Serialisierung
+            yamlContent = jsyaml.dump(patchObj);
+            console.log('[DEBUG PATCHES] selectPatch: YAML mit jsyaml generiert (Fallback)');
+          }
+        } catch (e) {
+          console.error('[DEBUG PATCHES] selectPatch: Fehler beim Generieren von YAML:', e);
+          yamlContent = '';
+        }
+      } else {
+        console.log('[DEBUG PATCHES] selectPatch: weder originalYaml noch content noch operations vorhanden');
+      }
+      
+      console.log('[DEBUG PATCHES] selectPatch: yamlContent:', yamlContent);
+      
       // Setze den Inhalt des Patch-Editors
-      this.editor.patchTextarea.value = yamlContent;
+      this.editor.patchTextarea.value = yamlContent || '';
 
       // Wechsle zum Patch-Tab
       this.editor.uiManager.switchTab('patch');

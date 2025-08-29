@@ -325,3 +325,41 @@ async function loadWorld(worldAddress) {
   }
 }
 ```
+## Patch-Datenstruktur und Funktionalität
+
+### Neue Patch-Datenstruktur
+
+Mit der Einführung der neuen Datenstruktur verwenden Patches nun `target`-Tags statt eines `id`-Felds, um einer Welt zuzuordnen:
+
+```yaml
+# Alte Struktur (veraltet):
+id: "world_abc123"
+# wird ersetzt durch:
+tags:
+  - ["target", "world_abc123"]
+```
+
+### Funktionalitäten
+
+1. **Patch-Suche nach Welt**: Die Funktion [`listPatchesByWorld`](editor/js/patchkit-wiring.js:45) sucht nun nach Patches mit dem entsprechenden `target`-Tag.
+
+2. **Update statt Duplikate**: Beim erneuten Speichern eines Patches mit gleicher `patchId` wird der existierende Eintrag aktualisiert statt ein Duplikat erstellt.
+
+3. **Autorfreundliches Format**: Patches werden im Editor im benutzerfreundlichen Format angezeigt:
+```yaml
+name: "Mein Patch"
+id: "patch_abc123"
+description: "Beschreibung des Patches"
+operations: add
+objects:
+  - type: sphere
+    position: [10, 2, -5]
+    scale: [5, 5, 5]
+    color: "#ff0000"
+```
+
+4. **Technische Metadaten ausgeblendet**: Technische Felder wie `author_npub`, `created_at`, `schema_version`, `targets_world`, `depends_on` und `overrides` werden im Editor-View ausgeblendet.
+
+### Backward Compatibility
+
+Das System bleibt abwärtskompatibel und kann sowohl die alte als auch die neue Datenstruktur verarbeiten.

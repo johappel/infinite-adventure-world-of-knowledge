@@ -267,18 +267,21 @@ export class DexieNostrService {
         try {
           const contentObj = JSON.parse(yaml);
           patchId = contentObj.metadata?.id || contentObj.id;
+          console.log('[DEBUG saveOrUpdate] Patch-ID aus YAML extrahiert:', patchId);
           
           // Falls keine Patch-ID im Content gefunden, prüfe ob originalYaml eine ID enthält
           if (!patchId && originalYaml) {
             try {
               const originalObj = JSON.parse(originalYaml);
               patchId = originalObj.metadata?.id || originalObj.id;
+              console.log('[DEBUG saveOrUpdate] Patch-ID aus originalYaml extrahiert:', patchId);
             } catch {
               // originalYaml ist kein JSON, könnte YAML sein
               try {
                 if (window.jsyaml && window.jsyaml.load) {
                   const originalObj = window.jsyaml.load(originalYaml);
                   patchId = originalObj?.metadata?.id || originalObj?.id;
+                  console.log('[DEBUG saveOrUpdate] Patch-ID aus YAML originalYaml extrahiert:', patchId);
                 }
               } catch {
                 // Kann nicht geparst werden
@@ -289,18 +292,33 @@ export class DexieNostrService {
           // Content ist kein JSON
         }
         
-        // Falls immer noch keine Patch-ID, generiere eine neue
+        // Falls immer noch keine Patch-ID, verwende die übergebene ID (World-ID als Fallback)
         if (!patchId) {
-          patchId = `patch_${crypto.randomUUID().substring(0, 8)}`;
+          patchId = id;
+          console.log('[DEBUG saveOrUpdate] Verwende World-ID als Fallback:', patchId);
         }
+        
+        console.log('[DEBUG saveOrUpdate] Finale Patch-ID für Tags:', patchId);
         
         // Tags für Patch-Events: d (Patch-ID), type, target (World-ID), name
         tags.push(`d:${patchId}`);
         tags.push('type:patch');
-        tags.push(`target:${id}`); // target ist die World-ID
+        
+        // Extrahiere World-ID aus dem YAML-Content für den target-Tag
+        let worldId = id; // Fallback: verwende die übergebene ID
+        try {
+          const contentObj = JSON.parse(yaml);
+          worldId = contentObj.metadata?.targets_world || contentObj.targets_world || id;
+        } catch {
+          // Content ist kein JSON
+        }
+        
+        tags.push(`target:${worldId}`); // target ist die World-ID
         if (name) {
           tags.push(`name:${name}`);
         }
+        
+        console.log('[DEBUG saveOrUpdate] World-ID für target-Tag:', worldId);
         
         // Prüfe, ob bereits ein Patch-Event mit dieser Patch-ID existiert
         const allEvents = await this.db.events.toArray();
