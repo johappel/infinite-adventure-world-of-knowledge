@@ -102,61 +102,117 @@ function wrapInterface(serviceImpl) {
     // API: getById(id) → { id, name, type, yaml, originalYaml?, pubkey } | null
     async getById(id) {
       if (!id) return null;
-      // Versuche: Genesis (30311) per '#d' und ggf. Patches (30312) mit d=id
-      const filterGenesis = { kinds: [30311], '#d': [id] };
-      const gens = await this.get(filterGenesis).catch(() => []);
-      if (gens && gens.length) {
-        const latest = gens.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
-        const name = parseGenesisNameFromYaml(latest.content);
-        const result = { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+      
+      // Suche nach Events mit d-Tag = id (sowohl World als auch Patch Events)
+      const filter = { kinds: [30311, 30312], '#d': [id] };
+      const events = await this.get(filter).catch(() => []);
+      
+      if (events && events.length) {
+        // Sortiere nach created_at (neueste zuerst)
+        const sortedEvents = events.sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
         
-        // Bei Genesis ist der Content direkt der YAML-Text, also setzen wir originalYaml = yaml
-        result.originalYaml = latest.content;
-        
-        return result;
+        for (const event of sortedEvents) {
+          // Extrahiere Typ aus Tags
+          const typeTag = event.tags?.find(t => t[0] === 'type');
+          const eventType = typeTag?.[1] || (event.kind === 30311 ? 'world' : 'patch');
+          
+          // Extrahiere Name aus Tags oder Content
+          const nameTag = event.tags?.find(t => t[0] === 'name');
+          let name = nameTag?.[1] || '';
+          
+          let yamlContent = '';
+          let originalYamlContent = '';
+          
+          if (eventType === 'world' && event.kind === 30311) {
+            // World Event: Content ist direkt YAML
+            yamlContent = event.content;
+            originalYamlContent = event.content;
+            if (!name) {
+              try { name = parseGenesisNameFromYaml(event.content); } catch {}
+            }
+          }
+          else if (eventType === 'patch' && event.kind === 30312) {
+            // Patch Event: Content ist JSON mit payload
+            try {
+              const patchContent = JSON.parse(event.content);
+              yamlContent = patchContent.payload;
+              originalYamlContent = patchContent.payload;
+              if (!name) {
+                try { name = parseGenesisNameFromYaml(patchContent.payload); } catch {}
+              }
+            } catch {
+              continue; // Ungültiges JSON, überspringe
+            }
+          }
+          
+          const result = {
+            id,
+            name,
+            type: eventType,
+            yaml: yamlContent,
+            originalYaml: originalYamlContent,
+            pubkey: event.pubkey
+          };
+          
+          return result;
+        }
       }
-      // Fallback: breite Suche und manuelles Filtern (Dexie kompatibel)
-      const broad = await this.get({ kinds: [30311] }).catch(() => []);
-      const g2 = (broad || []).filter(e => Array.isArray(e.tags) && e.tags.some(t => t[0] === 'd' && t[1] === id));
-      if (g2.length) {
-        const latest = g2.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
-        const name = parseGenesisNameFromYaml(latest.content);
-        const result = { id, name, type: 'genesis', yaml: latest.content, pubkey: latest.pubkey };
+      
+      // Fallback: Suche ohne Tag-Filter für Dexie-Kompatibilität
+      const broad = await this.get({ kinds: [30311, 30312] }).catch(() => []);
+      const filteredEvents = (broad || []).filter(e => {
+        // Prüfe d-Tag in Tags-Array
+        const hasDTag = Array.isArray(e.tags) && e.tags.some(t => t[0] === 'd' && t[1] === id);
         
-        // Bei Genesis ist der Content direkt der YAML-Text, also setzen wir originalYaml = yaml
-        result.originalYaml = latest.content;
+        // Für Patches: Prüfe zusätzlich target-Tag
+        const hasTargetTag = Array.isArray(e.tags) && e.tags.some(t => t[0] === 'target' && t[1] === id);
         
-        return result;
-      }
-      // Falls keine Genesis: prüfe Patch 30312 (nimmt id als Ziel)
-      const patches = await this.get({ kinds: [30312] }).catch(() => []);
-      // Patch-Content: JSON { action, target, id, payload }
-      const matched = (patches || []).filter(e => {
-        try {
-          const p = JSON.parse(e.content);
-          // Check for a match on the main 'id' field (the world ID)
-          const worldIdMatch = p && p.id === id && typeof p.payload === 'string';
-
-          // NEW: Check for a match on the nested 'metadata.id' field (the patch ID)
-          const patchIdMatch = p && p.payload && typeof p.payload === 'string' &&
-                                JSON.parse(p.payload)?.metadata?.id === id;
-
-          // Return true if either of the IDs match
-          return worldIdMatch || patchIdMatch;
-        } catch { return false; }
+        return hasDTag || hasTargetTag;
       });
-      if (matched.length) {
-        const latest = matched.sort((a,b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
-        let name = '';
-        const patchContent = JSON.parse(latest.content);
-        try { name = parseGenesisNameFromYaml(patchContent.payload); } catch {}
-        const result = { id, name, type: 'patch', yaml: patchContent.payload, pubkey: latest.pubkey };
+      
+      if (filteredEvents.length) {
+        const latest = filteredEvents.sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
         
-        // Bei Patch ist der payload direkt der YAML-Text, also setzen wir originalYaml = payload
-        result.originalYaml = patchContent.payload;
+        const typeTag = latest.tags?.find(t => t[0] === 'type');
+        const eventType = typeTag?.[1] || (latest.kind === 30311 ? 'world' : 'patch');
+        
+        const nameTag = latest.tags?.find(t => t[0] === 'name');
+        let name = nameTag?.[1] || '';
+        
+        let yamlContent = '';
+        let originalYamlContent = '';
+        
+        if (eventType === 'world') {
+          yamlContent = latest.content;
+          originalYamlContent = latest.content;
+          if (!name) {
+            try { name = parseGenesisNameFromYaml(latest.content); } catch {}
+          }
+        } else {
+          try {
+            const patchContent = JSON.parse(latest.content);
+            yamlContent = patchContent.payload;
+            originalYamlContent = patchContent.payload;
+            if (!name) {
+              try { name = parseGenesisNameFromYaml(patchContent.payload); } catch {}
+            }
+          } catch {
+            return null; // Ungültiges JSON
+          }
+        }
+        
+        const result = {
+          id,
+          name,
+          type: eventType,
+          yaml: yamlContent,
+          originalYaml: originalYamlContent,
+          pubkey: latest.pubkey
+        };
         
         return result;
       }
+      
       return null;
     },
 
@@ -164,34 +220,68 @@ function wrapInterface(serviceImpl) {
     async searchWorlds(query) {
       const q = String(query || '').trim().toLowerCase();
       if (!q) return [];
-      // Hole lokal verfügbare Genesis und Patches und filtere clientseitig
-      const evts = await this.get({ kinds: [30311] }).catch(() => []);
+      
+      // Suche in World- und Patch-Events
+      const evts = await this.get({ kinds: [30311, 30312] }).catch(() => []);
       const results = [];
+      
       for (const e of evts) {
-        if (e.kind === 30311) {
-          const d = (e.tags || []).find(t => t[0] === 'd')?.[1] || '';
-          let name = '';
-          try { name = parseGenesisNameFromYaml(e.content); } catch {}
-          const hit = (d && d.toLowerCase().includes(q)) || (name && name.toLowerCase().includes(q));
-          if (hit) results.push({ id: d, name: name || '(ohne Name)', type: 'genesis' });
-        } else if (e.kind === 30312) {
+        // Extrahiere Typ aus Tags oder leite aus Kind ab
+        const typeTag = e.tags?.find(t => t[0] === 'type');
+        const eventType = typeTag?.[1] || (e.kind === 30311 ? 'world' : 'patch');
+        
+        // Extrahiere ID aus d-Tag
+        const dTag = e.tags?.find(t => t[0] === 'd');
+        const id = dTag?.[1] || '';
+        
+        // Extrahiere Name aus name-Tag oder Content
+        const nameTag = e.tags?.find(t => t[0] === 'name');
+        let name = nameTag?.[1] || '';
+        
+        let contentForSearch = '';
+        
+        if (eventType === 'world') {
+          contentForSearch = e.content;
+          if (!name) {
+            try { name = parseGenesisNameFromYaml(e.content); } catch {}
+          }
+        } else {
           try {
-            const p = JSON.parse(e.content);
-            const d = p?.id || '';
-            let name = '';
-            try { name = parseGenesisNameFromYaml(p.payload); } catch {}
-            const hit = (d && d.toLowerCase().includes(q)) || (name && name.toLowerCase().includes(q));
-            if (hit) results.push({ id: d, name: name || '(ohne Name)', type: 'patch' });
-          } catch {}
+            const patchContent = JSON.parse(e.content);
+            contentForSearch = patchContent.payload;
+            if (!name) {
+              try { name = parseGenesisNameFromYaml(patchContent.payload); } catch {}
+            }
+          } catch {
+            continue; // Ungültiges JSON, überspringe
+          }
+        }
+        
+        // Prüfe auf Treffer in ID, Name oder Content
+        const hit = (id && id.toLowerCase().includes(q)) ||
+                   (name && name.toLowerCase().includes(q)) ||
+                   (contentForSearch && contentForSearch.toLowerCase().includes(q));
+        
+        if (hit) {
+          results.push({
+            id: id,
+            name: name || '(ohne Name)',
+            type: eventType
+          });
         }
       }
-      // Gruppieren nach id+type, jeweils jüngstes bevorzugen wäre möglich; hier einfache Dedup
+      
+      // Deduplizieren nach ID und Type
       const seen = new Set();
       const dedup = [];
       for (const r of results) {
         const key = `${r.type}:${r.id}`;
-        if (!seen.has(key)) { seen.add(key); dedup.push(r); }
+        if (!seen.has(key)) {
+          seen.add(key);
+          dedup.push(r);
+        }
       }
+      
       return dedup;
     },
 
@@ -213,31 +303,64 @@ function wrapInterface(serviceImpl) {
           }
         }
         
-        // Speichere den YAML-Content direkt als String im Event-Content
-        // Wenn originalYaml vorhanden ist, verwende es, sonst den yaml-Parameter
+        // Verwende originalYaml falls vorhanden, sonst yaml
         const contentToSave = originalYaml || yaml;
         
-        // Signiere und speichere replaceable Genesis (30311) mit Tags ['d', id]
-        const tags = [['d', id]];
-        // optional 'a' Tag analog bestehendem Code nicht zwingend hier
-        const draft = { kind: 30311, created_at: now, tags, content: contentToSave, pubkey };
+        // Tags für World-Events: d, type, name
+        const tags = [
+          ['d', id],
+          ['type', 'world']
+        ];
+        if (name) {
+          tags.push(['name', name]);
+        }
+        
+        // Content immer als JSON-String für Konsistenz
+        const draft = {
+          kind: 30311,
+          created_at: now,
+          tags,
+          content: contentToSave, // Bleibt YAML-String für Abwärtskompatibilität
+          pubkey
+        };
         const evt = await this.ensureSigned(draft);
         await this.publish(evt);
         return { ok: true, id, kind: 30311, eventId: evt.id };
       }
- 
+  
       if (type === 'patch') {
-        // Patch: 30312, content JSON mit payload
         // Verwende originalYaml falls vorhanden, sonst yaml
         const payloadToSave = originalYaml || yaml;
         
-        const payload = { action: 'update', target: 'world', id, payload: payloadToSave };
-        const draft = { kind: 30312, created_at: now, tags: [], content: JSON.stringify(payload), pubkey };
+        // Tags für Patch-Events: d, type, target, name
+        const tags = [
+          ['d', id],
+          ['type', 'patch'],
+          ['target', id] // target ist die World-ID, auf die sich der Patch bezieht
+        ];
+        if (name) {
+          tags.push(['name', name]);
+        }
+        
+        // Content als JSON-String mit einheitlicher Struktur
+        const payload = {
+          action: 'update',
+          target: 'world',
+          id,
+          payload: payloadToSave
+        };
+        const draft = {
+          kind: 30312,
+          created_at: now,
+          tags,
+          content: JSON.stringify(payload),
+          pubkey
+        };
         const evt = await this.ensureSigned(draft);
         await this.publish(evt);
         return { ok: true, id, kind: 30312, eventId: evt.id };
       }
- 
+  
       throw new Error('Unbekannter Typ in saveOrUpdate');
     },
     

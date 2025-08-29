@@ -195,9 +195,24 @@ export class DexieNostrService {
         return tags.some(tag => tag === `d:${id}`);
       });
       
+      // Erstelle Tags basierend auf dem Typ
+      let tags = [`d:${id}`];
+      
+      if (type === 'genesis') {
+        tags.push('type:world');
+        if (name) {
+          tags.push(`name:${name}`);
+        }
+      } else if (type === 'patch') {
+        tags.push('type:patch');
+        tags.push(`target:${id}`); // target ist die World-ID
+        if (name) {
+          tags.push(`name:${name}`);
+        }
+      }
+      
       if (existingEvent) {
         // Event existiert bereits - aktualisiere es
-        // Erstelle ein aktualisiertes Event-Objekt
         const updatedEvent = {
           eventId: existingEvent.eventId, // Behalte die ursprüngliche Event ID bei
           pubkey: pubkey || existingEvent.pubkey,
@@ -205,7 +220,7 @@ export class DexieNostrService {
           created_at: Math.floor(Date.now() / 1000), // Aktualisiere den Zeitstempel
           content: yaml,
           sig: existingEvent.sig, // Behalte die ursprüngliche Signatur bei
-          tags: existingEvent.tags // Behalte die ursprünglichen Tags bei
+          tags: tags // Aktualisiere die Tags mit den neuen Standards
         };
         
         // Aktualisiere das Event in der Datenbank
@@ -227,15 +242,15 @@ export class DexieNostrService {
         // Event existiert nicht - erstelle ein neues
         const kind = type === 'genesis' ? 30311 : 30312;
         
-        // Erstelle ein neues Event-Objekt mit der World ID in den Tags
+        // Erstelle ein neues Event-Objekt mit den standardisierten Tags
         const newEvent = {
-          eventId: id, // Verwende die World ID als Event ID
+          eventId: crypto.randomUUID(), // Generiere eine eindeutige Event ID
           pubkey: pubkey,
           kind: kind,
           created_at: Math.floor(Date.now() / 1000),
           content: yaml,
           sig: '', // Leere Signatur für lokale Events
-          tags: [`d:${id}`] // Speichere die World ID in den Tags
+          tags: tags // Verwende die standardisierten Tags
         };
         
         // Speichere das neue Event in der Datenbank
