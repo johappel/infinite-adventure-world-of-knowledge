@@ -31,8 +31,6 @@ function getDisplayNameFromItem(it) {
   return (
     it?.name ||
     it?.metadata?.name ||
-    (typeof it?.originalYaml === 'string' ? parseNameFromYamlString(YamlProcessor.processStringToYaml(it.originalYaml) || it.originalYaml) : '') ||
-    (typeof it?.yaml === 'string' ? parseNameFromYamlString(YamlProcessor.processStringToYaml(it.yaml) || it.yaml) : '') ||
     (typeof it?.content === 'string' ? parseNameFromYamlString(extractYamlFromContentString(it.content)) : '')
   );
 }
@@ -42,18 +40,7 @@ function getDisplayNameFromItem(it) {
  * Bevorzugt: originalYaml > yaml > content(payload) > Objekt (mit Factory‑Mapping)
  */
 export function chooseYamlFromData(data) {
-
-  // Explizite String-Felder bevorzugen und ggf. konvertieren
-  if (data && typeof data === 'object') {
-    if (typeof data.originalYaml === 'string') {
-      const s = YamlProcessor.processStringToYaml(data.originalYaml);
-      if (s) return s;
-    }
-    if (typeof data.yaml === 'string') {
-      const s = YamlProcessor.processStringToYaml(data.yaml);
-      if (s) return s;
-    }
-  }
+  console.log('[DEBUG] chooseYamlFromData:', data);
   // content als String: Genesis (YAML) oder Patch (JSON mit payload)
   if (data && typeof data?.content === 'string') {
     const maybe = extractYamlFromContentString(data.content);
@@ -63,6 +50,7 @@ export function chooseYamlFromData(data) {
   // Bereits geparstes Objekt: Factory-Objekt mappen, sonst normal dumpen
   if (data && typeof data === 'object') {
     const mapped = YamlProcessor.factoryToAuthorSpec(data);
+    console.log('[DEBUG] Mapped Factory-Spec:', mapped);
     if (mapped) {
       try { return YamlProcessor.safeYamlDump(YamlProcessor.stripRootId(mapped)); } catch {}
     } else {

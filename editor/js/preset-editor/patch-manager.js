@@ -117,7 +117,7 @@ objects:
         this.editor._setStatus('Patch nicht gefunden.', 'error');
         return;
       }
-      
+      console.warn('[DEBUG deletePatch] Patch gefunden:', patchEvent);
       // Parse den Patch - verwende originalYaml falls verfügbar, sonst das Event direkt
       let patch;
       if (patchEvent.originalYaml && typeof patchEvent.originalYaml === 'string') {

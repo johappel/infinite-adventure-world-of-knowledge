@@ -188,10 +188,10 @@ export function createPatchKitPorts(nostrService) {
         pubkey: ident.pubkey
       };
       
-      console.log('[DEBUG patchPort.save] signedPatch metadata:', md);
-      console.log('[DEBUG patchPort.save] payload id:', payload.id, 'worldId:', worldId, 'patch_id:', patchId);
-      console.log('[DEBUG patchPort.save] yaml content:', yaml);
-      console.log('[DEBUG patchPort.save] full payload:', payload);
+      // console.log('[DEBUG patchPort.save] signedPatch metadata:', md);
+      // console.log('[DEBUG patchPort.save] payload id:', payload.id, 'worldId:', worldId, 'patch_id:', patchId);
+      // console.log('[DEBUG patchPort.save] yaml content:', yaml);
+      // console.log('[DEBUG patchPort.save] full payload:', payload);
       
       return nostrService?.saveOrUpdate ? nostrService.saveOrUpdate(payload) : notImpl('saveOrUpdate')();
     },

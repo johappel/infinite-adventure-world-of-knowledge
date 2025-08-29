@@ -76,6 +76,18 @@ export class YamlProcessor {
   }
 
   /**
+   * Konvertiert ein World-Objekt in einen YAML-Text
+   * @param {genesis, patch, preset} obj 
+   * @returns {string} Der YAML-Text des World-Objekts für den Editor
+   */
+  getYamlText(obj){
+    const normalized = this.normalizeUserYaml(obj);
+    const serializedYaml = this.denormalizeUserYaml(normalized);
+    const yamlObject = this.readFactoryToAuthorSpec(serializedYaml);
+    return this.serializeYaml(yamlObject);
+  }
+
+  /**
    * Entfernt die ID aus einem World-Objekt
    * @param {Object} obj - Das World-Objekt
    * @returns {Object} Das World-Objekt ohne ID
@@ -853,6 +865,17 @@ export class YamlProcessor {
     }
 
     if (!spec.id) delete spec.id;
+
+    // Entferne leere Arrays und Objekte für bessere Lesbarkeit
+    Object.keys(spec).forEach(key => {
+      if (Array.isArray(spec[key]) && spec[key].length === 0) {
+        delete spec[key];
+      } else if (typeof spec[key] === 'object' && spec[key] !== null && Object.keys(spec[key]).length === 0) {
+        delete spec[key];
+      } else if (spec[key] === '') {
+        delete spec[key];
+      }
+    });
 
     return spec;
   }

@@ -147,44 +147,6 @@ export class PatchUI {
       // PatchKit.patch.parse kann Events in Objekte überführen; wenn vorhanden nutzen
       if (this.patchKit?.patch?.parse) {
         const parsed = this.patchKit.patch.parse(raw);
-        // Robust: originalYaml auswerten und korrekte IDs/Namen übernehmen
-        try {
-          const oy = parsed?.originalYaml;
-          if (oy) {
-            let metaFromOY = null;
-            // Zuerst als JSON versuchen
-            try {
-              const asObj = typeof oy === 'string' ? JSON.parse(oy) : oy;
-              if (asObj && asObj.metadata) metaFromOY = asObj.metadata;
-
-              // Falls operations leer, ggf. übernehmen
-              if (asObj && Array.isArray(asObj.operations) && (!parsed.operations || parsed.operations.length === 0)) {
-                parsed.operations = asObj.operations;
-              }
-            } catch {
-              // Fallback: YAML
-              try {
-                const asObj = typeof oy === 'string' ? (window.jsyaml ? window.jsyaml.load(oy) : jsyaml.load(oy)) : oy;
-                if (asObj && asObj.metadata) metaFromOY = asObj.metadata;
-                if (asObj && Array.isArray(asObj.operations) && (!parsed.operations || parsed.operations.length === 0)) {
-                  parsed.operations = asObj.operations;
-                }
-              } catch {}
-            }
-            if (metaFromOY) {
-              if (!parsed.metadata) parsed.metadata = {};
-              // Übernehme korrekte Patch-ID/Name/created_at/targets_world
-              const patchId = metaFromOY.id || metaFromOY.patch_id || parsed?.metadata?.patch_id || parsed?.metadata?.id || parsed.id || null;
-              if (patchId) {
-                parsed.id = patchId;
-                parsed.metadata.id = patchId;
-              }
-              if (metaFromOY.name) parsed.metadata.name = metaFromOY.name;
-              if (metaFromOY.created_at) parsed.metadata.created_at = metaFromOY.created_at;
-              if (metaFromOY.targets_world) parsed.metadata.targets_world = metaFromOY.targets_world;
-            }
-          }
-        } catch {}
         if (parsed && !parsed.id) {
           parsed.id = parsed?.metadata?.id || parsed?.metadata?.patch_id || null;
         }
@@ -193,40 +155,6 @@ export class PatchUI {
     } catch {
     } // Fallback: sicherstellen, dass eine id vorhanden ist
     const p = { ...raw };
-    try {
-      // Auch im Fallback versuchen, originalYaml zu verwerten
-      const oy = p?.originalYaml;
-      if (oy) {
-        let metaFromOY = null;
-        try {
-          const asObj = typeof oy === 'string' ? JSON.parse(oy) : oy;
-          if (asObj && asObj.metadata) metaFromOY = asObj.metadata;
-          if (asObj && Array.isArray(asObj.operations) && (!p.operations || p.operations.length === 0)) {
-            p.operations = asObj.operations;
-          }
-        } catch {
-          try {
-            const asObj = typeof oy === 'string' ? (window.jsyaml ? window.jsyaml.load(oy) : jsyaml.load(oy)) : oy;
-            if (asObj && asObj.metadata) metaFromOY = asObj.metadata;
-            if (asObj && Array.isArray(asObj.operations) && (!p.operations || p.operations.length === 0)) {
-              p.operations = asObj.operations;
-            }
-          } catch {}
-        }
-        if (metaFromOY) {
-          if (!p.metadata) p.metadata = {};
-          const patchId = metaFromOY.id || metaFromOY.patch_id || null;
-          if (patchId) {
-            p.id = patchId;
-            p.metadata.id = patchId;
-          }
-          if (metaFromOY.name) p.metadata.name = metaFromOY.name;
-          if (metaFromOY.created_at) p.metadata.created_at = metaFromOY.created_at;
-          if (metaFromOY.targets_world) p.metadata.targets_world = metaFromOY.targets_world;
-        }
-      }
-    } catch {
-    }
     if (!p.id) p.id = p?.metadata?.id || p?.metadata?.patch_id || null;
     return p;
   }
@@ -322,8 +250,7 @@ export class PatchUI {
     // console.log('[DEBUG PATCHES] selectPatch: Alle Patches mit ID', id, ':', patchesWithSameId.map(p => ({
     //   id: p.id,
     //   created_at: p.metadata?.created_at,
-    //   name: p.metadata?.name,
-    //   hasOriginalYaml: !!p.originalYaml
+    //   name: p.metadata?.name
     // })));
 
     // Finde die letzte Bearbeitung (höchster created_at Wert)
@@ -344,42 +271,8 @@ export class PatchUI {
       
       console.log('[DEBUG PATCHES] selectPatch: Patch-Objekt:', JSON.stringify(patch, null, 2));
       
-      // Versuche zuerst, den originalen YAML-Content direkt zu verwenden
-      if (patch.originalYaml) {
-        console.log('[DEBUG PATCHES] selectPatch: originalYaml vorhanden:', patch.originalYaml);
-        try {
-          // Prüfe, ob es sich um JSON mit payload-Feld handelt
-          const parsed = JSON.parse(patch.originalYaml);
-          if (parsed && typeof parsed.payload === 'string') {
-            yamlContent = parsed.payload;
-            console.log('[DEBUG PATCHES] selectPatch: payload aus JSON extrahiert');
-          } else {
-            // Direkter YAML-Content
-            yamlContent = patch.originalYaml;
-            console.log('[DEBUG PATCHES] selectPatch: originalYaml als direkter YAML verwendet');
-          }
-        } catch {
-          // Kein JSON, verwende direkt als YAML
-          yamlContent = patch.originalYaml;
-          console.log('[DEBUG PATCHES] selectPatch: originalYaml als nicht-JSON YAML verwendet');
-        }
-      } else if (patch.content) {
-        console.log('[DEBUG PATCHES] selectPatch: content vorhanden:', patch.content);
-        // Fallback: verwende content-Feld
-        try {
-          const parsed = JSON.parse(patch.content);
-          if (parsed && typeof parsed.payload === 'string') {
-            yamlContent = parsed.payload;
-            console.log('[DEBUG PATCHES] selectPatch: payload aus content-JSON extrahiert');
-          } else {
-            yamlContent = patch.content;
-            console.log('[DEBUG PATCHES] selectPatch: content als direkter YAML verwendet');
-          }
-        } catch {
-          yamlContent = patch.content;
-          console.log('[DEBUG PATCHES] selectPatch: content als nicht-JSON YAML verwendet');
-        }
-      } else if (patch.operations && Array.isArray(patch.operations)) {
+      // Verwende direkt die operations/metadata Struktur für YAML-Generierung
+      if (patch.operations && Array.isArray(patch.operations)) {
         console.log('[DEBUG PATCHES] selectPatch: operations vorhanden, generiere YAML');
         // Generiere YAML aus den Operations
         const patchObj = {
@@ -400,7 +293,7 @@ export class PatchUI {
           yamlContent = '';
         }
       } else {
-        console.log('[DEBUG PATCHES] selectPatch: weder originalYaml noch content noch operations vorhanden');
+        console.log('[DEBUG PATCHES] selectPatch: keine operations vorhanden');
       }
       
       console.log('[DEBUG PATCHES] selectPatch: yamlContent:', yamlContent);

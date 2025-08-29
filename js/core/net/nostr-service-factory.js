@@ -124,11 +124,28 @@ function wrapInterface(serviceImpl) {
           let originalYamlContent = '';
           
           if (eventType === 'world' && event.kind === 30311) {
-            // World Event: Content ist direkt YAML
-            yamlContent = event.content;
-            originalYamlContent = event.content;
+            // World Event: Content ist direkt YAML oder JSON
+            try {
+              // Versuche zuerst, den Content als JSON zu parsen (Factory-Format)
+              const jsonContent = JSON.parse(event.content);
+              if (YamlProcessor.isFactorySchema(jsonContent)) {
+                // Konvertiere Factory-Format in Autor-Format
+                const authorSpec = YamlProcessor.factoryToAuthorSpec(jsonContent);
+                yamlContent = YamlProcessor.safeYamlDump(authorSpec);
+                originalYamlContent = event.content; // Behalte das originale JSON
+              } else {
+                // Kein Factory-Format, verwende Content direkt
+                yamlContent = event.content;
+                originalYamlContent = event.content;
+              }
+            } catch {
+              // Kein JSON, verwende Content direkt als YAML
+              yamlContent = event.content;
+              originalYamlContent = event.content;
+            }
+            
             if (!name) {
-              try { name = parseGenesisNameFromYaml(event.content); } catch {}
+              try { name = parseGenesisNameFromYaml(yamlContent); } catch {}
             }
           }
           else if (eventType === 'patch' && event.kind === 30312) {
@@ -145,12 +162,20 @@ function wrapInterface(serviceImpl) {
             }
           }
           
+          // const result = {
+          //   id,
+          //   name,
+          //   type: eventType,
+          //   yaml: yamlContent,
+          //   originalYaml: originalYamlContent,
+          //   pubkey: event.pubkey
+          // };
+          
           const result = {
             id,
             name,
             type: eventType,
             yaml: yamlContent,
-            originalYaml: originalYamlContent,
             pubkey: event.pubkey
           };
           
@@ -183,10 +208,28 @@ function wrapInterface(serviceImpl) {
         let originalYamlContent = '';
         
         if (eventType === 'world') {
-          yamlContent = latest.content;
-          originalYamlContent = latest.content;
+          // World Event: Content ist direkt YAML oder JSON
+          try {
+            // Versuche zuerst, den Content als JSON zu parsen (Factory-Format)
+            const jsonContent = JSON.parse(latest.content);
+            if (YamlProcessor.isFactorySchema(jsonContent)) {
+              // Konvertiere Factory-Format in Autor-Format
+              const authorSpec = YamlProcessor.factoryToAuthorSpec(jsonContent);
+              yamlContent = YamlProcessor.safeYamlDump(authorSpec);
+              originalYamlContent = latest.content; // Behalte das originale JSON
+            } else {
+              // Kein Factory-Format, verwende Content direkt
+              yamlContent = latest.content;
+              originalYamlContent = latest.content;
+            }
+          } catch {
+            // Kein JSON, verwende Content direkt als YAML
+            yamlContent = latest.content;
+            originalYamlContent = latest.content;
+          }
+          
           if (!name) {
-            try { name = parseGenesisNameFromYaml(latest.content); } catch {}
+            try { name = parseGenesisNameFromYaml(yamlContent); } catch {}
           }
         } else {
           try {
@@ -241,9 +284,21 @@ function wrapInterface(serviceImpl) {
         let contentForSearch = '';
         
         if (eventType === 'world') {
+          // Für die Suche verwenden wir den originalen Content für bessere Treffer
           contentForSearch = e.content;
           if (!name) {
-            try { name = parseGenesisNameFromYaml(e.content); } catch {}
+            try {
+              // Versuche Name aus dem Content zu extrahieren, ggf. nach Konvertierung
+              let yamlContent = e.content;
+              try {
+                const jsonContent = JSON.parse(e.content);
+                if (YamlProcessor.isFactorySchema(jsonContent)) {
+                  const authorSpec = YamlProcessor.factoryToAuthorSpec(jsonContent);
+                  yamlContent = YamlProcessor.safeYamlDump(authorSpec);
+                }
+              } catch {}
+              name = parseGenesisNameFromYaml(yamlContent);
+            } catch {}
           }
         } else {
           try {
