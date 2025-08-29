@@ -865,7 +865,7 @@ export class YamlProcessor {
 
     try {
       const parsed = JSON.parse(str);
-      console.log('[DEBUG] parsed String:', parsed);
+      // console.log('[DEBUG] parsed String:', parsed);
 
       // Patch-Event: payload enthält den ursprünglichen YAML-Text
       if (parsed && typeof parsed.payload === 'string') {

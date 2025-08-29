@@ -95,7 +95,6 @@ export async function simulateInputEvent(element) {
 
 // Hilfsfunktion zum Aktualisieren/Entfernen des URL‑Parameters „world“
 export function updateUrlParam(worldId) {
-  console.log('[DEBUG] Update URL Parameter: worldId=', worldId);
   const url = new URL(window.location);
   if (worldId) {
     url.searchParams.set('world', worldId);

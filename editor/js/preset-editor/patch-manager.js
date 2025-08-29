@@ -587,7 +587,7 @@ objects:
       // Initialisiere den Patch-Visualizer (Konstruktor erwartet threeJSManager)
       this.editor.patchVisualizer = new PatchVisualizer(this.editor.threeJSManager);
       
-      console.log('[DEBUG] Patch-Visualizer initialisiert');
+      // console.log('[DEBUG] Patch-Visualizer initialisiert');
     } catch (error) {
       console.error('Fehler bei der Initialisierung des Patch-Visualizers:', error);
       this.editor._setStatus('Patch-Visualizer Initialisierung fehlgeschlagen: ' + error.message, 'error');
@@ -609,10 +609,10 @@ objects:
       
       // Wenn der Three.js Manager verfügbar ist, versuche die Patch-Visualisierung
       if (this.editor.threeJSManager && this.editor.threeJSManager.initialized) {
-        console.log('[DEBUG] Three.js Manager ist verfügbar, versuche Patch-Visualisierung');
+        // console.log('[DEBUG] Three.js Manager ist verfügbar, versuche Patch-Visualisierung');
         
         // Versuche zuerst, Genesis-Daten aus dem World-Tab zu verwenden
-        console.log('[DEBUG] Versuche Genesis-Daten aus World-Tab zu laden');
+        // console.log('[DEBUG] Versuche Genesis-Daten aus World-Tab zu laden');
         let genesisData = null;
         
         // Wechsle temporär zum World-Tab, um die Genesis-Daten zu laden
@@ -625,7 +625,7 @@ objects:
             const parsedWorldYaml = this.editor.yamlProcessor.parseYaml();
             if (parsedWorldYaml) {
               genesisData = this.editor.yamlProcessor.normalizeUserYaml(parsedWorldYaml);
-              console.log('[DEBUG] Genesis-Daten aus World-Tab geladen:', genesisData);
+              // console.log('[DEBUG] Genesis-Daten aus World-Tab geladen:', genesisData);
             }
           }
         } catch (worldLoadError) {
@@ -637,10 +637,10 @@ objects:
         
         if (genesisData && this.editor.patchKit && this.editor.patchKit.world) {
           try {
-            console.log('[DEBUG] Genesis-Daten verfügbar, wende Patch an');
+            // console.log('[DEBUG] Genesis-Daten verfügbar, wende Patch an');
             // Wende den Patch auf die Genesis-Daten an
             const result = await this.editor.patchKit.world.applyPatches(genesisData, [normalizedPatch]);
-            console.log('[DEBUG] Patch angewendet, Ergebnis:', result);
+            // console.log('[DEBUG] Patch angewendet, Ergebnis:', result);
             
             // Zeige das Ergebnis (Genesis + Patch) an
             await this.editor.previewRenderer.updatePreviewFromObject(result.state);
@@ -660,7 +660,7 @@ objects:
         // Fallback: Konvertiere den Patch in ein Genesis-Format und zeige ihn als Welt an
         console.warn('[DEBUG] Fallback: Zeige Patch als eigenständige Welt an');
         const genesisFormat = this.editor.previewRenderer._convertPatchToGenesisFormat(normalizedPatch);
-        console.log('[DEBUG] Genesis-Format erstellt:', genesisFormat);
+        // console.log('[DEBUG] Genesis-Format erstellt:', genesisFormat);
         await this.editor.previewRenderer.updatePreviewFromObject(genesisFormat);
         this.editor._setStatus('Patch-Vorschau angezeigt (Fallback)', 'info');
       } else {

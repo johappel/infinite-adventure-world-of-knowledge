@@ -71,7 +71,7 @@ export class PreviewRenderer {
       
       // Das Objekt sollte bereits normalisiert sein, wenn es hier ankommt.
       // Direkt an den Three.js Manager weiterleiten.
-      console.log("[DEBUG updatePreviewFromObject] Normalized World Object:", normalizedWorldObj);
+      // console.log("[DEBUG updatePreviewFromObject] Normalized World Object:", normalizedWorldObj);
       const result = await this.editor.threeJSManager.renderWorld(normalizedWorldObj);
       if (result) {
         document.getElementById('objectCount').innerText = `Anzahl Objekte: ${result.objectCount}`;
@@ -90,7 +90,7 @@ export class PreviewRenderer {
           this.editor.threeJSManager.currentZone.group
         );
       }
-      console.log('[DEBUG] Vorschau aktualisiert');
+      // console.log('[DEBUG] Vorschau aktualisiert');
     } catch (error) {
       this.editor._setStatus('Vorschau-Fehler: ' + error.message, 'error');
     }

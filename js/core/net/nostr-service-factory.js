@@ -332,11 +332,14 @@ function wrapInterface(serviceImpl) {
         // Verwende originalYaml falls vorhanden, sonst yaml
         const payloadToSave = originalYaml || yaml;
         
-        // Tags für Patch-Events: d, type, target, name
+        // Generiere eine eindeutige Patch-ID
+        const patchId = `patch_${crypto.randomUUID().substring(0, 8)}`;
+        
+        // Tags für Patch-Events: d (Patch-ID), type, target (World-ID), name
         const tags = [
-          ['d', id],
+          ['d', patchId],        // Eigene eindeutige Patch-ID
           ['type', 'patch'],
-          ['target', id] // target ist die World-ID, auf die sich der Patch bezieht
+          ['target', id]         // target ist die World-ID, auf die sich der Patch bezieht
         ];
         if (name) {
           tags.push(['name', name]);
@@ -346,7 +349,8 @@ function wrapInterface(serviceImpl) {
         const payload = {
           action: 'update',
           target: 'world',
-          id,
+          id: patchId,           // Verwende die Patch-ID im Payload
+          target_world: id,      // Speichere die Ziel-World-ID separat
           payload: payloadToSave
         };
         const draft = {
@@ -358,7 +362,7 @@ function wrapInterface(serviceImpl) {
         };
         const evt = await this.ensureSigned(draft);
         await this.publish(evt);
-        return { ok: true, id, kind: 30312, eventId: evt.id };
+        return { ok: true, id: patchId, kind: 30312, eventId: evt.id };
       }
   
       throw new Error('Unbekannter Typ in saveOrUpdate');

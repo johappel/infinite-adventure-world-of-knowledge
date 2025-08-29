@@ -446,7 +446,6 @@ export class PatchUI {
       }
     }
 
-    console.log('[DEBUG PATCHES] PatchUI.renderPreview:', n, 'von', this.order.length, 'Patches:', selectedPatches);
     try {
       let results = {};
       // Sicherstellen: Genesis und Visualizer verfügbar (verhindert Fallback, der die Welt ersetzt)
@@ -465,7 +464,7 @@ export class PatchUI {
 
       // Wenn Genesis-Daten und PatchVisualizer vorhanden sind, visualisiere die Patches
       if (this.genesisData && this.patchVisualizer) {
-        console.log('[DEBUG PATCHES] call PatchUI.visualizePatches:', n, 'von', this.order.length);
+        // console.log('[DEBUG PATCHES] call PatchUI.visualizePatches:', n, 'von', this.order.length);
           await this.patchVisualizer.visualizePatches(this.genesisData, selectedPatches, {
           showConflicts: true,
           highlightIntensity: 0.7,

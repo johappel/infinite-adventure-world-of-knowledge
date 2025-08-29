@@ -62,7 +62,7 @@ export class PresetEditor {
     this.patchYamlText = '';
     
     // Submodule initialisieren
-    console.log('[DEBUG] Initialisiere Submodule');
+    // console.log('[DEBUG] Initialisiere Submodule');
     this.yamlProcessor = new YamlProcessor(this);
     this.worldManager = new WorldManager(this);
     this.patchManager = new PatchManager(this);
@@ -134,7 +134,7 @@ export class PresetEditor {
       // Unterschiedliche Verarbeitung je nach aktiven Tab
       if (this.activeTab === 'world') {
         const normalized = this.yamlProcessor.normalizeUserYaml(obj);
-        console.log('[DEBUG] Normalisierte Welt-Daten:', normalized);
+        // console.log('[DEBUG] Normalisierte Welt-Daten:', normalized);
         
         const res = this.patchKit?.genesis?.validate
           ? await this.patchKit.genesis.validate(normalized)
@@ -172,7 +172,7 @@ export class PresetEditor {
         if (this.patchKit && this.patchKit.patch && typeof this.patchKit.patch.validate === 'function') {
           try {
             const patchValidation = await this.patchKit.patch.validate(normalizedPatch);
-            console.log('[DEBUG] Patch-Validierungsergebnis:', patchValidation);
+            // console.log('[DEBUG] Patch-Validierungsergebnis:', patchValidation);
             
             if (patchValidation?.valid === true || patchValidation === true) {
               this._setStatus('Patch gültig', 'success');
@@ -224,7 +224,6 @@ export class PresetEditor {
   async init() {
     // Wenn schon initialisiert, direkt zurückgeben
     if (this._initDone) {
-      console.log('[Core] PresetEditor bereits initialisiert, init() übersprungen.');
       return this;
     }
 
@@ -254,7 +253,7 @@ export class PresetEditor {
       // Debug: zeigen, welche Validator-Funktion tatsächlich verwendet wird
       try {
         const hasValidate = typeof this.patchKit?.genesis?.validate === 'function';
-        console.log('[Validator] verfügbar?', hasValidate, this.patchKit?.genesis?.validate);
+        // console.log('[Validator] verfügbar?', hasValidate, this.patchKit?.genesis?.validate);
       } catch {}
 
       // 2) Versuche, PatchKit via ESM zu importieren, um ggf. eine Factory zu bekommen
@@ -273,14 +272,14 @@ export class PresetEditor {
       const isReadyApi = PK && PK.genesis && PK.patch && PK.world;
 
       if (hasFactory) {
-        console.log('PresetEditor: Nutze PatchKit.createApi({ ajv, io })');
+        // console.log('PresetEditor: Nutze PatchKit.createApi({ ajv, io })');
         const apiFromFactory = await PK.createApi({
           ajv: typeof window !== 'undefined' ? window.ajv2020 : undefined,
           io: wiredApi?.io
         });
         this.patchKit = apiFromFactory || wiredApi;
       } else if (isReadyApi) {
-        console.log('PresetEditor: Nutze PatchKit-API aus Modul-Export und ergänze IO-Ports aus wiring');
+        // console.log('PresetEditor: Nutze PatchKit-API aus Modul-Export und ergänze IO-Ports aus wiring');
         this.patchKit = { ...PK, io: wiredApi?.io || PK.io };
       } else {
         console.warn('PresetEditor: Weder Factory noch fertiges API im Modul-Export gefunden – nutze wiredApi.');

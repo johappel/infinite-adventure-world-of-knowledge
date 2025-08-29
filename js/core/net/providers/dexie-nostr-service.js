@@ -188,86 +188,184 @@ export class DexieNostrService {
     try {
       const { id, name, type, yaml, originalYaml, pubkey } = payload;
       
-      // Prüfe, ob bereits ein Event mit dieser World ID in den Tags existiert
-      const allEvents = await this.db.events.toArray();
-      const existingEvent = allEvents.find(event => {
-        const tags = event.tags || [];
-        return tags.some(tag => tag === `d:${id}`);
-      });
-      
       // Erstelle Tags basierend auf dem Typ
-      let tags = [`d:${id}`];
+      let tags = [];
       
       if (type === 'genesis') {
+        // Für Genesis: d-Tag ist die World-ID
+        tags.push(`d:${id}`);
         tags.push('type:world');
         if (name) {
           tags.push(`name:${name}`);
         }
+        
+        // Prüfe, ob bereits ein Genesis-Event mit dieser World ID existiert
+        const allEvents = await this.db.events.toArray();
+        const existingEvent = allEvents.find(event => {
+          const tags = event.tags || [];
+          return tags.some(tag => tag === `d:${id}` && tags.includes('type:world'));
+        });
+        
+        if (existingEvent) {
+          // Genesis existiert bereits - aktualisiere es
+          const updatedEvent = {
+            eventId: existingEvent.eventId, // Behalte die ursprüngliche Event ID bei
+            pubkey: pubkey || existingEvent.pubkey,
+            kind: 30311, // Genesis kind
+            created_at: Math.floor(Date.now() / 1000), // Aktualisiere den Zeitstempel
+            content: yaml,
+            sig: existingEvent.sig, // Behalte die ursprüngliche Signatur bei
+            tags: tags // Aktualisiere die Tags mit den neuen Standards
+          };
+          
+          // Aktualisiere das Event in der Datenbank
+          await this.db.events.update(existingEvent.id, updatedEvent);
+          
+          // Konvertiere das aktualisierte Event zurück in das Nostr-Format
+          const event = this._dbToEvent(updatedEvent);
+          
+          // Füge das originalYaml-Feld hinzu, falls vorhanden
+          if (originalYaml) {
+            event.originalYaml = originalYaml;
+          }
+          
+          // Benachrichtige die Abonnenten über die Aktualisierung
+          this._notifySubscribers(event);
+          
+          return event;
+        } else {
+          // Genesis existiert nicht - erstelle ein neues
+          const newEvent = {
+            eventId: crypto.randomUUID(), // Generiere eine eindeutige Event ID
+            pubkey: pubkey,
+            kind: 30311,
+            created_at: Math.floor(Date.now() / 1000),
+            content: yaml,
+            sig: '', // Leere Signatur für lokale Events
+            tags: tags
+          };
+          
+          // Speichere das neue Event in der Datenbank
+          await this.db.events.add(newEvent);
+          
+          // Konvertiere das neue Event zurück in das Nostr-Format
+          const event = this._dbToEvent(newEvent);
+          
+          // Füge das originalYaml-Feld hinzu, falls vorhanden
+          if (originalYaml) {
+            event.originalYaml = originalYaml;
+          }
+          
+          // Benachrichtige die Abonnenten über das neue Event
+          this._notifySubscribers(event);
+          
+          return event;
+        }
       } else if (type === 'patch') {
+        // Für Patches: Extrahiere Patch-ID aus dem Payload (falls vorhanden)
+        let patchId;
+        try {
+          const contentObj = JSON.parse(yaml);
+          patchId = contentObj.metadata?.id || contentObj.id;
+          
+          // Falls keine Patch-ID im Content gefunden, prüfe ob originalYaml eine ID enthält
+          if (!patchId && originalYaml) {
+            try {
+              const originalObj = JSON.parse(originalYaml);
+              patchId = originalObj.metadata?.id || originalObj.id;
+            } catch {
+              // originalYaml ist kein JSON, könnte YAML sein
+              try {
+                if (window.jsyaml && window.jsyaml.load) {
+                  const originalObj = window.jsyaml.load(originalYaml);
+                  patchId = originalObj?.metadata?.id || originalObj?.id;
+                }
+              } catch {
+                // Kann nicht geparst werden
+              }
+            }
+          }
+        } catch {
+          // Content ist kein JSON
+        }
+        
+        // Falls immer noch keine Patch-ID, generiere eine neue
+        if (!patchId) {
+          patchId = `patch_${crypto.randomUUID().substring(0, 8)}`;
+        }
+        
+        // Tags für Patch-Events: d (Patch-ID), type, target (World-ID), name
+        tags.push(`d:${patchId}`);
         tags.push('type:patch');
         tags.push(`target:${id}`); // target ist die World-ID
         if (name) {
           tags.push(`name:${name}`);
         }
-      }
-      
-      if (existingEvent) {
-        // Event existiert bereits - aktualisiere es
-        const updatedEvent = {
-          eventId: existingEvent.eventId, // Behalte die ursprüngliche Event ID bei
-          pubkey: pubkey || existingEvent.pubkey,
-          kind: existingEvent.kind, // Behalte den ursprünglichen Kind bei
-          created_at: Math.floor(Date.now() / 1000), // Aktualisiere den Zeitstempel
-          content: yaml,
-          sig: existingEvent.sig, // Behalte die ursprüngliche Signatur bei
-          tags: tags // Aktualisiere die Tags mit den neuen Standards
-        };
         
-        // Aktualisiere das Event in der Datenbank
-        await this.db.events.update(existingEvent.id, updatedEvent);
+        // Prüfe, ob bereits ein Patch-Event mit dieser Patch-ID existiert
+        const allEvents = await this.db.events.toArray();
+        const existingEvent = allEvents.find(event => {
+          const tags = event.tags || [];
+          return tags.some(tag => tag === `d:${patchId}`);
+        });
         
-        // Konvertiere das aktualisierte Event zurück in das Nostr-Format
-        const event = this._dbToEvent(updatedEvent);
-        
-        // Füge das originalYaml-Feld hinzu, falls vorhanden
-        if (originalYaml) {
-          event.originalYaml = originalYaml;
+        if (existingEvent) {
+          // Patch existiert bereits - aktualisiere es
+          const updatedEvent = {
+            eventId: existingEvent.eventId, // Behalte die ursprüngliche Event ID bei
+            pubkey: pubkey || existingEvent.pubkey,
+            kind: 30312, // Patch kind
+            created_at: Math.floor(Date.now() / 1000), // Aktualisiere den Zeitstempel
+            content: yaml,
+            sig: existingEvent.sig, // Behalte die ursprüngliche Signatur bei
+            tags: tags // Aktualisiere die Tags mit den neuen Standards
+          };
+          
+          // Aktualisiere das Event in der Datenbank
+          await this.db.events.update(existingEvent.id, updatedEvent);
+          
+          // Konvertiere das aktualisierte Event zurück in das Nostr-Format
+          const event = this._dbToEvent(updatedEvent);
+          
+          // Füge das originalYaml-Feld hinzu, falls vorhanden
+          if (originalYaml) {
+            event.originalYaml = originalYaml;
+          }
+          
+          // Benachrichtige die Abonnenten über die Aktualisierung
+          this._notifySubscribers(event);
+          
+          return event;
+        } else {
+          // Patch existiert nicht - erstelle ein neues
+          const newEvent = {
+            eventId: crypto.randomUUID(), // Generiere eine eindeutige Event ID
+            pubkey: pubkey,
+            kind: 30312,
+            created_at: Math.floor(Date.now() / 1000),
+            content: yaml,
+            sig: '', // Leere Signatur für lokale Events
+            tags: tags
+          };
+          
+          // Speichere das neue Event in der Datenbank
+          await this.db.events.add(newEvent);
+          
+          // Konvertiere das neue Event zurück in das Nostr-Format
+          const event = this._dbToEvent(newEvent);
+          
+          // Füge das originalYaml-Feld hinzu, falls vorhanden
+          if (originalYaml) {
+            event.originalYaml = originalYaml;
+          }
+          
+          // Benachrichtige die Abonnenten über das neue Event
+          this._notifySubscribers(event);
+          
+          return event;
         }
-        
-        // Benachrichtige die Abonnenten über die Aktualisierung
-        this._notifySubscribers(event);
-        
-        return event;
       } else {
-        // Event existiert nicht - erstelle ein neues
-        const kind = type === 'genesis' ? 30311 : 30312;
-        
-        // Erstelle ein neues Event-Objekt mit den standardisierten Tags
-        const newEvent = {
-          eventId: crypto.randomUUID(), // Generiere eine eindeutige Event ID
-          pubkey: pubkey,
-          kind: kind,
-          created_at: Math.floor(Date.now() / 1000),
-          content: yaml,
-          sig: '', // Leere Signatur für lokale Events
-          tags: tags // Verwende die standardisierten Tags
-        };
-        
-        // Speichere das neue Event in der Datenbank
-        await this.db.events.add(newEvent);
-        
-        // Konvertiere das neue Event zurück in das Nostr-Format
-        const event = this._dbToEvent(newEvent);
-        
-        // Füge das originalYaml-Feld hinzu, falls vorhanden
-        if (originalYaml) {
-          event.originalYaml = originalYaml;
-        }
-        
-        // Benachrichtige die Abonnenten über das neue Event
-        this._notifySubscribers(event);
-        
-        return event;
+        throw new Error('Unbekannter Typ in saveOrUpdate');
       }
     } catch (error) {
       console.error('Fehler beim Speichern/Aktualisieren des Events:', error);

@@ -53,7 +53,6 @@ export class PatchVisualizer {
             const patchResults = await this.applyPatchesForVisualization(genesisData, patches);
 
             // Rendere die resultierende Welt
-            console.log('[DEBUG visualizePatches] Patch-Ergebnisse:', patchResults.state);
             await this.threeJSManager.renderWorld(patchResults.state);
             
             // Visualisiere die Patch-Auswirkungen
@@ -91,7 +90,6 @@ export class PatchVisualizer {
         if (window.presetEditor?.patchKit) {
             patchKit = window.presetEditor.patchKit;
         }
-        console.log('[DEBUG PATCHES] call patchKit.world.applyPatches');
         const result = await patchKit.world.applyPatches(genesisData, patches);
         
         return result;

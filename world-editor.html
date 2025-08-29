@@ -41,7 +41,7 @@
       if (typeof window.ajv2020 === 'undefined' && typeof window.Ajv !== 'undefined') {
         window.ajv2020 = window.Ajv;
       }
-      console.log('Ajv availability:', { Ajv: typeof window.Ajv, ajv2020: typeof window.ajv2020 });
+      // console.log('Ajv availability:', { Ajv: typeof window.Ajv, ajv2020: typeof window.ajv2020 });
     })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
@@ -53,9 +53,9 @@
     import * as NS from './js/core/net/nostr-service-factory.js';
     const factory = (NS && 'default' in NS) ? NS.default : NS;
     window.NostrServiceFactory = factory;
-    console.log('NostrServiceFactory gesetzt?', !!window.NostrServiceFactory);
-    console.log('Ajv (ajv2020) global?', typeof window.ajv2020);
-    console.log('DOMPurify global?', typeof window.DOMPurify);
+    // console.log('NostrServiceFactory gesetzt?', !!window.NostrServiceFactory);
+    // console.log('Ajv (ajv2020) global?', typeof window.ajv2020);
+    // console.log('DOMPurify global?', typeof window.DOMPurify);
   </script>
 
   <!-- Editor CSS -->
@@ -265,7 +265,7 @@ description: 'Eine Test-Welt für Presets'
         // Load-Funktionalität initialisieren (Suche und Preset-Auswahl)
         try {
           const nostrService = editor.nostrService || await window.NostrServiceFactory.getNostrService();
-          console.log('[DEBUG] NostrService für Load-Funktionalität');
+          // console.log('[DEBUG] NostrService für Load-Funktionalität');
           await initLoadFunctionality(editor, nostrService);
         } catch (e) {
           console.error('Fehler beim Initialisieren der Load-Funktionalität:', e);

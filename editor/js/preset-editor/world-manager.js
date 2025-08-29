@@ -165,7 +165,7 @@ personas:
       
       // Parse die Genesis-Daten
       const genesis = this.editor.patchKit.genesis.parse(genesisEvt?.yaml || genesisEvt);
-      console.log('[DEBUG] Geladene Genesis-Daten type:', typeof genesis);
+      // console.log('[DEBUG] Geladene Genesis-Daten type:', typeof genesis);
       
       // Setze die World-ID
       this.editor.worldId = worldId;
@@ -178,7 +178,7 @@ personas:
       // Konvertiere in das benutzerfreundliche YAML-Format
       const serializedYaml = this.editor.yamlProcessor.denormalizeUserYaml(genesis);
       
-      console.log('[DEBUG] Serialisiertes YAML:', serializedYaml);
+      // console.log('[DEBUG] Serialisiertes YAML:', serializedYaml);
       const yamlText = window.chooseYamlFromData(genesisEvt);
       
       
@@ -283,7 +283,7 @@ personas:
    */
   async saveCurrent() {
     try {
-      console.log('[DEBUG] saveCurrent aufgerufen – Start');
+      console.log('[DEBUG] saveCurrent World aufgerufen – Start');
       this.editor._getWorldId();
       if (!this.editor.worldId) {
         // Neue Welt erstellen, wenn keine ID vorhanden

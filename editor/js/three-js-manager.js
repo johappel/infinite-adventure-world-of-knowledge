@@ -5,7 +5,6 @@ import { buildZoneFromSpec } from '../../js/world-generation/index.js';
 
 export class ThreeJSManager {
     constructor(canvas) {
-        console.log('[DEBUG] ThreeJSManager Konstruktor aufgerufen mit canvas:', canvas);
         
         this.canvas = canvas;
         this.scene = null;
@@ -95,8 +94,6 @@ export class ThreeJSManager {
 
     async renderWorld(worldData) {
         window.__worldData = worldData;
-        console.log('[DEBUG] ThreeJSManager.renderWorld aufgerufen mit worldData:', worldData);
-        console.log('🎉[DEBUG] type:', typeof worldData);
 
         if (!this.initialized) {
             await this.init();
@@ -107,10 +104,7 @@ export class ThreeJSManager {
             
             // Konvertiere das Genesis-Format in das für die Weltgenerierung erwartete Format
             const convertedWorldData = this.convertGenesisToWorldFormat(worldData);
-            console.log('🎉[DEBUG] Konvertierte Welt-Daten:', convertedWorldData);
-            console.dir(convertedWorldData);
             const spec = resolveWorldSpec(convertedWorldData);
-            console.log('🎉[DEBUG] Konvertierte Welt-Spezifikation:', spec);
 
             const rng = Math.random;
             
@@ -469,7 +463,6 @@ export class ThreeJSManager {
             console.warn('Keine Patch-Daten oder keine aktuelle Zone vorhanden');
             return;
         }
-        console.log('Visualisiere Patch-Daten:', patchData);
 
         const {
             addedColor = 0x00ff00,    // Grün für hinzugefügte Entities
@@ -655,7 +648,7 @@ export class ThreeJSManager {
 
     async startAnimation() {
         if (!this.currentPatch) {
-            console.warn('Kein Patch für Animation vorhanden');
+            // console.warn('Kein Patch für Animation vorhanden');
             return;
         }
         
@@ -671,7 +664,7 @@ export class ThreeJSManager {
 
     async resetVisualization() {
         this.resetHighlights();
-        console.log('Visualisierung zurückgesetzt');
+        // console.log('Visualisierung zurückgesetzt');
     }
 
     async focusOnChanges() {

@@ -48,7 +48,7 @@ export class UIManager {
       if (this.editor.patchUI && typeof this.editor.patchUI.setEditor === 'function') {
         this.editor.patchUI.setEditor(this.editor);
       }
-      console.log('[DEBUG] Patch-UI initialisiert');
+      // console.log('[DEBUG] Patch-UI initialisiert');
       //if patch-list is not empty
       if (document.querySelector('#patch-list-container .patch-list-content').childElementCount > 0) {
         document.getElementById('patch-list-container').classList.remove('hidden');
