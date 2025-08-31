@@ -8,6 +8,7 @@
 import { TerrainClickAddon } from './terrain-click-addon.js';
 import { EntityInteractionAddon } from './entity-interaction-addon.js';
 import { MaterialEditorAddon } from './material-editor-addon.js';
+import { ObjectCatalogAddon } from './object-catalog-addon.js';
 
 export class AddonManager {
   /**
@@ -31,6 +32,7 @@ export class AddonManager {
     this.registerAddon('terrain-click', new TerrainClickAddon(this.editor));
     this.registerAddon('entity-interaction', new EntityInteractionAddon(this.editor));
     this.registerAddon('material-editor', new MaterialEditorAddon(this.editor));
+    this.registerAddon('object-catalog', new ObjectCatalogAddon(this.editor));
   }
   
   /**
@@ -229,3 +231,4 @@ export class AddonManager {
 export { TerrainClickAddon } from './terrain-click-addon.js';
 export { EntityInteractionAddon } from './entity-interaction-addon.js';
 export { MaterialEditorAddon } from './material-editor-addon.js';
+export { ObjectCatalogAddon } from './object-catalog-addon.js';

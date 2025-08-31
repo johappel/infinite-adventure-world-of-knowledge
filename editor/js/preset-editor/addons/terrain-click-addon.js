@@ -289,6 +289,52 @@ export class TerrainClickAddon extends InteractionAddon {
   /**
    * Deserialisiert einen gespeicherten Zustand
    */
+  /**
+   * Setzt den ausgewählten Objekttyp basierend auf einem Catalog-Objekt
+   * @param {Object} catalogObject - Das Objekt aus dem ObjectCatalog
+   */
+  setSelectedObjectType(catalogObject) {
+    console.log('[TerrainClick] setSelectedObjectType aufgerufen mit:', catalogObject);
+    
+    // Mapping von Catalog-Objekten zu Terrain-Objekttypen
+    const typeMapping = {
+      'house_1': 'tree_simple',      // Gebäude -> Baum als Platzhalter
+      'tower_1': 'tree_pine',        // Turm -> Tanne
+      'tree_1': 'tree_simple',       // Baum -> einfacher Baum
+      'bush_1': 'bush',              // Busch -> Busch
+      'bridge_1': 'rock_large',      // Brücke -> großer Fels
+      'fence_1': 'rock_small',       // Zaun -> kleiner Fels
+      'fountain_1': 'crystal',       // Springbrunnen -> Kristall
+      'statue_1': 'mushroom'         // Statue -> Pilz
+    };
+    
+    // Standardmapping basierend auf Kategorie, falls keine direkte Übereinstimmung
+    const categoryMapping = {
+      'buildings': 'tree_simple',
+      'vegetation': 'tree_simple',
+      'infrastructure': 'rock_large',
+      'decoration': 'crystal'
+    };
+    
+    // Bestimme den Terrain-Objekttyp
+    let terrainType = typeMapping[catalogObject.id] ||
+                     categoryMapping[catalogObject.category] ||
+                     'tree_simple';
+    
+    console.log('[TerrainClick] Mapping:', catalogObject.id, '->', terrainType);
+    
+    this.selectedObjectType = terrainType;
+    this.interactionMode = 'place_object';
+    
+    // UI aktualisieren falls vorhanden
+    const typeSelect = document.getElementById('objectType');
+    if (typeSelect) {
+      typeSelect.value = terrainType;
+    }
+    
+    console.log('[TerrainClick] Objekttyp gesetzt:', terrainType, 'Modus:', this.interactionMode);
+  }
+
   deserializeState(state) {
     super.deserializeState(state);
     if (state) {

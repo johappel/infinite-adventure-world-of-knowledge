@@ -117,6 +117,12 @@ export class UIManager {
       materialOption.value = 'material-editor';
       materialOption.textContent = '🎨 Material Editor';
       addonSelect.appendChild(materialOption);
+      
+      // Object Catalog Option
+      const catalogOption = document.createElement('option');
+      catalogOption.value = 'object-catalog';
+      catalogOption.textContent = '📦 Objekt Katalog';
+      addonSelect.appendChild(catalogOption);
 
       // Event-Listener für Addon-Wechsel
       addonSelect.addEventListener('change', async () => {

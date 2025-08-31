@@ -1,134 +1,140 @@
-# PresetEditor Addon System
+# ObjectCatalogAddon
 
-## 📖 Übersicht
+Ein visueller Objektkatalog für den PresetEditor, der das Hinzufügen von 3D-Objekten per Drag & Drop ermöglicht.
 
-Das Addon-System ermöglicht die Erweiterung des PresetEditors mit verschiedenen Interaktionsmodi für die YAML-Bearbeitung. Jedes Addon bietet spezifische Funktionalitäten wie Objekt-Platzierung, Pfad-Erstellung oder Drag & Drop.
+## Übersicht
 
-## 🏗️ Architektur
+Das `ObjectCatalogAddon` bietet eine benutzerfreundliche Oberfläche zum Durchsuchen, Auswählen und Platzieren von 3D-Objekten in der Welt. Es erweitert die Funktionalität des PresetEditors um eine visuelle Objektbibliothek mit Kategorien, Favoriten und Suchfunktion.
 
-### Basis-Interface
+## Features
+
+- **Visuelle Objektbibliothek**: Rasteransicht mit Thumbnails und Metadaten
+- **Kategorien**: Organisierte Objektgruppen (Gebäude, Vegetation, Infrastruktur, Dekoration)
+- **Drag & Drop**: Intuitive Objektplatzierung durch Ziehen aus dem Katalog
+- **Favoriten**: Häufig verwendete Objekte markieren und schnell finden
+- **Suche & Filter**: Volltextsuche und Kategoriefilterung
+- **Responsive Design**: Anpassbare UI für verschiedene Bildschirmgrößen
+- **Persistenz**: Automatische Speicherung von Benutzereinstellungen
+
+## Installation
+
+Das Addon ist bereits im `AddonManager` registriert und wird automatisch geladen. Es erscheint als Option "📦 Objekt Katalog" in den Interaktions-Controls.
+
+## Verwendung
+
+1. **Katalog öffnen**: Wähle "📦 Objekt Katalog" aus dem Tool-Dropdown
+2. **Objekt auswählen**: Klicke auf den Toggle-Button oder verwende das Dropdown
+3. **Durchsuchen**: Nutze die Suchleiste und Filter für spezifische Objekte
+4. **Platzieren**: Ziehe ein Objekt per Drag & Drop in die 3D-Vorschau
+5. **Favorisieren**: Klicke auf den Stern, um häufig verwendete Objekte zu markieren
+
+## Objekt-Metadaten
+
+Jedes Objekt verfügt über folgende Metadaten:
+
 ```javascript
-import { InteractionAddon } from './base-addon.js';
-
-class MyAddon extends InteractionAddon {
-  constructor(editor) {
-    super(editor);
-    this.name = 'Mein Addon';
-    this.description = 'Beschreibung';
-    this.icon = '⚡';
-  }
-  
-  async activate() { /* Aktivierungslogik */ }
-  async onTerrainClick(hitInfo) { /* Click-Handler */ }
+{
+  id: "unique-identifier",
+  name: "Anzeigename",
+  category: "buildings|vegetation|infrastructure|decoration",
+  icon: "emoji-icon",
+  yamlTemplate: "YAML-Konfiguration",
+  tags: ["tag1", "tag2"]
 }
 ```
 
-### Addon-Registrierung
-Addons werden im `AddonManager` registriert und können dynamisch aktiviert/deaktiviert werden.
+## API
 
-## 📦 Verfügbare Addons
+### Methoden
 
-### Terrain-Click Addon
-- **ID**: `terrain-click`
-- **Funktionalität**: Objekt-Platzierung und Pfad-Erstellung via Terrain-Klicks
-- **UI-Integration**: Standardmäßig aktiviert
+- `activate()`: Aktiviert das Addon und zeigt die UI
+- `deactivate()`: Deaktiviert das Addon und versteckt die UI
+- `getUIElements()`: Gibt UI-Elemente für die Toolbar zurück
+- `onTerrainClick(hitInfo)`: Verarbeitet Terrain-Clicks für Objektplatzierung
+- `serializeState()`: Serialisiert den Addon-Zustand
+- `deserializeState(state)`: Deserialisiert einen gespeicherten Zustand
 
-## 🚀 Eigene Addons erstellen
+### Events
 
-### 1. Addon-Klasse erstellen
-```javascript
-// my-addon.js
-import { InteractionAddon } from './base-addon.js';
+- `objectSelected`: Wird ausgelöst, wenn ein Objekt ausgewählt wird
+- `objectPlaced`: Wird ausgelöst, wenn ein Objekt platziert wurde
+- `favoriteToggled`: Wird ausgelöst, wenn ein Favorit geändert wird
 
-export class MyAddon extends InteractionAddon {
-  constructor(editor) {
-    super(editor);
-    this.name = 'Mein Custom Addon';
-    this.description = 'Meine beschreibung';
-  }
-  
-  async activate() {
-    await super.activate();
-    // Custom Aktivierungslogik
-  }
-  
-  async onTerrainClick(hitInfo) {
-    // Custom Click-Handler
-  }
-}
-```
+## Konfiguration
 
-### 2. Addon registrieren
-```javascript
-// In index.js
-import { MyAddon } from './my-addon.js';
+### Objekt-Definitionen
 
-// Zur bestehenden Registrierung hinzufügen
-this.registerAddon('my-addon', new MyAddon(this.editor));
-```
+Objekte werden im `OBJECT_CATALOG` Array definiert. Jedes Objekt benötigt:
 
-### 3. UI-Integration
-Das Addon wird automatisch im Addon-Dropdown der Interaktions-Controls angezeigt.
+- **id**: Eindeutiger Identifier (konsistent mit Preset-Namen)
+- **name**: Anzeigename für die UI
+- **category**: Kategorie für die Filterung
+- **icon**: Emoji oder Bild-URL für die Visualisierung
+- **yamlTemplate**: YAML-Template für die Objekt-Erstellung
 
-## 🔧 API-Referenz
+### Kategorien
 
-### InteractionAddon Basis-Klasse
+- `buildings`: Gebäude und Strukturen
+- `vegetation`: Bäume, Pflanzen, Natur
+- `infrastructure`: Wege, Brücken, technische Objekte  
+- `decoration`: Dekorative Elemente und Details
 
-#### Properties
-- `name`: Anzeigename des Addons
-- `description`: Beschreibung für UI
-- `icon`: Optionales Icon (Emoji)
-- `isActive`: Aktivierungsstatus
+## Beispiele
 
-#### Methods
-- `activate()`: Wird bei Aktivierung aufgerufen
-- `deactivate()`: Wird bei Deaktivierung aufgerufen  
-- `onTerrainClick(hitInfo)`: Terrain-Click Handler
-- `onMouseMove(event)`: Mouse-Move Handler
-- `onKeyPress(event)`: Key-Press Handler
-- `getUIElements()`: Gibt UI-Elemente zurück
-- `serializeState()`: Serialisiert den Zustand
-- `deserializeState(state)`: Deserialisiert Zustand
-
-### AddonManager
-
-#### Methods
-- `registerAddon(id, addon)`: Registriert ein Addon
-- `activateAddon(id)`: Aktiviert ein Addon
-- `deactivateAddon()`: Deaktiviert aktuelles Addon
-- `getAllAddons()`: Gibt alle Addons zurück
-- `getActiveAddon()`: Gibt aktives Addon zurück
-
-## 🎨 UI-Integration
-
-Addons werden automatisch in die Interaktions-Controls integriert:
-1. Dropdown-Menü für Addon-Auswahl
-2. Automatische Aktivierung/Deaktivierung
-3. Event-Delegation an aktives Addon
-
-## 🔄 Event-Flow
-
-```
-ThreeJSManager → Core._handleTerrainClick() → AddonManager.handleTerrainClick() → Aktives Addon.onTerrainClick()
-```
-
-## 💾 Zustands-Persistenz
-
-Addon-Zustände werden automatisch serialisiert und können für Session-Persistenz genutzt werden.
-
-## 🧪 Testing
+### Objekt hinzufügen
 
 ```javascript
-// Addon testen
-const addon = new MyAddon(editor);
-await addon.activate();
-await addon.onTerrainClick(testHitInfo);
-await addon.deactivate();
+const newObject = {
+  id: "custom-object",
+  name: "Mein Objekt",
+  category: "decoration",
+  icon: "⭐",
+  yamlTemplate: `objects:
+  - type: mesh
+    mesh: custom.obj
+    position: {x: 0, y: 0, z: 0}`
+};
 ```
 
-## 📝 Best Practices
+### Event-Handling
 
-1. **Klar abgegrenzte Funktionalität**: Jedes Addon sollte eine spezifische Aufgabe haben
-2. **Fehlerbehandlung**: Immer try/catch in async Methoden verwenden
-3. **Zustandslosigkeit**: Wo möglich, Zustand externalisieren
-4. **UI-Konsistenz**: An bestehendes Design anpassen
+```javascript
+window.addEventListener('objectPlaced', (event) => {
+  console.log('Objekt platziert:', event.detail);
+});
+```
+
+## Entwicklung
+
+### Neue Objekte hinzufügen
+
+1. Erweitere den `OBJECT_CATALOG` Array in `object-catalog-addon.js`
+2. Stelle sicher, dass die YAML-Templates korrekt sind
+3. Teste die Objektplatzierung in verschiedenen Szenarien
+
+### UI-Anpassungen
+
+Das CSS-Styling befindet sich in `object-catalog.css`. Die UI verwendet CSS-Grid für das responsive Layout.
+
+### Performance-Optimierung
+
+- Lazy Loading für Thumbnails
+- Virtuelles Scrolling für große Objektmengen
+- Debouncing für Suchanfragen
+
+## Troubleshooting
+
+### Objekt wird nicht angezeigt
+- Prüfe die YAML-Syntax im Template
+- Stelle sicher, dass die Mesh-Dateien verfügbar sind
+
+### Katalog öffnet nicht
+- Überprüfe die Addon-Registrierung in `addons/index.js`
+- Prüfe die Browser-Konsole auf Fehler
+
+### Drag & Drop funktioniert nicht
+- Stelle sicher, dass der Canvas-Container korrekt referenziert wird
+
+## Lizenz
+
+Teil des PresetEditor Projekts. Siehe Hauptprojekt-Lizenz für Details.
